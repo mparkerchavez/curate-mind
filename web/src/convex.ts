@@ -1,6 +1,6 @@
 import { ConvexReactClient } from "convex/react";
 
-const url = import.meta.env.VITE_CONVEX_URL as string | undefined;
+const url = (import.meta.env.VITE_CONVEX_URL as string | undefined)?.trim();
 
 if (!url) {
   // Surface a clear error in the console rather than a cryptic Convex one.
