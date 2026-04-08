@@ -1,6 +1,6 @@
 import { Link, useParams } from "react-router-dom";
 import { useQuery } from "convex/react";
-import { api, Id } from "../api";
+import { api, Doc, Id } from "../api";
 import { useProject } from "../ProjectContext";
 import PositionList from "../components/PositionList";
 
@@ -12,7 +12,9 @@ export default function ThemePage() {
     projectId ? { projectId } : "skip"
   );
 
-  const theme = themes?.find((t) => t._id === themeId);
+  const theme = themes?.find(
+    (t: Doc<"researchThemes"> & { positionCount: number }) => t._id === themeId
+  );
   const tid = themeId as Id<"researchThemes">;
 
   return (

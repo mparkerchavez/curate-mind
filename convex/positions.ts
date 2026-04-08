@@ -226,6 +226,17 @@ export const getPositionDetail = query({
         const source = await ctx.db.get(dp.sourceId);
         return {
           ...dp,
+          source: source
+            ? {
+                _id: source._id,
+                title: source.title,
+                authorName: source.authorName,
+                publisherName: source.publisherName,
+                canonicalUrl: source.canonicalUrl,
+                publishedDate: source.publishedDate,
+                tier: source.tier,
+              }
+            : null,
           sourceTitle: source?.title,
           sourceTier: source?.tier,
         };
@@ -241,6 +252,17 @@ export const getPositionDetail = query({
             const source = await ctx.db.get(dp.sourceId);
             return {
               ...dp,
+              source: source
+                ? {
+                    _id: source._id,
+                    title: source.title,
+                    authorName: source.authorName,
+                    publisherName: source.publisherName,
+                    canonicalUrl: source.canonicalUrl,
+                    publishedDate: source.publishedDate,
+                    tier: source.tier,
+                  }
+                : null,
               sourceTitle: source?.title,
               sourceTier: source?.tier,
             };

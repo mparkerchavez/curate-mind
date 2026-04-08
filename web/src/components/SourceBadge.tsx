@@ -30,20 +30,35 @@ export default function SourceBadge({ source }: { source: SourceMeta | null }) {
     return <div className="text-xs italic text-inkMute">Source unavailable</div>;
   }
   const date = fmtDate(source.publishedDate);
+  const sourceHref = source.canonicalUrl ?? undefined;
+  const hasLink = Boolean(sourceHref);
+
   return (
     <div className="border-t border-rule/70 pt-3 text-xs leading-relaxed text-inkSoft">
-      <div className="display text-sm font-medium text-ink">
-        {source.canonicalUrl ? (
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="display text-sm font-medium text-ink">
+          {hasLink ? (
+            <a
+              href={sourceHref}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="link-underline hover:text-ochreDeep"
+            >
+              {source.title ?? "Untitled source"}
+            </a>
+          ) : (
+            source.title ?? "Untitled source"
+          )}
+        </div>
+        {hasLink && (
           <a
-            href={source.canonicalUrl}
+            href={sourceHref}
             target="_blank"
             rel="noreferrer noopener"
-            className="link-underline hover:text-ochreDeep"
+            className="label rounded-full border border-rule px-2.5 py-1 text-inkMute transition-colors hover:border-ochre/60 hover:text-ochreDeep"
           >
-            {source.title ?? "Untitled source"}
+            Open source ↗
           </a>
-        ) : (
-          source.title ?? "Untitled source"
         )}
       </div>
       <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-inkMute">

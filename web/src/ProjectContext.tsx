@@ -1,6 +1,6 @@
 import { createContext, useContext, ReactNode } from "react";
 import { useQuery } from "convex/react";
-import { api, Id } from "./api";
+import { api, Doc, Id } from "./api";
 import { ENV_PROJECT_ID } from "./convex";
 
 type Ctx = {
@@ -26,7 +26,8 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 
   if (envId) {
     projectId = envId as Id<"projects">;
-    projectName = projects?.find((p) => p._id === envId)?.name ?? null;
+    projectName =
+      projects?.find((p: Doc<"projects">) => p._id === envId)?.name ?? null;
     loading = projects === undefined;
   } else if (projects !== undefined) {
     loading = false;

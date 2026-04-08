@@ -12,6 +12,10 @@ export type DataPointForCard = {
   // Alternate shape from getPositionDetail (denormalized fields):
   sourceTitle?: string;
   sourceTier?: number;
+  sourceCanonicalUrl?: string;
+  sourceAuthorName?: string;
+  sourcePublisherName?: string;
+  sourcePublishedDate?: string;
 };
 
 export default function DataPointCard({
@@ -30,6 +34,10 @@ export default function DataPointCard({
       ? {
           _id: "unknown",
           title: dp.sourceTitle,
+          authorName: dp.sourceAuthorName ?? null,
+          publisherName: dp.sourcePublisherName ?? null,
+          canonicalUrl: dp.sourceCanonicalUrl ?? null,
+          publishedDate: dp.sourcePublishedDate ?? null,
           tier: dp.sourceTier ?? null,
         }
       : null);
