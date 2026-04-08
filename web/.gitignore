@@ -1,0 +1,13 @@
+node_modules
+dist
+.env
+.env.local
+.env.*.local
+.replit_cache
+.DS_Store
+*.log
+
+# Replit-internal folders (not part of the project)
+.agents
+.config
+.local

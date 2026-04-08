@@ -1,0 +1,32 @@
+
+.env.local
+
+# Personal research files
+sources/
+
+# Internal build and operational files
+prompts/
+handoff_prompt.md
+phase4_triage_manifest.json
+wave3_manifest.json
+wave4_manifest.json
+
+# Internal planning and audit documents
+Intent_Architecture_Deck_Review.md
+Source_Intake_Tooling_Plan.md
+Curate_Mind_Outside_In_Audit_2026-03-17.md
+Curate_Mind_Post_Migration_Audit_2026-03-26.md
+Implementation_Plan.md
+AGENTS.md
+
+# Credentials and environment
+.env.*.local
+
+# Dependencies and build output
+node_modules/
+mcp/dist/
+.venv/
+__pycache__/
+
+# OS files
+.DS_Store
