@@ -30,29 +30,17 @@ import {
   getWeekFolderPath,
   sanitizeFilename,
 } from "../lib/utils.js";
+import {
+  normalizeSourceUrl,
+  parseSourceMetadataHeader,
+  type ParsedSourceMetadata,
+  type SourceType,
+} from "../lib/sourceMetadata.js";
 
 type InsertSourceResult = typeof api.sources.insertSource["_returnType"];
-type SourceType =
-  | "article"
-  | "report"
-  | "podcast"
-  | "video"
-  | "whitepaper"
-  | "book"
-  | "newsletter"
-  | "social"
-  | "other";
 type TranscriptParagraph = {
   startOffset: number;
   text: string;
-};
-type ParsedSourceMetadata = {
-  title?: string;
-  authorName?: string;
-  publisherName?: string;
-  canonicalUrl?: string;
-  publishedDate?: string;
-  sourceType?: SourceType;
 };
 
 type PdfExtractionMetadata = {
@@ -74,7 +62,6 @@ const TRANSCRIPT_MIN_CHUNKS_BEFORE_BREAK = 3;
 const TRANSCRIPT_PARAGRAPH_GAP_SECONDS = 6;
 const PDF_EXTRACTION_TIMEOUT_MS = 180_000;
 const PDF_EXTRACTION_MAX_BUFFER_BYTES = 10 * 1024 * 1024;
-const METADATA_HEADER_LINE_LIMIT = 20;
 const REVIEW_STATUS_FILENAME = "review-status.json";
 const reviewStatusSchema = z.object({
   ingested: z.array(
@@ -568,7 +555,7 @@ export function registerIntakeTools(server: McpServer): void {
         "  - originalFilePath (string, optional): Path to an original PDF for Convex file storage upload\n" +
         "  - authorName (string, optional): Author or creator\n" +
         "  - publisherName (string, optional): Publication or platform\n" +
-        "  - canonicalUrl (string, optional): URL to original source\n" +
+        "  - canonicalUrl (string, optional): URL to original source. Required unless an original PDF/file is uploaded\n" +
         "  - publishedDate (string, optional): Original publication date\n" +
         "  - intakeNote (string, optional): Why this source was added\n\n" +
         "Returns: The new source ID, or a duplicate warning if content hash matches.",
@@ -664,8 +651,11 @@ export function registerIntakeTools(server: McpServer): void {
           params.publisherName !== undefined
             ? params.publisherName
             : parsedMetadata.publisherName;
-        const resolvedCanonicalUrl =
-          params.canonicalUrl !== undefined ? params.canonicalUrl : parsedMetadata.canonicalUrl;
+        const resolvedCanonicalUrl = normalizeSourceUrl(
+          params.canonicalUrl !== undefined
+            ? params.canonicalUrl
+            : parsedMetadata.canonicalUrl
+        );
         const resolvedPublishedDate =
           params.publishedDate !== undefined
             ? params.publishedDate
@@ -719,6 +709,19 @@ export function registerIntakeTools(server: McpServer): void {
           if (path.extname(params.originalFilePath).toLowerCase() === ".pdf") {
             storageId = await uploadPdfToConvexStorage(params.originalFilePath);
           }
+        }
+
+        if (!resolvedCanonicalUrl && !storageId) {
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text:
+                  "Error: Source ingest requires a resolvable destination.\n" +
+                  "Provide a valid canonicalUrl in the metadata/header or upload an original PDF via originalFilePath.",
+              },
+            ],
+          };
         }
 
         const result: InsertSourceResult = await convexMutation(
@@ -1018,111 +1021,6 @@ function getUrlSourceLabel(urlValue: string): string | undefined {
   } catch {
     return undefined;
   }
-}
-
-function parseSourceMetadataHeader(markdown: string): ParsedSourceMetadata {
-  const lines = markdown.split(/\r?\n/).slice(0, METADATA_HEADER_LINE_LIMIT);
-  const metadataLineIndex = lines.findIndex((line) => /^##\s+Metadata\s*$/i.test(line.trim()));
-  if (metadataLineIndex === -1) {
-    return {};
-  }
-
-  const parsed: ParsedSourceMetadata = {};
-  const titleLine = lines.find((line) => /^#\s+.+/.test(line.trim()));
-  const parsedTitle = titleLine ? cleanMetadataValue(titleLine.replace(/^#\s+/, "")) : undefined;
-  if (parsedTitle) {
-    parsed.title = parsedTitle;
-  }
-
-  for (let index = metadataLineIndex + 1; index < lines.length; index += 1) {
-    const line = lines[index].trim();
-    if (!line) {
-      continue;
-    }
-
-    if (line === "---" || /^#{1,6}\s+/.test(line)) {
-      break;
-    }
-
-    const match = line.match(/^\*\s+\*\*(.+?):\*\*\s*(.+)\s*$/);
-    if (!match) {
-      continue;
-    }
-
-    const key = match[1].trim().toLowerCase();
-    const value = cleanMetadataValue(match[2]);
-    if (!value) {
-      continue;
-    }
-
-    if (key === "publisher" || key === "channel") {
-      parsed.publisherName = value;
-      continue;
-    }
-
-    if (key === "author") {
-      parsed.authorName = value;
-      continue;
-    }
-
-    if (key === "published") {
-      parsed.publishedDate = value;
-      continue;
-    }
-
-    if (key === "type") {
-      const sourceType = mapMetadataTypeToSourceType(value);
-      if (sourceType) {
-        parsed.sourceType = sourceType;
-      }
-      continue;
-    }
-
-    if (key === "url") {
-      parsed.canonicalUrl = value;
-    }
-  }
-
-  return parsed;
-}
-
-function cleanMetadataValue(value: string | undefined): string | undefined {
-  const trimmed = value?.trim();
-  if (!trimmed || /^\[verify\b/i.test(trimmed)) {
-    return undefined;
-  }
-
-  return trimmed;
-}
-
-function mapMetadataTypeToSourceType(value: string): SourceType | undefined {
-  const normalized = value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  const mappings: Record<string, SourceType> = {
-    article: "article",
-    "blog post": "article",
-    blog: "article",
-    report: "report",
-    "research report": "report",
-    video: "video",
-    "youtube video": "video",
-    podcast: "podcast",
-    "podcast episode": "podcast",
-    whitepaper: "whitepaper",
-    "white paper": "whitepaper",
-    book: "book",
-    newsletter: "newsletter",
-    social: "social",
-    "social post": "social",
-    other: "other",
-  };
-
-  return mappings[normalized];
 }
 
 async function uploadPdfToConvexStorage(originalFilePath: string): Promise<string> {

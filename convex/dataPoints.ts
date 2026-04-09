@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { resolveSourceMeta } from "./sources";
 
 // ============================================================
 // Insert a single data point (immutable once created)
@@ -194,18 +195,7 @@ export const getDataPoint = query({
 
     // Get source metadata (without fullText)
     const source = await ctx.db.get(dp.sourceId);
-    const sourceMetadata = source
-      ? {
-          _id: source._id,
-          title: source.title,
-          authorName: source.authorName,
-          publisherName: source.publisherName,
-          canonicalUrl: source.canonicalUrl,
-          publishedDate: source.publishedDate,
-          sourceType: source.sourceType,
-          tier: source.tier,
-        }
-      : null;
+    const sourceMetadata = source ? await resolveSourceMeta(ctx, source) : null;
 
     // Get tags
     const tagLinks = await ctx.db

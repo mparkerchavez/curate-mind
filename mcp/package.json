@@ -6,7 +6,10 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
+    "test": "node --import tsx --test src/lib/sourceMetadata.test.ts",
     "typecheck": "tsc --noEmit",
+    "source-links:audit": "node --import tsx src/scripts/sourceLinkBackfill.ts audit",
+    "source-links:apply": "node --import tsx src/scripts/sourceLinkBackfill.ts apply",
     "start": "node dist/index.js",
     "dev": "tsx watch src/index.ts"
   },

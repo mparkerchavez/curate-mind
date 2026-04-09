@@ -25,6 +25,7 @@ AGENTS.md
 # Dependencies and build output
 node_modules/
 mcp/dist/
+tmp/
 .venv/
 __pycache__/
 

@@ -16,6 +16,11 @@ export type DataPointForCard = {
   sourceAuthorName?: string;
   sourcePublisherName?: string;
   sourcePublishedDate?: string;
+  sourceResolvedUrl?: string;
+  sourceResolvedLinkKind?: "storage" | "canonical" | "internal";
+  sourcePagePath?: string;
+  sourceStorageUrl?: string | null;
+  sourceType?: string;
 };
 
 export default function DataPointCard({
@@ -38,6 +43,11 @@ export default function DataPointCard({
           publisherName: dp.sourcePublisherName ?? null,
           canonicalUrl: dp.sourceCanonicalUrl ?? null,
           publishedDate: dp.sourcePublishedDate ?? null,
+          sourceType: dp.sourceType ?? null,
+          storageUrl: dp.sourceStorageUrl ?? null,
+          resolvedUrl: dp.sourceResolvedUrl ?? null,
+          resolvedLinkKind: dp.sourceResolvedLinkKind ?? null,
+          sourcePagePath: dp.sourcePagePath ?? null,
           tier: dp.sourceTier ?? null,
         }
       : null);

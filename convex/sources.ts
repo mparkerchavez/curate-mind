@@ -1,5 +1,74 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { mutation, query, type QueryCtx } from "./_generated/server";
+import type { Doc, Id } from "./_generated/dataModel";
+
+export type ResolvedLinkKind = "storage" | "canonical" | "internal";
+
+export type ResolvedSourceMeta = {
+  _id: Id<"sources">;
+  title: string;
+  authorName?: string;
+  publisherName?: string;
+  canonicalUrl?: string;
+  publishedDate?: string;
+  sourceType: Doc<"sources">["sourceType"];
+  tier: Doc<"sources">["tier"];
+  storageUrl: string | null;
+  resolvedUrl: string;
+  resolvedLinkKind: ResolvedLinkKind;
+  sourcePagePath: string;
+};
+
+function normalizeStoredUrl(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      return undefined;
+    }
+    return url.toString();
+  } catch {
+    return undefined;
+  }
+}
+
+export async function resolveSourceMeta(
+  ctx: QueryCtx,
+  source: Doc<"sources">
+): Promise<ResolvedSourceMeta> {
+  const sourcePagePath = `/sources/${source._id}`;
+  const canonicalUrl = normalizeStoredUrl(source.canonicalUrl);
+  const storageUrl = source.storageId
+    ? await ctx.storage.getUrl(source.storageId)
+    : null;
+
+  let resolvedUrl = sourcePagePath;
+  let resolvedLinkKind: ResolvedLinkKind = "internal";
+
+  if (storageUrl) {
+    resolvedUrl = storageUrl;
+    resolvedLinkKind = "storage";
+  } else if (canonicalUrl) {
+    resolvedUrl = canonicalUrl;
+    resolvedLinkKind = "canonical";
+  }
+
+  return {
+    _id: source._id,
+    title: source.title,
+    authorName: source.authorName,
+    publisherName: source.publisherName,
+    canonicalUrl,
+    publishedDate: source.publishedDate,
+    sourceType: source.sourceType,
+    tier: source.tier,
+    storageUrl,
+    resolvedUrl,
+    resolvedLinkKind,
+    sourcePagePath,
+  };
+}
 
 // ============================================================
 // Insert a new source into the system
@@ -127,6 +196,50 @@ export const saveSourceSynthesis = mutation({
 });
 
 // ============================================================
+// Structural maintenance: repair missing source URLs
+// Decision 30 allows controlled plumbing corrections
+// ============================================================
+export const repairSourceCanonicalUrl = mutation({
+  args: {
+    sourceId: v.id("sources"),
+    canonicalUrl: v.string(),
+    repairNote: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const source = await ctx.db.get(args.sourceId);
+    if (!source) {
+      throw new Error("Source not found");
+    }
+
+    const trimmedUrl = args.canonicalUrl.trim();
+    if (!trimmedUrl) {
+      throw new Error("canonicalUrl must not be empty");
+    }
+
+    try {
+      const parsed = new URL(trimmedUrl);
+      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+        throw new Error("canonicalUrl must use http or https");
+      }
+    } catch {
+      throw new Error("canonicalUrl must be a valid URL");
+    }
+
+    // Decision 30 structural maintenance: this patches plumbing metadata only.
+    await ctx.db.patch(args.sourceId, {
+      canonicalUrl: trimmedUrl,
+    });
+
+    return {
+      sourceId: source._id,
+      previousCanonicalUrl: source.canonicalUrl ?? null,
+      canonicalUrl: trimmedUrl,
+      repairNote: args.repairNote,
+    };
+  },
+});
+
+// ============================================================
 // Get a single source by ID (without fullText)
 // ============================================================
 export const getSource = query({
@@ -134,8 +247,7 @@ export const getSource = query({
   handler: async (ctx, args) => {
     const source = await ctx.db.get(args.sourceId);
     if (!source) return null;
-    const { fullText, ...metadata } = source;
-    return metadata;
+    return await resolveSourceMeta(ctx, source);
   },
 });
 
@@ -178,8 +290,38 @@ export const getSourceWithDataPoints = query({
       })
     );
 
-    const { fullText, ...sourceMetadata } = source;
+    const sourceMetadata = await resolveSourceMeta(ctx, source);
     return { source: sourceMetadata, dataPoints: dataPointsWithTags };
+  },
+});
+
+// ============================================================
+// Get source detail for internal source page
+// ============================================================
+export const getSourceDetail = query({
+  args: { sourceId: v.id("sources") },
+  handler: async (ctx, args) => {
+    const source = await ctx.db.get(args.sourceId);
+    if (!source) return null;
+
+    const sourceMetadata = await resolveSourceMeta(ctx, source);
+    const dataPoints = await ctx.db
+      .query("dataPoints")
+      .withIndex("by_sourceId", (q) => q.eq("sourceId", args.sourceId))
+      .collect();
+
+    dataPoints.sort((a, b) => a.dpSequenceNumber - b.dpSequenceNumber);
+
+    return {
+      source: sourceMetadata,
+      dataPoints,
+      dataPointCount: dataPoints.length,
+      sourceSynthesis: source.sourceSynthesis ?? null,
+      urlAccessibility: source.urlAccessibility,
+      ingestedDate: source.ingestedDate,
+      status: source.status,
+      storageId: source.storageId ?? null,
+    };
   },
 });
 
@@ -232,5 +374,36 @@ export const listAll = query({
       .withIndex("by_projectId", (q) => q.eq("projectId", args.projectId))
       .collect();
     return sources.map(({ fullText, ...metadata }) => metadata);
+  },
+});
+
+// ============================================================
+// List source IDs referenced by evidence on any position version
+// Used by source-link maintenance tooling to keep audits lightweight
+// ============================================================
+export const listEvidenceLinkedSourceIds = query({
+  args: {},
+  handler: async (ctx) => {
+    const versions = await ctx.db.query("positionVersions").collect();
+    const linkedDataPointIds = new Set<string>();
+
+    for (const version of versions) {
+      for (const dpId of version.supportingEvidence) {
+        linkedDataPointIds.add(dpId.toString());
+      }
+      for (const dpId of version.counterEvidence ?? []) {
+        linkedDataPointIds.add(dpId.toString());
+      }
+    }
+
+    const linkedSourceIds = new Set<string>();
+    for (const dpId of linkedDataPointIds) {
+      const dp = await ctx.db.get(dpId as Id<"dataPoints">);
+      if (dp) {
+        linkedSourceIds.add(dp.sourceId.toString());
+      }
+    }
+
+    return Array.from(linkedSourceIds);
   },
 });

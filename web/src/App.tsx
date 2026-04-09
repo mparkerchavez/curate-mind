@@ -5,6 +5,7 @@ import BrowsePage from "./pages/BrowsePage";
 import ThemePage from "./pages/ThemePage";
 import PositionPage from "./pages/PositionPage";
 import ChatPage from "./pages/ChatPage";
+import SourcePage from "./pages/SourcePage";
 
 function Header() {
   const { projectName } = useProject();
@@ -77,6 +78,7 @@ export default function App() {
             <Route path="/browse" element={<BrowsePage />} />
             <Route path="/themes/:themeId" element={<ThemePage />} />
             <Route path="/positions/:positionId" element={<PositionPage />} />
+            <Route path="/sources/:sourceId" element={<SourcePage />} />
             <Route path="/ask" element={<ChatPage />} />
             <Route
               path="*"

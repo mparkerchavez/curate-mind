@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { resolveSourceMeta } from "./sources";
 
 // ============================================================
 // RESEARCH THEMES
@@ -224,19 +225,10 @@ export const getPositionDetail = query({
         const dp = await ctx.db.get(dpId);
         if (!dp) return null;
         const source = await ctx.db.get(dp.sourceId);
+        const resolvedSource = source ? await resolveSourceMeta(ctx, source) : null;
         return {
           ...dp,
-          source: source
-            ? {
-                _id: source._id,
-                title: source.title,
-                authorName: source.authorName,
-                publisherName: source.publisherName,
-                canonicalUrl: source.canonicalUrl,
-                publishedDate: source.publishedDate,
-                tier: source.tier,
-              }
-            : null,
+          source: resolvedSource,
           sourceTitle: source?.title,
           sourceTier: source?.tier,
         };
@@ -250,19 +242,12 @@ export const getPositionDetail = query({
             const dp = await ctx.db.get(dpId);
             if (!dp) return null;
             const source = await ctx.db.get(dp.sourceId);
+            const resolvedSource = source
+              ? await resolveSourceMeta(ctx, source)
+              : null;
             return {
               ...dp,
-              source: source
-                ? {
-                    _id: source._id,
-                    title: source.title,
-                    authorName: source.authorName,
-                    publisherName: source.publisherName,
-                    canonicalUrl: source.canonicalUrl,
-                    publishedDate: source.publishedDate,
-                    tier: source.tier,
-                  }
-                : null,
+              source: resolvedSource,
               sourceTitle: source?.title,
               sourceTier: source?.tier,
             };

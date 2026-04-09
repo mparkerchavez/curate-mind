@@ -56,7 +56,25 @@ After deploying it once with `npx convex dev` or `npx convex deploy`, the genera
 | ThemePage | `api.positions.getThemes` | query |
 | ThemePage / PositionList | `api.positions.getPositionsByTheme` | query |
 | PositionPage / LineageView | `api.positions.getPositionDetail` | query |
+| SourcePage | `api.sources.getSourceDetail` | query |
 | ChatInterface | `api.chat.askGrounded` | **action (new)** |
+
+## Source link maintenance
+
+The evidence cards prefer source destinations in this order:
+
+1. Convex file storage URL
+2. External canonical URL
+3. Internal `/sources/:sourceId` record page
+
+To audit or backfill missing canonical URLs from the local `sources/` library:
+
+```bash
+cd mcp
+npm install
+npm run source-links:audit
+npm run source-links:apply
+```
 
 ## Design notes
 
@@ -69,8 +87,9 @@ After deploying it once with `npx convex dev` or `npx convex deploy`, the genera
 
 The frontend assumes:
 
-- `getPositionDetail` returns `currentVersion.supportingEvidenceDetails` and `counterEvidenceDetails` with `_id`, `claimText`, `anchorQuote`, `evidenceType`, `confidence`, `extractionNote`, and either a `source` object or denormalized `sourceTitle` / `sourceTier`. The current `convex/positions.ts` returns the denormalized form — `DataPointCard` falls back to it.
-- `getDataPoint` (used by the chat action's hydration) returns a `source` object with `_id`, `title`, `authorName`, `publisherName`, `canonicalUrl`, `publishedDate`, `tier`. This matches the current `convex/dataPoints.ts`.
+- `getPositionDetail` returns `currentVersion.supportingEvidenceDetails` and `counterEvidenceDetails` with `_id`, `claimText`, `anchorQuote`, `evidenceType`, `confidence`, `extractionNote`, and a `source` object that includes `resolvedUrl`, `resolvedLinkKind`, `sourcePagePath`, and optional `storageUrl`.
+- `getDataPoint` (used by the chat action's hydration) returns the same resolved source object shape.
+- `getSourceDetail` returns `source`, `dataPoints`, `dataPointCount`, `sourceSynthesis`, `urlAccessibility`, and `status`.
 - `getCurrentLens` returns `currentPositions`, `openQuestions`, `surpriseSignals`. Matches `convex/researchLens.ts`.
 - The chat action expects `OPENAI_API_KEY` and `ANTHROPIC_API_KEY` in the Convex environment.
 

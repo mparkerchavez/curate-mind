@@ -31,15 +31,19 @@ type CitedDataPoint = {
   confidence?: string;
   extractionNote?: string;
   sourceId: string;
-  source: {
-    _id: string;
-    title: string;
-    authorName?: string;
-    publisherName?: string;
-    canonicalUrl?: string;
-    publishedDate?: string;
-    tier: number;
-  } | null;
+    source: {
+      _id: string;
+      title: string;
+      authorName?: string;
+      publisherName?: string;
+      canonicalUrl?: string;
+      publishedDate?: string;
+      storageUrl?: string | null;
+      resolvedUrl: string;
+      resolvedLinkKind: "storage" | "canonical" | "internal";
+      sourcePagePath: string;
+      tier: number;
+    } | null;
 };
 
 export const askGrounded = action({
@@ -99,6 +103,10 @@ export const askGrounded = action({
               publisherName: dp.source.publisherName,
               canonicalUrl: dp.source.canonicalUrl,
               publishedDate: dp.source.publishedDate,
+              storageUrl: dp.source.storageUrl,
+              resolvedUrl: dp.source.resolvedUrl,
+              resolvedLinkKind: dp.source.resolvedLinkKind,
+              sourcePagePath: dp.source.sourcePagePath,
               tier: dp.source.tier,
             }
           : null,
