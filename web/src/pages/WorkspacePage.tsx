@@ -3,7 +3,6 @@ import {
   BookOpen01,
   Compass01,
   File02,
-  Folder,
   HomeLine,
   LayersThree01,
   MessageChatCircle,
@@ -12,14 +11,14 @@ import {
 import { useAction, useQuery } from "convex/react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
-import DataPointCard, { DataPointForCard } from "@/components/DataPointCard";
+import DataPointCard, { type DataPointForCard } from "@/components/DataPointCard";
 import SourceBadge from "@/components/SourceBadge";
 import { useProject } from "@/ProjectContext";
 import { api, Id } from "@/api";
 import { cn } from "@/lib/cn";
 
 type RouteKind = "home" | "theme" | "position" | "source" | "ask";
-type PaneMode = "main" | "evidence" | "chat";
+type PaneMode = "main" | "evidence";
 
 type ChatCitation = {
   label: string;
@@ -72,6 +71,12 @@ export default function WorkspacePage() {
   const themeRecordId = themeId as Id<"researchThemes"> | undefined;
   const positionRecordId = positionId as Id<"researchPositions"> | undefined;
   const sourceRecordId = sourceId as Id<"sources"> | undefined;
+  const contextKey = getContextKey({
+    routeKind,
+    themeId: themeRecordId,
+    positionId: positionRecordId,
+    sourceId: sourceRecordId,
+  });
 
   const askGrounded = useAction(api.chat.askGrounded);
   const themes = useQuery(
@@ -102,13 +107,36 @@ export default function WorkspacePage() {
   const [error, setError] = useState<string | null>(null);
   const [highlightedEvidenceId, setHighlightedEvidenceId] = useState<string | null>(null);
   const [mobilePane, setMobilePane] = useState<PaneMode>("main");
+  const [isChatOpen, setIsChatOpen] = useState(routeKind === "ask");
 
   useEffect(() => {
+    setTurns([]);
     setActiveAnswer(null);
     setHighlightedEvidenceId(null);
+    setInput("");
     setError(null);
+    setPending(false);
     setMobilePane("main");
-  }, [location.pathname, location.search]);
+  }, [contextKey]);
+
+  useEffect(() => {
+    if (routeKind === "ask") {
+      setIsChatOpen(true);
+    }
+  }, [routeKind]);
+
+  useEffect(() => {
+    if (!isChatOpen) return;
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsChatOpen(false);
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isChatOpen]);
 
   const scopeArgs = useMemo(() => {
     if (sourceRecordId) return { sourceId: sourceRecordId };
@@ -133,14 +161,14 @@ export default function WorkspacePage() {
         {
           key: "cited",
           title: "Cited in the answer",
-          subtitle: "These are the cards the answer explicitly relied on.",
+          subtitle: "These cards were explicitly cited in the current answer.",
           items: cited,
           cited: true,
         },
         {
           key: "retrieved",
           title: "Retrieved for context",
-          subtitle: "Nearby evidence retrieved but not explicitly cited.",
+          subtitle: "Adjacent evidence retrieved to ground the answer, even if it was not cited directly.",
           items: retrieved,
         },
       ].filter((section) => section.items.length > 0);
@@ -157,7 +185,7 @@ export default function WorkspacePage() {
         {
           key: "counter",
           title: "Counter evidence",
-          subtitle: "Signals that challenge or qualify the current stance.",
+          subtitle: "Signals that challenge, qualify, or narrow the current stance.",
           items: positionDetail.currentVersion.counterEvidenceDetails ?? [],
           variant: "counter" as const,
         },
@@ -169,14 +197,26 @@ export default function WorkspacePage() {
         {
           key: "source",
           title: "Linked data points",
-          subtitle: "Every extracted claim currently attached to this source.",
+          subtitle: "Claims currently extracted from this source record.",
           items: sourceDetail.dataPoints ?? [],
         },
-      ];
+      ].filter((section) => section.items.length > 0);
     }
 
     return [];
   }, [activeAnswer, positionDetail, sourceDetail]);
+
+  const evidencePaneState = useMemo(
+    () =>
+      getEvidencePaneState({
+        activeAnswer,
+        activeTheme,
+        positionDetail,
+        sourceDetail,
+        sections: evidenceSections,
+      }),
+    [activeAnswer, activeTheme, evidenceSections, positionDetail, sourceDetail],
+  );
 
   const userTurnsCount = turns.filter((turn) => turn.role === "user").length;
   const reachedTurnLimit = userTurnsCount >= USER_TURN_LIMIT;
@@ -194,6 +234,7 @@ export default function WorkspacePage() {
     setPending(true);
     setError(null);
     setMobilePane("main");
+    setIsChatOpen(true);
 
     try {
       const result = (await askGrounded({
@@ -247,20 +288,28 @@ export default function WorkspacePage() {
     setHighlightedEvidenceId(null);
   }
 
+  function handleCitationClick(dataPointId: string) {
+    setHighlightedEvidenceId(dataPointId);
+    setMobilePane("evidence");
+    setIsChatOpen(false);
+  }
+
   return (
     <div className="px-[var(--spacing-page-x)] py-[var(--spacing-page-y)]">
       <WorkspaceTopbar
         projectName={projectName}
         routeKind={routeKind}
         scopeLabel={scopeLabel}
+        activeAnswer={activeAnswer}
+        isChatOpen={isChatOpen}
+        onToggleChat={() => setIsChatOpen((open) => !open)}
       />
 
-      <div className="mb-3 flex items-center gap-2 xl:hidden">
+      <div className="mb-3 flex items-center gap-2 lg:hidden">
         {(
           [
             { key: "main", label: "Main" },
             { key: "evidence", label: "Evidence" },
-            { key: "chat", label: "Chat" },
           ] as Array<{ key: PaneMode; label: string }>
         ).map((pane) => (
           <button
@@ -275,13 +324,22 @@ export default function WorkspacePage() {
             {pane.label}
           </button>
         ))}
+
+        <button
+          type="button"
+          onClick={() => setIsChatOpen(true)}
+          className="ml-auto inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white shadow-[0_16px_36px_-26px_rgba(49,94,251,0.85)]"
+        >
+          <MessageChatCircle className="size-4" />
+          Ask
+        </button>
       </div>
 
       <div className="workspace-grid">
         <section
           className={cn(
-            "pane-shell",
-            mobilePane !== "main" && "hidden xl:flex",
+            "pane-shell min-h-[calc(100vh-13.75rem)]",
+            mobilePane !== "main" && "hidden lg:flex",
           )}
         >
           <MainPane
@@ -296,49 +354,48 @@ export default function WorkspacePage() {
             activeAnswer={activeAnswer}
             scopeLabel={scopeLabel}
             onClearAnswer={() => setActiveAnswer(null)}
-            onCitationClick={(dataPointId) => {
-              setHighlightedEvidenceId(dataPointId);
-              setMobilePane("evidence");
-            }}
+            onCitationClick={handleCitationClick}
           />
         </section>
 
         <section
           className={cn(
-            "pane-shell",
-            mobilePane !== "evidence" && "hidden xl:flex",
+            "pane-shell min-h-[calc(100vh-13.75rem)]",
+            mobilePane !== "evidence" && "hidden lg:flex",
           )}
         >
           <EvidencePane
-            activeAnswer={activeAnswer}
+            state={evidencePaneState}
             sections={evidenceSections}
             highlightedEvidenceId={highlightedEvidenceId}
             onSelectEvidence={(dataPointId) => setHighlightedEvidenceId(dataPointId)}
           />
         </section>
-
-        <section
-          className={cn(
-            "pane-shell",
-            mobilePane !== "chat" && "hidden xl:flex",
-          )}
-        >
-          <ChatPane
-            routeKind={routeKind}
-            scopeLabel={scopeLabel}
-            turns={turns}
-            pending={pending}
-            input={input}
-            error={error}
-            setInput={setInput}
-            onSubmit={handleAskQuestion}
-            onReset={resetConversation}
-            onUseSuggestion={(suggestion) => void handleAskQuestion(suggestion)}
-            reachedTurnLimit={reachedTurnLimit}
-            userTurnsCount={userTurnsCount}
-          />
-        </section>
       </div>
+
+      <ChatDockButton
+        isOpen={isChatOpen}
+        scopeLabel={scopeLabel}
+        pending={pending}
+        onClick={() => setIsChatOpen(true)}
+      />
+
+      <ChatOverlay
+        isOpen={isChatOpen}
+        routeKind={routeKind}
+        scopeLabel={scopeLabel}
+        turns={turns}
+        pending={pending}
+        input={input}
+        error={error}
+        setInput={setInput}
+        onSubmit={handleAskQuestion}
+        onReset={resetConversation}
+        onUseSuggestion={(suggestion) => void handleAskQuestion(suggestion)}
+        onClose={() => setIsChatOpen(false)}
+        reachedTurnLimit={reachedTurnLimit}
+        userTurnsCount={userTurnsCount}
+      />
     </div>
   );
 }
@@ -347,14 +404,20 @@ function WorkspaceTopbar({
   projectName,
   routeKind,
   scopeLabel,
+  activeAnswer,
+  isChatOpen,
+  onToggleChat,
 }: {
   projectName: string | null;
   routeKind: RouteKind;
   scopeLabel: string;
+  activeAnswer: AssistantAnswer | null;
+  isChatOpen: boolean;
+  onToggleChat: () => void;
 }) {
   return (
-    <header className="mb-4 rounded-[1.75rem] border border-border/75 bg-panel/95 px-5 py-4 shadow-[var(--shadow-panel)]">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+    <header className="mb-4 rounded-[1.9rem] border border-border/75 bg-panel/95 px-5 py-4 shadow-[var(--shadow-panel)]">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div className="flex items-start gap-4">
           <div className="flex size-12 items-center justify-center rounded-2xl bg-accent text-white shadow-[0_14px_28px_-18px_rgba(49,94,251,0.8)]">
             <LayersThree01 className="size-6" />
@@ -362,7 +425,7 @@ function WorkspaceTopbar({
           <div>
             <div className="meta-kicker">Curate Mind workspace</div>
             <div className="mt-1 flex flex-wrap items-center gap-2">
-              <h1 className="text-xl font-semibold text-ink">Progressive disclosure for AI research</h1>
+              <h1 className="text-xl font-semibold text-ink">Calm research cockpit</h1>
               {projectName && (
                 <span className="rounded-full bg-panel-muted px-3 py-1 text-xs font-semibold text-ink-muted">
                   {projectName}
@@ -370,7 +433,7 @@ function WorkspaceTopbar({
               )}
             </div>
             <p className="mt-1 max-w-3xl text-sm leading-6 text-ink-soft">
-              One workspace for browsing themes, reading positions, tracing evidence, and asking grounded questions without changing mental models.
+              Read in the main canvas, keep evidence anchored beside it, and open chat above the context only when you need to query the corpus.
             </p>
           </div>
         </div>
@@ -384,13 +447,27 @@ function WorkspaceTopbar({
             <Compass01 className="size-4" />
             Themes
           </TopbarLink>
-          <TopbarLink to="/ask" active={routeKind === "ask"}>
+          <button
+            type="button"
+            onClick={onToggleChat}
+            className={cn(
+              "inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-sm font-semibold",
+              isChatOpen
+                ? "border-accent/30 bg-accent-soft text-accent"
+                : "border-border bg-panel text-ink-soft hover:border-accent/20 hover:text-accent",
+            )}
+          >
             <MessageChatCircle className="size-4" />
-            Ask
-          </TopbarLink>
-          <div className="hidden rounded-full border border-border bg-panel-muted px-3 py-2 text-xs font-semibold text-ink-muted xl:flex">
+            {isChatOpen ? "Hide chat" : "Open chat"}
+          </button>
+          <div className="hidden rounded-full border border-border bg-panel-muted px-3 py-2 text-xs font-semibold text-ink-muted lg:flex">
             {scopeLabel}
           </div>
+          {activeAnswer && (
+            <div className="hidden rounded-full bg-accent-soft px-3 py-2 text-xs font-semibold text-accent lg:flex">
+              Answer in focus
+            </div>
+          )}
         </nav>
       </div>
     </header>
@@ -450,11 +527,15 @@ function MainPane({
     <>
       <PaneHeader
         icon={<BookOpen01 className="size-5" />}
-        kicker={activeAnswer ? "Answer canvas" : "Main pane"}
-        title={activeAnswer ? activeAnswer.question : getMainPaneTitle(routeKind, activeTheme, positionDetail, sourceDetail)}
+        kicker={activeAnswer ? "Answer canvas" : "Reading canvas"}
+        title={
+          activeAnswer
+            ? activeAnswer.question
+            : getMainPaneTitle(routeKind, activeTheme, positionDetail, sourceDetail)
+        }
         description={
           activeAnswer
-            ? `Generated inside ${activeAnswer.scopeLabel.toLowerCase()}. Inline citations open the evidence stack in the next pane.`
+            ? `Generated inside ${activeAnswer.scopeLabel.toLowerCase()}. Inline citations open the exact evidence cards beside this answer.`
             : getMainPaneDescription(routeKind, activeTheme, positionDetail, sourceDetail)
         }
         action={
@@ -464,7 +545,7 @@ function MainPane({
               onClick={onClearAnswer}
               className="rounded-full border border-border bg-panel px-3 py-2 text-xs font-semibold text-ink-soft hover:border-accent/20 hover:text-accent"
             >
-              Return to context
+              Return to browsing
             </button>
           ) : (
             <div className="rounded-full bg-panel-muted px-3 py-2 text-xs font-semibold text-ink-muted">
@@ -543,12 +624,30 @@ function HomeDocument({
 
   return (
     <div className="space-y-8">
-      <section className="rounded-[1.5rem] border border-border/75 bg-panel-muted/75 p-5">
+      <section className="rounded-[1.6rem] border border-border/75 bg-panel-muted/75 p-5">
         <div className="meta-kicker">Workspace brief</div>
         <div className="mt-3 grid gap-4 md:grid-cols-3">
           <Metric label="Themes" value={themes.length} />
           <Metric label="Positions" value={allPositions.length} />
-          <Metric label="Experience" value="3-pane" />
+          <Metric label="Experience" value="2 panes + chat" />
+        </div>
+      </section>
+
+      <section className="rounded-[1.6rem] border border-border/75 bg-panel p-6">
+        <div className="meta-kicker">How to use the workspace</div>
+        <div className="mt-4 grid gap-4 md:grid-cols-3">
+          <NarrativeCard
+            title="Browse in one reading flow"
+            body="The left canvas stays focused on the current theme, position, source, or answer so the reader always knows what is primary."
+          />
+          <NarrativeCard
+            title="Keep evidence anchored"
+            body="The right column is the lineage layer. Supporting and counter-cards stay visible whether you are reading or asking."
+          />
+          <NarrativeCard
+            title="Open chat only when needed"
+            body="The chat overlay sits above the workspace instead of consuming layout width, so questioning never overwhelms reading."
+          />
         </div>
       </section>
 
@@ -558,9 +657,9 @@ function HomeDocument({
             <div className="meta-kicker">Explore</div>
             <h3 className="mt-2 text-xl font-semibold text-ink">Themes to open next</h3>
           </div>
-          <Link to="/ask" className="text-sm font-semibold text-accent hover:text-accent-strong">
-            Ask across the corpus
-          </Link>
+          <span className="rounded-full bg-panel-muted px-3 py-1 text-xs font-semibold text-ink-muted">
+            {sortedThemes.length} themes
+          </span>
         </div>
         <div className="grid gap-4 xl:grid-cols-2">
           {sortedThemes.map((theme) => (
@@ -587,11 +686,11 @@ function HomeDocument({
 function AskDocument() {
   return (
     <div className="space-y-6">
-      <section className="rounded-[1.5rem] border border-border/75 bg-panel-muted/75 p-6">
+      <section className="rounded-[1.6rem] border border-border/75 bg-panel-muted/75 p-6">
         <div className="meta-kicker">Query the corpus</div>
-        <h3 className="mt-2 text-2xl font-semibold text-ink">Start from a question, not a page.</h3>
+        <h3 className="mt-2 text-2xl font-semibold text-ink">Open chat without losing the reading frame.</h3>
         <p className="mt-3 max-w-2xl text-sm leading-7 text-ink-soft">
-          The chat pane stays grounded in curated data points. Once you ask, the answer takes over this pane and the supporting cards line up in evidence with the same behavior you see while browsing positions.
+          Questions begin in the overlay. Once you ask, the answer replaces this canvas and the evidence column reorganizes itself into cited cards first, retrieved context second.
         </p>
       </section>
       <section className="grid gap-4 md:grid-cols-2">
@@ -766,19 +865,19 @@ function AnswerDocument({
       </section>
 
       <section className="workspace-richtext rounded-[1.5rem] border border-border/75 bg-panel p-6">
-        {renderAnswerBlocks(answerState.answer, citationMap, onCitationClick)}
+        {renderAnswerDocument(answerState.answer, citationMap, onCitationClick)}
       </section>
     </article>
   );
 }
 
 function EvidencePane({
-  activeAnswer,
+  state,
   sections,
   highlightedEvidenceId,
   onSelectEvidence,
 }: {
-  activeAnswer: AssistantAnswer | null;
+  state: ReturnType<typeof getEvidencePaneState>;
   sections: EvidenceSection[];
   highlightedEvidenceId: string | null;
   onSelectEvidence: (dataPointId: string) => void;
@@ -793,28 +892,22 @@ function EvidencePane({
     <>
       <PaneHeader
         icon={<File02 className="size-5" />}
-        kicker="Evidence pane"
-        title={activeAnswer ? "Citations and supporting cards" : "Evidence follows the current context"}
-        description={
-          activeAnswer
-            ? "Every citation opens the exact evidence card here. The structure stays consistent whether you browse or ask."
-            : "Open a position, source, or ask a question to populate this pane."
-        }
+        kicker="Evidence column"
+        title={state.title}
+        description={state.description}
       />
 
       <div className="pane-scroll px-5 pb-5 pt-4">
         {sections.length === 0 ? (
           <div className="rounded-[1.5rem] border border-dashed border-border bg-panel-muted/60 p-5">
-            <div className="meta-kicker">No evidence yet</div>
-            <p className="mt-3 text-sm leading-7 text-ink-soft">
-              The middle pane activates once you open a position, inspect a source, or generate an answer.
-            </p>
+            <div className="meta-kicker">{state.emptyTitle}</div>
+            <p className="mt-3 text-sm leading-7 text-ink-soft">{state.emptyDescription}</p>
           </div>
         ) : (
           <div className="space-y-5">
             {sections.map((section) => (
               <section key={section.key} className="space-y-3">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-3">
                   <div>
                     <div className="meta-kicker">{section.title}</div>
                     <p className="mt-1 text-sm leading-6 text-ink-soft">{section.subtitle}</p>
@@ -846,7 +939,41 @@ function EvidencePane({
   );
 }
 
-function ChatPane({
+function ChatDockButton({
+  isOpen,
+  scopeLabel,
+  pending,
+  onClick,
+}: {
+  isOpen: boolean;
+  scopeLabel: string;
+  pending: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "fixed bottom-5 right-5 z-30 hidden items-center gap-3 rounded-full border border-accent/20 bg-panel/95 px-4 py-3 text-left shadow-[0_22px_48px_-28px_rgba(15,23,42,0.6)] backdrop-blur lg:inline-flex",
+        isOpen && "pointer-events-none translate-y-2 opacity-0",
+      )}
+    >
+      <div className="flex size-10 items-center justify-center rounded-full bg-accent text-white">
+        <MessageChatCircle className="size-4.5" />
+      </div>
+      <div>
+        <div className="text-sm font-semibold text-ink">
+          {pending ? "Thinking through the evidence..." : "Ask with context"}
+        </div>
+        <div className="mt-0.5 text-xs text-ink-muted">{scopeLabel}</div>
+      </div>
+    </button>
+  );
+}
+
+function ChatOverlay({
+  isOpen,
   routeKind,
   scopeLabel,
   turns,
@@ -857,9 +984,11 @@ function ChatPane({
   onSubmit,
   onReset,
   onUseSuggestion,
+  onClose,
   reachedTurnLimit,
   userTurnsCount,
 }: {
+  isOpen: boolean;
   routeKind: RouteKind;
   scopeLabel: string;
   turns: Turn[];
@@ -870,6 +999,7 @@ function ChatPane({
   onSubmit: (questionText?: string) => Promise<void>;
   onReset: () => void;
   onUseSuggestion: (suggestion: string) => void;
+  onClose: () => void;
   reachedTurnLimit: boolean;
   userTurnsCount: number;
 }) {
@@ -877,138 +1007,181 @@ function ChatPane({
 
   return (
     <>
-      <PaneHeader
-        icon={<MessageChatCircle className="size-5" />}
-        kicker="Chat pane"
-        title="Ask with context"
-        description="The right pane stays available while you browse. Responses write into the main pane and citations synchronize with evidence."
-        action={
-          <div className="rounded-full bg-panel-muted px-3 py-2 text-xs font-semibold text-ink-muted">
-            {scopeLabel}
-          </div>
-        }
+      <div
+        aria-hidden={!isOpen}
+        onClick={onClose}
+        className={cn(
+          "fixed inset-0 z-40 bg-slate-950/18 backdrop-blur-[2px] transition-opacity duration-300",
+          isOpen ? "opacity-100" : "pointer-events-none opacity-0",
+        )}
       />
 
-      <div className="pane-scroll px-5 pb-5 pt-4">
-        <div className="rounded-[1.5rem] border border-border/75 bg-panel-muted/75 p-4">
-          <div className="meta-kicker">Suggested prompts</div>
-          <div className="mt-3 space-y-2">
-            {suggestions.map((suggestion) => (
-              <button
-                key={suggestion}
-                type="button"
-                onClick={() => onUseSuggestion(suggestion)}
-                className="flex w-full items-start justify-between gap-3 rounded-[1.15rem] border border-border bg-panel px-4 py-3 text-left text-sm leading-6 text-ink-soft hover:border-accent/25 hover:text-ink"
-              >
-                <span>{suggestion}</span>
-                <ArrowRight className="mt-1 size-4 shrink-0 text-ink-muted" />
-              </button>
-            ))}
+      <aside
+        role="dialog"
+        aria-modal="true"
+        aria-label="Ask with context"
+        className={cn(
+          "fixed inset-y-0 right-0 z-50 flex w-full max-w-[30rem] flex-col border-l border-border/70 bg-panel/96 shadow-[-30px_0_60px_-42px_rgba(15,23,42,0.55)] backdrop-blur-lg transition-transform duration-300",
+          isOpen ? "translate-x-0" : "translate-x-full",
+        )}
+      >
+        <div className="border-b border-border/70 px-5 py-5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="meta-kicker">Chat overlay</div>
+              <h2 className="mt-2 text-xl font-semibold text-ink">Ask with live context</h2>
+              <p className="mt-2 text-sm leading-6 text-ink-soft">
+                The answer writes into the main canvas while this overlay keeps the prompt flow, history, and scope controls in one place.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-full border border-border bg-panel-muted px-3 py-2 text-xs font-semibold text-ink-soft hover:border-accent/20 hover:text-accent"
+            >
+              Close
+            </button>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <span className="rounded-full bg-accent-soft px-3 py-1 text-xs font-semibold text-accent">
+              {scopeLabel}
+            </span>
+            <span className="rounded-full bg-panel-muted px-3 py-1 text-xs font-semibold text-ink-muted">
+              {userTurnsCount} / {USER_TURN_LIMIT} turns
+            </span>
           </div>
         </div>
 
-        <div className="mt-5 space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="meta-kicker">Conversation</div>
-            {turns.length > 0 && (
-              <button
-                type="button"
-                onClick={onReset}
-                className="text-xs font-semibold text-ink-muted hover:text-accent"
-              >
-                Reset conversation
-              </button>
+        <div className="pane-scroll px-5 pb-5 pt-4">
+          <div className="rounded-[1.5rem] border border-border/75 bg-panel-muted/75 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="meta-kicker">Suggested prompts</div>
+                <p className="mt-1 text-sm leading-6 text-ink-soft">
+                  Start narrow, then use the evidence column to verify what the answer relied on.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-3 space-y-2">
+              {suggestions.map((suggestion) => (
+                <button
+                  key={suggestion}
+                  type="button"
+                  onClick={() => onUseSuggestion(suggestion)}
+                  className="flex w-full items-start justify-between gap-3 rounded-[1.15rem] border border-border bg-panel px-4 py-3 text-left text-sm leading-6 text-ink-soft hover:border-accent/25 hover:text-ink"
+                >
+                  <span>{suggestion}</span>
+                  <ArrowRight className="mt-1 size-4 shrink-0 text-ink-muted" />
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="meta-kicker">Conversation</div>
+              {turns.length > 0 && (
+                <button
+                  type="button"
+                  onClick={onReset}
+                  className="text-xs font-semibold text-ink-muted hover:text-accent"
+                >
+                  Reset conversation
+                </button>
+              )}
+            </div>
+
+            {turns.length === 0 ? (
+              <div className="rounded-[1.35rem] border border-dashed border-border bg-panel-muted/60 p-4">
+                <p className="text-sm leading-7 text-ink-soft">
+                  Ask a question from the current context. The answer will replace the main canvas and line up its cited cards in the evidence column.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {turns.map((turn, index) => (
+                  <div
+                    key={`${turn.role}-${index}`}
+                    className={cn(
+                      "rounded-[1.25rem] border px-4 py-3",
+                      turn.role === "user"
+                        ? "border-accent/18 bg-accent-soft/55"
+                        : "border-border bg-panel",
+                    )}
+                  >
+                    <div className="meta-kicker">{turn.role === "user" ? "You" : "Assistant"}</div>
+                    <p className="mt-2 text-sm leading-7 text-ink-soft">
+                      {turn.role === "assistant" ? summarizeText(turn.content, 260) : turn.content}
+                    </p>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
 
-          {turns.length === 0 ? (
-            <div className="rounded-[1.35rem] border border-dashed border-border bg-panel-muted/60 p-4">
-              <p className="text-sm leading-7 text-ink-soft">
-                Start with a question. The answer will take over the main pane and line up its citations in evidence.
-              </p>
+          {pending && (
+            <div className="mt-4 rounded-[1.25rem] border border-accent/18 bg-accent-soft/50 px-4 py-3 text-sm text-accent">
+              Thinking through the evidence...
             </div>
-          ) : (
-            <div className="space-y-3">
-              {turns.map((turn, index) => (
-                <div
-                  key={`${turn.role}-${index}`}
-                  className={cn(
-                    "rounded-[1.25rem] border px-4 py-3",
-                    turn.role === "user"
-                      ? "border-accent/18 bg-accent-soft/55"
-                      : "border-border bg-panel",
-                  )}
-                >
-                  <div className="meta-kicker">{turn.role === "user" ? "You" : "Assistant"}</div>
-                  <p className="mt-2 text-sm leading-7 text-ink-soft">
-                    {turn.role === "assistant" ? summarizeText(turn.content, 240) : turn.content}
-                  </p>
-                </div>
-              ))}
+          )}
+
+          {error && (
+            <div className="mt-4 rounded-[1.25rem] border border-danger/20 bg-danger-soft px-4 py-3 text-sm text-danger">
+              {error}
             </div>
           )}
         </div>
 
-        {pending && (
-          <div className="mt-4 rounded-[1.25rem] border border-accent/18 bg-accent-soft/50 px-4 py-3 text-sm text-accent">
-            Thinking through the evidence...
-          </div>
-        )}
-
-        {error && (
-          <div className="mt-4 rounded-[1.25rem] border border-danger/20 bg-danger-soft px-4 py-3 text-sm text-danger">
-            {error}
-          </div>
-        )}
-      </div>
-
-      <div className="border-t border-border/70 px-5 py-4">
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            void onSubmit();
-          }}
-          className="space-y-3"
-        >
-          <div className="rounded-[1.35rem] border border-border bg-panel-muted/60 px-4 py-3">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-ink-muted">
-              <SearchLg className="size-3.5" />
-              Ask or search the corpus
-            </div>
-            <textarea
-              value={input}
-              onChange={(event) => setInput(event.target.value)}
-              rows={4}
-              disabled={pending || reachedTurnLimit}
-              placeholder={
-                reachedTurnLimit
-                  ? "Conversation limit reached. Reset to ask another question."
-                  : "Ask about the current theme, position, source, or the wider corpus..."
-              }
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
-                  event.preventDefault();
-                  void onSubmit();
+        <div className="border-t border-border/70 px-5 py-4">
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void onSubmit();
+            }}
+            className="space-y-3"
+          >
+            <div className="rounded-[1.45rem] border border-border bg-panel-muted/60 px-4 py-3">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-ink-muted">
+                <SearchLg className="size-3.5" />
+                Ask or search the corpus
+              </div>
+              <textarea
+                value={input}
+                onChange={(event) => setInput(event.target.value)}
+                rows={4}
+                disabled={pending || reachedTurnLimit}
+                placeholder={
+                  reachedTurnLimit
+                    ? "Conversation limit reached. Reset to ask another question."
+                    : "Ask about the current theme, position, source, or the wider corpus..."
                 }
-              }}
-              className="mt-3 w-full resize-none bg-transparent text-sm leading-7 text-ink outline-none placeholder:text-ink-muted"
-            />
-          </div>
-          <div className="flex items-center justify-between gap-3">
-            <div className="text-xs font-semibold text-ink-muted">
-              {userTurnsCount} / {USER_TURN_LIMIT} user turns
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+                    event.preventDefault();
+                    void onSubmit();
+                  }
+                }}
+                className="mt-3 w-full resize-none bg-transparent text-sm leading-7 text-ink outline-none placeholder:text-ink-muted"
+              />
             </div>
-            <button
-              type="submit"
-              disabled={pending || reachedTurnLimit || !input.trim()}
-              className="inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-strong disabled:bg-ink-muted"
-            >
-              Ask
-              <ArrowRight className="size-4" />
-            </button>
-          </div>
-        </form>
-      </div>
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-xs font-semibold text-ink-muted">
+                Cmd/Ctrl + Enter to submit
+              </div>
+              <button
+                type="submit"
+                disabled={pending || reachedTurnLimit || !input.trim()}
+                className="inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-strong disabled:bg-ink-muted"
+              >
+                Ask
+                <ArrowRight className="size-4" />
+              </button>
+            </div>
+          </form>
+        </div>
+      </aside>
     </>
   );
 }
@@ -1057,6 +1230,21 @@ function PositionRow({ position }: { position: any }) {
   );
 }
 
+function NarrativeCard({
+  title,
+  body,
+}: {
+  title: string;
+  body: string;
+}) {
+  return (
+    <div className="rounded-[1.3rem] border border-border/75 bg-panel p-4">
+      <div className="text-sm font-semibold text-ink">{title}</div>
+      <p className="mt-2 text-sm leading-7 text-ink-soft">{body}</p>
+    </div>
+  );
+}
+
 function Metric({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="rounded-[1.25rem] border border-border/75 bg-panel p-4">
@@ -1097,42 +1285,147 @@ function LoadingState() {
   );
 }
 
-function renderAnswerBlocks(
+function renderAnswerDocument(
   text: string,
   citationMap: Map<string, string>,
   onCitationClick: (dataPointId: string) => void,
 ) {
-  return text
-    .split(/\n{2,}/)
-    .filter(Boolean)
-    .map((block, index) => {
-      const trimmed = block.trim();
-      const lines = trimmed.split("\n");
+  const lines = text.split("\n");
+  const blocks: ReactNode[] = [];
+  let index = 0;
 
-      if (lines.every((line) => line.startsWith("- "))) {
-        return (
-          <ul key={`${trimmed}-${index}`} className="space-y-3">
-            {lines.map((line) => (
-              <li key={line}>{renderInlineCitations(line.slice(2), citationMap, onCitationClick)}</li>
-            ))}
-          </ul>
+  while (index < lines.length) {
+    const current = lines[index].trim();
+
+    if (!current) {
+      index += 1;
+      continue;
+    }
+
+    if (/^(-{3,}|\*{3,})$/.test(current)) {
+      blocks.push(<hr key={`rule-${index}`} className="workspace-rule" />);
+      index += 1;
+      continue;
+    }
+
+    const headingMatch = current.match(/^(#{1,3})\s+(.*)$/);
+    if (headingMatch) {
+      const level = headingMatch[1].length;
+      const content = renderInlineRichText(
+        headingMatch[2],
+        citationMap,
+        onCitationClick,
+      );
+
+      if (level === 1) {
+        blocks.push(
+          <h1 key={`heading-${index}`} className="text-display-xs md:text-display-sm">
+            {content}
+          </h1>,
+        );
+      } else if (level === 2) {
+        blocks.push(
+          <h2 key={`heading-${index}`} className="text-2xl">
+            {content}
+          </h2>,
+        );
+      } else {
+        blocks.push(
+          <h3 key={`heading-${index}`} className="text-xl">
+            {content}
+          </h3>,
         );
       }
 
-      return (
-        <p key={`${trimmed}-${index}`}>
-          {renderInlineCitations(trimmed, citationMap, onCitationClick)}
-        </p>
+      index += 1;
+      continue;
+    }
+
+    if (current.startsWith("> ")) {
+      const quoteLines: string[] = [];
+      while (index < lines.length && lines[index].trim().startsWith("> ")) {
+        quoteLines.push(lines[index].trim().replace(/^>\s?/, ""));
+        index += 1;
+      }
+      blocks.push(
+        <blockquote key={`quote-${index}`}>
+          {renderInlineRichText(quoteLines.join(" "), citationMap, onCitationClick)}
+        </blockquote>,
       );
-    });
+      continue;
+    }
+
+    if (/^[-*]\s+/.test(current)) {
+      const items: string[] = [];
+      while (index < lines.length && /^[-*]\s+/.test(lines[index].trim())) {
+        items.push(lines[index].trim().replace(/^[-*]\s+/, ""));
+        index += 1;
+      }
+      blocks.push(
+        <ul key={`list-${index}`} className="space-y-3">
+          {items.map((item, itemIndex) => (
+            <li key={`${item}-${itemIndex}`}>
+              {renderInlineRichText(item, citationMap, onCitationClick)}
+            </li>
+          ))}
+        </ul>,
+      );
+      continue;
+    }
+
+    if (/^\d+\.\s+/.test(current)) {
+      const items: string[] = [];
+      while (index < lines.length && /^\d+\.\s+/.test(lines[index].trim())) {
+        items.push(lines[index].trim().replace(/^\d+\.\s+/, ""));
+        index += 1;
+      }
+      blocks.push(
+        <ol key={`ordered-${index}`} className="workspace-ordered-list space-y-3">
+          {items.map((item, itemIndex) => (
+            <li key={`${item}-${itemIndex}`}>
+              {renderInlineRichText(item, citationMap, onCitationClick)}
+            </li>
+          ))}
+        </ol>,
+      );
+      continue;
+    }
+
+    const paragraphLines: string[] = [];
+    while (index < lines.length) {
+      const candidate = lines[index].trim();
+      if (
+        !candidate ||
+        /^(-{3,}|\*{3,})$/.test(candidate) ||
+        /^(#{1,3})\s+/.test(candidate) ||
+        /^>\s?/.test(candidate) ||
+        /^[-*]\s+/.test(candidate) ||
+        /^\d+\.\s+/.test(candidate)
+      ) {
+        break;
+      }
+      paragraphLines.push(candidate);
+      index += 1;
+    }
+
+    blocks.push(
+      <p key={`paragraph-${index}`}>
+        {renderInlineRichText(paragraphLines.join(" "), citationMap, onCitationClick)}
+      </p>,
+    );
+  }
+
+  return blocks;
 }
 
-function renderInlineCitations(
+function renderInlineRichText(
   text: string,
   citationMap: Map<string, string>,
   onCitationClick: (dataPointId: string) => void,
 ) {
-  return text.split(/(\[DP\d+\])/g).map((part, index) => {
+  return text.split(/(\[DP\d+\]|\*\*[^*]+\*\*|`[^`]+`)/g).map((part, index) => {
+    if (!part) return null;
+
     const label = part.replace(/[\[\]]/g, "");
     const dataPointId = citationMap.get(label);
 
@@ -1149,8 +1442,116 @@ function renderInlineCitations(
       );
     }
 
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return <strong key={`${part}-${index}`}>{part.slice(2, -2)}</strong>;
+    }
+
+    if (part.startsWith("`") && part.endsWith("`")) {
+      return (
+        <code key={`${part}-${index}`} className="rounded bg-panel-muted px-1.5 py-0.5 text-[0.95em] text-ink">
+          {part.slice(1, -1)}
+        </code>
+      );
+    }
+
     return <span key={`${part}-${index}`}>{part}</span>;
   });
+}
+
+function getEvidencePaneState({
+  activeAnswer,
+  activeTheme,
+  positionDetail,
+  sourceDetail,
+  sections,
+}: {
+  activeAnswer: AssistantAnswer | null;
+  activeTheme: any;
+  positionDetail: any;
+  sourceDetail: any;
+  sections: EvidenceSection[];
+}) {
+  if (activeAnswer) {
+    return {
+      title: "Citations and supporting cards",
+      description:
+        "Every citation in the answer maps back to a card here. Cited evidence comes first, then the nearby context retrieved for grounding.",
+      emptyTitle: "Waiting on grounded evidence",
+      emptyDescription:
+        "Once the answer is generated, its cited and retrieved evidence cards will appear here.",
+    };
+  }
+
+  if (positionDetail) {
+    return {
+      title: "Evidence linked to this position",
+      description:
+        "Supporting and counter-evidence stay anchored here while you read the current stance in the main canvas.",
+      emptyTitle: "No linked evidence yet",
+      emptyDescription:
+        "This position does not have evidence cards attached yet.",
+    };
+  }
+
+  if (sourceDetail) {
+    return {
+      title: "Claims extracted from this source",
+      description:
+        "The evidence column shows every data point currently linked to this source so you can inspect its lineage without leaving the reading flow.",
+      emptyTitle: "No extracted claims yet",
+      emptyDescription:
+        "This source has not produced linked data points yet.",
+    };
+  }
+
+  if (activeTheme) {
+    return {
+      title: "Evidence will follow the position you open",
+      description:
+        "Themes organize positions, but the evidence column becomes active once you open a position or ask a question grounded in the theme.",
+      emptyTitle: "Choose a position to inspect",
+      emptyDescription:
+        "Open one of this theme’s positions to bring supporting evidence into view.",
+    };
+  }
+
+  if (sections.length > 0) {
+    return {
+      title: "Evidence in current context",
+      description:
+        "This column stays reserved for claims, quotes, and source lineage tied to what you are reading.",
+      emptyTitle: "No evidence yet",
+      emptyDescription:
+        "Open a position, source, or grounded answer to populate the evidence column.",
+    };
+  }
+
+  return {
+    title: "Evidence column",
+    description:
+      "The right column is the lineage layer. Open a position, inspect a source, or ask a grounded question to populate it.",
+    emptyTitle: "No evidence in view",
+    emptyDescription:
+      "The evidence column will populate as soon as you open a position, source, or grounded answer.",
+  };
+}
+
+function getContextKey({
+  routeKind,
+  themeId,
+  positionId,
+  sourceId,
+}: {
+  routeKind: RouteKind;
+  themeId?: Id<"researchThemes">;
+  positionId?: Id<"researchPositions">;
+  sourceId?: Id<"sources">;
+}) {
+  if (sourceId) return `source:${sourceId}`;
+  if (positionId) return `position:${positionId}`;
+  if (themeId) return `theme:${themeId}`;
+  if (routeKind === "ask") return "ask";
+  return "home";
 }
 
 function getRouteKind(pathname: string): RouteKind {
@@ -1199,22 +1600,22 @@ function getMainPaneDescription(
   sourceDetail: any,
 ) {
   if (positionDetail) {
-    return "Read the current stance here. The supporting and counter evidence stay aligned in the middle pane.";
+    return "Read the current stance here while the evidence column keeps the supporting and counter-signals in view.";
   }
 
   if (sourceDetail) {
-    return "Inspect the source record and its synthesis here while the extracted evidence cards stay visible beside it.";
+    return "Inspect the source record and synthesis here while the extracted evidence cards stay visible beside it.";
   }
 
   if (activeTheme) {
-    return "Themes gather multiple positions under one strategic thread. Open any position to switch from exploration into evidence review.";
+    return "Themes gather multiple positions under one strategic thread. Open any position to move from exploration into evidence review.";
   }
 
   if (routeKind === "ask") {
-    return "Questions start in the chat pane. The answer is written here, with citations opening the evidence cards beside it.";
+    return "Questions start in the chat overlay. The answer is written here, with citations opening the evidence cards beside it.";
   }
 
-  return "This workspace keeps exploration, evidence, and querying in one stable layout so the reader never has to reorient.";
+  return "This workspace keeps reading and evidence stable, then layers chat on top only when the user wants to query the corpus.";
 }
 
 function getSuggestions(routeKind: RouteKind) {

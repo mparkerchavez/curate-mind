@@ -72,16 +72,6 @@ export default function DataPointCard({
   return (
     <article
       id={`evidence-card-${dp._id}`}
-      onClick={onSelect}
-      onKeyDown={(event) => {
-        if (!onSelect) return;
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          onSelect();
-        }
-      }}
-      role={onSelect ? "button" : undefined}
-      tabIndex={onSelect ? 0 : undefined}
       className={cn(
         "group rounded-[1.35rem] border bg-panel p-4 shadow-[var(--shadow-float)]",
         isCounter
@@ -89,7 +79,6 @@ export default function DataPointCard({
           : "border-border/80 bg-panel/95",
         isCited && "border-accent/35 ring-1 ring-accent/18",
         isHighlighted && "border-accent bg-accent-soft/60 ring-2 ring-accent/24",
-        onSelect && "cursor-pointer",
       )}
     >
       <div className="flex items-start justify-between gap-3">
@@ -116,6 +105,21 @@ export default function DataPointCard({
           </div>
           <h3 className="text-base font-semibold leading-7 text-ink">{dp.claimText}</h3>
         </div>
+
+        {onSelect && (
+          <button
+            type="button"
+            onClick={onSelect}
+            className={cn(
+              "shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold",
+              isHighlighted
+                ? "border-accent bg-accent text-white"
+                : "border-border bg-panel text-ink-soft hover:border-accent/30 hover:text-accent",
+            )}
+          >
+            {isHighlighted ? "Focused" : "Focus card"}
+          </button>
+        )}
       </div>
 
       <div className="mt-4 rounded-[1.15rem] border border-accent/12 quote-block px-4 py-3.5">
