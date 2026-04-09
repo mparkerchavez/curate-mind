@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { TierBadge } from "./Badges";
+import { ArrowUpRight } from "@untitledui/icons";
+import { cn } from "@/lib/cn";
 
 export type SourceMeta = {
   _id: string;
@@ -17,101 +18,140 @@ export type SourceMeta = {
   sourcePagePath?: string | null;
 };
 
-function fmtDate(d?: string | null) {
-  if (!d) return null;
+function formatDate(value?: string | null) {
+  if (!value) return null;
+
   try {
-    const date = new Date(d);
-    if (isNaN(date.getTime())) return d;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
     return date.toLocaleDateString(undefined, {
-      year: "numeric",
       month: "short",
       day: "numeric",
+      year: "numeric",
     });
   } catch {
-    return d;
+    return value;
   }
 }
 
-export default function SourceBadge({ source }: { source: SourceMeta | null }) {
-  if (!source) {
-    return <div className="text-xs italic text-inkMute">Source unavailable</div>;
-  }
-  const date = fmtDate(source.publishedDate);
-  const sourcePagePath = source.sourcePagePath ?? `/sources/${source._id}`;
-  const sourceHref =
-    source.resolvedUrl ?? source.storageUrl ?? source.canonicalUrl ?? sourcePagePath;
-  const linkKind = source.resolvedLinkKind ?? (source.canonicalUrl ? "canonical" : "internal");
-  const actionLabel =
-    linkKind === "storage"
-      ? "Open source file ↗"
-      : linkKind === "canonical"
-        ? "Open original source ↗"
-        : "View source record →";
-  const hasLink = Boolean(sourceHref);
-
-  const title = source.title ?? "Untitled source";
-
-  function renderLink(content: ReactNode, className: string) {
-    if (!hasLink) {
-      return <span className={className}>{content}</span>;
-    }
-
-    if (linkKind === "internal") {
-      return (
-        <Link to={sourceHref} className={className}>
-          {content}
-        </Link>
-      );
-    }
-
+function renderLinked({
+  href,
+  linkKind,
+  className,
+  children,
+}: {
+  href: string;
+  linkKind: "storage" | "canonical" | "internal";
+  className: string;
+  children: ReactNode;
+}) {
+  if (linkKind === "internal") {
     return (
-      <a
-        href={sourceHref}
-        target="_blank"
-        rel="noreferrer noopener"
+      <Link
+        to={href}
         className={className}
+        onClick={(event) => event.stopPropagation()}
       >
-        {content}
-      </a>
+        {children}
+      </Link>
     );
   }
 
   return (
-    <div className="border-t border-rule/70 pt-3 text-xs leading-relaxed text-inkSoft">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="display text-sm font-medium text-ink">
-          {renderLink(title, "link-underline hover:text-ochreDeep")}
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer noopener"
+      className={className}
+      onClick={(event) => event.stopPropagation()}
+    >
+      {children}
+    </a>
+  );
+}
+
+export default function SourceBadge({
+  source,
+  compact = false,
+}: {
+  source: SourceMeta | null;
+  compact?: boolean;
+}) {
+  if (!source) {
+    return <div className="text-sm text-ink-muted">Source unavailable</div>;
+  }
+
+  const sourcePagePath = source.sourcePagePath ?? `/sources/${source._id}`;
+  const href =
+    source.resolvedUrl ?? source.storageUrl ?? source.canonicalUrl ?? sourcePagePath;
+  const linkKind =
+    source.resolvedLinkKind ??
+    (source.storageUrl
+      ? "storage"
+      : source.canonicalUrl
+        ? "canonical"
+        : "internal");
+  const title = source.title ?? "Untitled source";
+  const date = formatDate(source.publishedDate);
+  const sourceBits = [source.authorName, source.publisherName, date].filter(Boolean);
+  const actionLabel =
+    linkKind === "internal" ? "View source" : linkKind === "storage" ? "Open file" : "Open original";
+
+  return (
+    <div
+      className={cn(
+        "rounded-2xl border border-border/80 bg-panel-muted/80 p-3.5",
+        compact ? "space-y-2" : "space-y-3",
+      )}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="space-y-1">
+          <div className="meta-kicker">Source</div>
+          {renderLinked({
+            href,
+            linkKind,
+            className:
+              "text-sm font-semibold text-ink hover:text-accent md:text-[0.95rem]",
+            children: title,
+          })}
         </div>
-        {hasLink && (
-          renderLink(
-            actionLabel,
-            "label rounded-full border border-rule px-2.5 py-1 text-inkMute transition-colors hover:border-ochre/60 hover:text-ochreDeep"
-          )
-        )}
+
+        {renderLinked({
+          href,
+          linkKind,
+          className:
+            "inline-flex shrink-0 items-center gap-1 rounded-full border border-border bg-panel px-3 py-1.5 text-xs font-semibold text-ink-soft hover:border-accent/30 hover:text-accent",
+          children: (
+            <>
+              {actionLabel}
+              <ArrowUpRight className="size-3.5" />
+            </>
+          ),
+        })}
       </div>
-      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-inkMute">
-        {source.authorName && <span>{source.authorName}</span>}
-        {source.authorName && source.publisherName && <span>·</span>}
-        {source.publisherName && <span>{source.publisherName}</span>}
-        {date && (
-          <>
-            <span>·</span>
-            <span>{date}</span>
-          </>
-        )}
-        {source.sourceType && (
-          <>
-            <span>·</span>
-            <span className="uppercase tracking-[0.24em]">{source.sourceType}</span>
-          </>
-        )}
-        {typeof source.tier === "number" && (
-          <>
-            <span>·</span>
-            <TierBadge tier={source.tier} />
-          </>
-        )}
-      </div>
+
+      {sourceBits.length > 0 && (
+        <div className="flex flex-wrap gap-x-2 gap-y-1 text-xs text-ink-muted">
+          {sourceBits.map((bit) => (
+            <span key={bit}>{bit}</span>
+          ))}
+        </div>
+      )}
+
+      {!compact && (source.sourceType || typeof source.tier === "number") && (
+        <div className="flex flex-wrap gap-2">
+          {source.sourceType && (
+            <span className="rounded-full bg-panel px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-ink-muted">
+              {source.sourceType}
+            </span>
+          )}
+          {typeof source.tier === "number" && (
+            <span className="rounded-full bg-panel px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-ink-muted">
+              Tier {source.tier}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

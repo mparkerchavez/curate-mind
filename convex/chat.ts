@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { action, query } from "./_generated/server";
+import { action, type ActionCtx } from "./_generated/server";
 import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 
@@ -46,10 +46,28 @@ type CitedDataPoint = {
     } | null;
 };
 
+type CitationMeta = {
+  label: string;
+  dataPointId: string;
+  order: number;
+  isCited: boolean;
+};
+
+type ScopeContext = {
+  summary: string;
+  allowedDataPointIds: Set<string> | null;
+  themeId?: string;
+  positionId?: string;
+  sourceId?: string;
+};
+
 export const askGrounded = action({
   args: {
     question: v.string(),
     projectId: v.id("projects"),
+    themeId: v.optional(v.id("researchThemes")),
+    positionId: v.optional(v.id("researchPositions")),
+    sourceId: v.optional(v.id("sources")),
     conversationHistory: v.array(
       v.object({
         role: v.union(v.literal("user"), v.literal("assistant")),
@@ -62,8 +80,14 @@ export const askGrounded = action({
     args
   ): Promise<{
     answer: string;
+    citations: CitationMeta[];
     citedDataPointIds: string[];
     retrievedDataPoints: CitedDataPoint[];
+    context: {
+      themeId?: string;
+      positionId?: string;
+      sourceId?: string;
+    };
   }> => {
     const openaiKey = process.env.OPENAI_API_KEY;
     const anthropicKey = process.env.ANTHROPIC_API_KEY;
@@ -71,47 +95,27 @@ export const askGrounded = action({
     if (!anthropicKey)
       throw new Error("ANTHROPIC_API_KEY is not set in Convex env");
 
+    const scope = await resolveScopeContext(ctx, args);
+
     // 1. Embed the question
     const embedding = await embedText(args.question, openaiKey);
 
-    // 2. Vector search dataPoints (top 12)
+    // 2. Vector search dataPoints, then constrain to the active workspace scope.
     const results = await ctx.vectorSearch("dataPoints", "by_embedding", {
       vector: embedding,
-      limit: 12,
+      limit: scope.allowedDataPointIds ? 72 : 16,
     });
 
-    // 3. Hydrate data points + sources
-    const retrieved: CitedDataPoint[] = [];
-    for (const result of results) {
-      const dp = (await ctx.runQuery(api.dataPoints.getDataPoint, {
-        dataPointId: result._id as Id<"dataPoints">,
-      })) as any;
-      if (!dp) continue;
-      retrieved.push({
-        _id: String(dp._id),
-        claimText: dp.claimText,
-        anchorQuote: dp.anchorQuote,
-        evidenceType: dp.evidenceType,
-        confidence: dp.confidence,
-        extractionNote: dp.extractionNote,
-        sourceId: String(dp.sourceId),
-        source: dp.source
-          ? {
-              _id: String(dp.source._id),
-              title: dp.source.title,
-              authorName: dp.source.authorName,
-              publisherName: dp.source.publisherName,
-              canonicalUrl: dp.source.canonicalUrl,
-              publishedDate: dp.source.publishedDate,
-              storageUrl: dp.source.storageUrl,
-              resolvedUrl: dp.source.resolvedUrl,
-              resolvedLinkKind: dp.source.resolvedLinkKind,
-              sourcePagePath: dp.source.sourcePagePath,
-              tier: dp.source.tier,
-            }
-          : null,
-      });
-    }
+    const rankedIds = results.map((result) => String(result._id));
+    const scopedIds = scope.allowedDataPointIds
+      ? rankedIds.filter((id) => scope.allowedDataPointIds?.has(id))
+      : rankedIds;
+    const fallbackScopedIds =
+      scope.allowedDataPointIds && scopedIds.length === 0
+        ? Array.from(scope.allowedDataPointIds)
+        : [];
+    const retrievedIds = [...scopedIds, ...fallbackScopedIds].slice(0, 12);
+    const retrieved = await hydrateDataPoints(ctx, retrievedIds);
 
     // 4. Pull the current Research Lens for context
     const lens = (await ctx.runQuery(api.researchLens.getCurrentLens, {
@@ -164,12 +168,15 @@ export const askGrounded = action({
       "Style: precise, intellectually honest, never breathless. Write like an analyst, not a marketer. When evidence is thin, say so.",
       "",
       "When you draw on a data point, cite it inline like [DP1], [DP2], where the number matches the data point order below.",
+      "If a workspace scope is provided, stay inside that scope unless the evidence explicitly says the context is too thin.",
       "",
       "At the very end of your response, on its own line after a blank line, output a single JSON code block listing the IDs (not the DPN labels) of the data points you actually used:",
       "```json",
       '{"cited_dp_ids": ["id1", "id2"]}',
       "```",
       "If you used none of the provided evidence, return an empty array. Never include this JSON anywhere except at the very end.",
+      "",
+      scope.summary,
       "",
       lensBlock,
       "",
@@ -220,11 +227,27 @@ export const askGrounded = action({
 
     // 8. Parse: extract trailing JSON block, return prose before it
     const { answer, citedDataPointIds } = parseCitedJson(rawText);
+    const retrievedIdSet = new Set(retrieved.map((dp) => dp._id));
+    const normalizedCitedIds = citedDataPointIds.filter((id) => retrievedIdSet.has(id));
+
+    const citedSet = new Set(normalizedCitedIds);
+    const citations = retrieved.map((dp, index) => ({
+      label: `DP${index + 1}`,
+      dataPointId: dp._id,
+      order: index + 1,
+      isCited: citedSet.has(dp._id),
+    }));
 
     return {
       answer,
-      citedDataPointIds,
+      citedDataPointIds: normalizedCitedIds,
+      citations,
       retrievedDataPoints: retrieved,
+      context: {
+        themeId: scope.themeId,
+        positionId: scope.positionId,
+        sourceId: scope.sourceId,
+      },
     };
   },
 });
@@ -232,6 +255,161 @@ export const askGrounded = action({
 // ------------------------------------------------------------
 // Helpers
 // ------------------------------------------------------------
+
+async function hydrateDataPoints(
+  ctx: ActionCtx,
+  dataPointIds: string[]
+): Promise<CitedDataPoint[]> {
+  const retrieved: CitedDataPoint[] = [];
+
+  for (const dataPointId of dataPointIds) {
+    const dp = (await ctx.runQuery(api.dataPoints.getDataPoint, {
+      dataPointId: dataPointId as Id<"dataPoints">,
+    })) as any;
+
+    if (!dp) continue;
+
+    retrieved.push({
+      _id: String(dp._id),
+      claimText: dp.claimText,
+      anchorQuote: dp.anchorQuote,
+      evidenceType: dp.evidenceType,
+      confidence: dp.confidence,
+      extractionNote: dp.extractionNote,
+      sourceId: String(dp.sourceId),
+      source: dp.source
+        ? {
+            _id: String(dp.source._id),
+            title: dp.source.title,
+            authorName: dp.source.authorName,
+            publisherName: dp.source.publisherName,
+            canonicalUrl: dp.source.canonicalUrl,
+            publishedDate: dp.source.publishedDate,
+            storageUrl: dp.source.storageUrl,
+            resolvedUrl: dp.source.resolvedUrl,
+            resolvedLinkKind: dp.source.resolvedLinkKind,
+            sourcePagePath: dp.source.sourcePagePath,
+            tier: dp.source.tier,
+          }
+        : null,
+    });
+  }
+
+  return retrieved;
+}
+
+async function resolveScopeContext(
+  ctx: ActionCtx,
+  args: {
+    projectId: Id<"projects">;
+    themeId?: Id<"researchThemes">;
+    positionId?: Id<"researchPositions">;
+    sourceId?: Id<"sources">;
+  }
+): Promise<ScopeContext> {
+  if (args.sourceId) {
+    const sourceDetail = (await ctx.runQuery(api.sources.getSourceDetail, {
+      sourceId: args.sourceId,
+    })) as any;
+
+    if (!sourceDetail) {
+      return {
+        summary: "## Active Workspace Scope\nSource context unavailable.",
+        allowedDataPointIds: null,
+        sourceId: String(args.sourceId),
+      };
+    }
+
+    return {
+      summary: [
+        "## Active Workspace Scope",
+        `Source: ${sourceDetail.source.title}`,
+        sourceDetail.sourceSynthesis
+          ? `Source synthesis: ${sourceDetail.sourceSynthesis}`
+          : "",
+        "Use only evidence from this source unless the user explicitly asks to zoom back out.",
+      ]
+        .filter(Boolean)
+        .join("\n"),
+      allowedDataPointIds: new Set(
+        (sourceDetail.dataPoints ?? []).map((dp: any) => String(dp._id))
+      ),
+      sourceId: String(args.sourceId),
+    };
+  }
+
+  if (args.positionId) {
+    const positionDetail = (await ctx.runQuery(api.positions.getPositionDetail, {
+      positionId: args.positionId,
+    })) as any;
+
+    if (!positionDetail) {
+      return {
+        summary: "## Active Workspace Scope\nPosition context unavailable.",
+        allowedDataPointIds: null,
+        positionId: String(args.positionId),
+      };
+    }
+
+    const supportingIds = (positionDetail.currentVersion?.supportingEvidenceDetails ?? [])
+      .map((dp: any) => String(dp._id));
+    const counterIds = (positionDetail.currentVersion?.counterEvidenceDetails ?? [])
+      .map((dp: any) => String(dp._id));
+
+    return {
+      summary: [
+        "## Active Workspace Scope",
+        `Position: ${positionDetail.title}`,
+        positionDetail.currentVersion?.currentStance
+          ? `Current stance: ${positionDetail.currentVersion.currentStance}`
+          : "",
+        positionDetail.theme?.title ? `Theme: ${positionDetail.theme.title}` : "",
+        "Prefer evidence attached to this position. If the evidence is mixed, be explicit about supporting and counter evidence.",
+      ]
+        .filter(Boolean)
+        .join("\n"),
+      allowedDataPointIds: new Set([...supportingIds, ...counterIds]),
+      themeId: positionDetail.theme?._id ? String(positionDetail.theme._id) : undefined,
+      positionId: String(args.positionId),
+    };
+  }
+
+  if (args.themeId) {
+    const themeScope = (await ctx.runQuery(api.positions.getThemeEvidenceScope, {
+      themeId: args.themeId,
+    })) as any;
+
+    if (!themeScope) {
+      return {
+        summary: "## Active Workspace Scope\nTheme context unavailable.",
+        allowedDataPointIds: null,
+        themeId: String(args.themeId),
+      };
+    }
+
+    return {
+      summary: [
+        "## Active Workspace Scope",
+        `Theme: ${themeScope.theme.title}`,
+        themeScope.theme.description
+          ? `Theme description: ${themeScope.theme.description}`
+          : "",
+        `This theme currently contains ${themeScope.positionCount} positions.`,
+        "Stay inside this theme when synthesizing the answer.",
+      ]
+        .filter(Boolean)
+        .join("\n"),
+      allowedDataPointIds: new Set(themeScope.dataPointIds ?? []),
+      themeId: String(args.themeId),
+    };
+  }
+
+  return {
+    summary:
+      "## Active Workspace Scope\nNo narrower scope is active. Search and answer across the full corpus.",
+    allowedDataPointIds: null,
+  };
+}
 
 async function embedText(text: string, apiKey: string): Promise<number[]> {
   const r = await fetch("https://api.openai.com/v1/embeddings", {

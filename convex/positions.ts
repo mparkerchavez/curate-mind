@@ -350,6 +350,40 @@ export const getPositionsByTheme = query({
   },
 });
 
+export const getThemeEvidenceScope = query({
+  args: { themeId: v.id("researchThemes") },
+  handler: async (ctx, args) => {
+    const theme = await ctx.db.get(args.themeId);
+    if (!theme) return null;
+
+    const positions = await ctx.db
+      .query("researchPositions")
+      .withIndex("by_themeId", (q) => q.eq("themeId", args.themeId))
+      .collect();
+
+    const dataPointIds = new Set<string>();
+    for (const position of positions) {
+      const currentVersion = position.currentVersionId
+        ? await ctx.db.get(position.currentVersionId)
+        : null;
+
+      for (const dpId of currentVersion?.supportingEvidence ?? []) {
+        dataPointIds.add(String(dpId));
+      }
+
+      for (const dpId of currentVersion?.counterEvidence ?? []) {
+        dataPointIds.add(String(dpId));
+      }
+    }
+
+    return {
+      theme,
+      dataPointIds: Array.from(dataPointIds),
+      positionCount: positions.length,
+    };
+  },
+});
+
 // ============================================================
 // List all positions across all themes (Layer 1 summary)
 // ============================================================

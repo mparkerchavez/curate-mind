@@ -1,6 +1,6 @@
 # Curate Mind — Web Frontend
 
-A React + Vite + Tailwind explorer for the Curate Mind Convex backend. Two experiences: a research browser that traces positions down to verbatim source quotes, and a grounded chat interface that answers questions strictly from the curated corpus.
+A React + Vite + Tailwind 4 explorer for the Curate Mind Convex backend. The UI now runs as a single three-column workspace: the main reading pane, a persistent evidence pane, and a context-aware chat pane that writes answers back into the main canvas.
 
 ## Run locally
 
@@ -11,7 +11,7 @@ echo 'VITE_CONVEX_URL=https://your-deployment.convex.cloud' > .env.local
 npm run dev
 ```
 
-The app boots at http://localhost:5173.
+The app boots at http://localhost:5000.
 
 If you have multiple projects in the Convex deployment, set `VITE_CURATE_MIND_PROJECT_ID` to lock the app to one. Otherwise it picks the first project from `api.projects.listProjects`.
 
@@ -78,10 +78,10 @@ npm run source-links:apply
 
 ## Design notes
 
-- **Light editorial palette**: warm paper background, deep ink, single ochre accent. Fraunces (display + pull quotes), IBM Plex Sans (body), JetBrains Mono (labels).
-- **Pull-quote anchors**: `.pullquote` styles every verbatim quote as a left-bordered block with an oversized opening quote — they should feel like evidence, not footnotes.
-- **Lineage spine**: a thin vertical rule on `LineageView` links the position header → supporting evidence → counter-evidence visually.
-- **Subtle status colors**: ochre/sage/ink with low-saturation borders, never traffic-light.
+- **Three-column workspace**: the main pane is the reading canvas, the middle pane is always evidence, and the right pane is always chat.
+- **Progressive disclosure**: browsing and asking share the same evidence behavior. Citation chips in answers jump to evidence cards in the middle pane.
+- **Evidence-first cards**: each data point card is ordered around interpretation, verbatim quote, source access, and curator note; secondary metadata is collapsed.
+- **Tailwind 4 + Untitled UI foundation**: the app uses the Tailwind Vite plugin, CSS theme tokens, and Untitled UI icons/packages instead of the old Tailwind 3 config.
 
 ## Data model assumptions to verify
 

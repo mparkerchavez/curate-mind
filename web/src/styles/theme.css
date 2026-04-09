@@ -1,0 +1,61 @@
+@theme {
+  --font-body: "Manrope", "Segoe UI", sans-serif;
+  --font-display: "Newsreader", Georgia, serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  --color-canvas: #f3f4f7;
+  --color-canvas-strong: #e7ebf2;
+  --color-panel: #ffffff;
+  --color-panel-muted: #f7f8fb;
+  --color-panel-strong: #eef2f8;
+  --color-border: #d7dde8;
+  --color-border-strong: #bcc7d9;
+  --color-ink: #111827;
+  --color-ink-soft: #445063;
+  --color-ink-muted: #66758d;
+  --color-accent: #315efb;
+  --color-accent-soft: #e8eeff;
+  --color-accent-strong: #2447c8;
+  --color-success: #0f9f6e;
+  --color-success-soft: #e9faf4;
+  --color-warning: #c17a09;
+  --color-warning-soft: #fff6df;
+  --color-danger: #c2415b;
+  --color-danger-soft: #fff0f4;
+  --color-quote: #f8fbff;
+
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1rem;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.375rem;
+  --text-md: 1rem;
+  --text-md--line-height: 1.625rem;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.875rem;
+  --text-xl: 1.25rem;
+  --text-xl--line-height: 1.875rem;
+  --text-display-xs: 1.625rem;
+  --text-display-xs--line-height: 2rem;
+  --text-display-sm: 2rem;
+  --text-display-sm--line-height: 2.35rem;
+  --text-display-md: 2.6rem;
+  --text-display-md--line-height: 2.9rem;
+  --text-display-lg: 3.25rem;
+  --text-display-lg--line-height: 3.45rem;
+
+  --radius-sm: 0.5rem;
+  --radius-md: 0.875rem;
+  --radius-lg: 1.125rem;
+  --radius-xl: 1.5rem;
+  --radius-2xl: 1.875rem;
+  --radius-full: 9999px;
+
+  --shadow-panel: 0 24px 80px -44px rgba(17, 24, 39, 0.3);
+  --shadow-float: 0 18px 40px -26px rgba(17, 24, 39, 0.24);
+
+  --spacing-pane: 1.25rem;
+  --spacing-page-x: clamp(1rem, 1vw + 0.8rem, 1.5rem);
+  --spacing-page-y: clamp(1rem, 1vw + 0.9rem, 1.5rem);
+}
