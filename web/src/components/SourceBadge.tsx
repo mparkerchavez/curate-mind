@@ -97,11 +97,43 @@ export default function SourceBadge({
   const actionLabel =
     linkKind === "internal" ? "View source" : linkKind === "storage" ? "Open file" : "Open original";
 
+  if (compact) {
+    return (
+      <div className="trace-node">
+        <div className="trace-node-header">
+          <span className="trace-node-id">Source</span>
+          {renderLinked({
+            href,
+            linkKind,
+            className: "trace-action-button",
+            children: (
+              <>
+                {actionLabel}
+                <ArrowUpRight className="size-3.5" />
+              </>
+            ),
+          })}
+        </div>
+
+        {renderLinked({
+          href,
+          linkKind,
+          className: "trace-node-claim",
+          children: title,
+        })}
+
+        {sourceBits.length > 0 && (
+          <p className="trace-node-anchor">{sourceBits.join(" · ")}</p>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div
       className={cn(
         "rounded-[1.35rem] border browser-card p-4",
-        compact ? "space-y-2.5" : "space-y-3",
+        "space-y-3",
       )}
     >
       <div className="flex items-start justify-between gap-3">

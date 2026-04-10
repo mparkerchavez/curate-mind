@@ -1,5 +1,5 @@
-import { ChevronDown, ChevronUp } from "@untitledui/icons";
-import { useMemo, useState } from "react";
+import { ChevronDown } from "@untitledui/icons";
+import { useEffect, useMemo, useState } from "react";
 import SourceBadge, { SourceMeta } from "./SourceBadge";
 import { cn } from "@/lib/cn";
 
@@ -32,6 +32,7 @@ export default function DataPointCard({
   label,
   index,
   onSelect,
+  defaultOpen = false,
 }: {
   dp: DataPointForCard;
   variant?: "support" | "counter";
@@ -40,8 +41,9 @@ export default function DataPointCard({
   label?: string;
   index?: number;
   onSelect?: () => void;
+  defaultOpen?: boolean;
 }) {
-  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(defaultOpen || isHighlighted);
   const source = useMemo<SourceMeta | null>(
     () =>
       dp.source ??
@@ -68,120 +70,107 @@ export default function DataPointCard({
 
   const resolvedLabel =
     label ?? (typeof index === "number" ? `DP ${String(index + 1).padStart(2, "0")}` : undefined);
+  const sourceTitle = source?.title ?? dp.sourceTitle ?? "Source unavailable";
+
+  useEffect(() => {
+    if (isHighlighted) {
+      setDetailsOpen(true);
+    }
+  }, [isHighlighted]);
 
   return (
     <article
       id={`evidence-card-${dp._id}`}
       className={cn(
-        "group rounded-[1.45rem] border p-4 transition-colors duration-200",
+        "trace-item",
         isCounter
-          ? "border-warning/35 bg-warning-soft/72"
-          : "evidence-frame",
-        isCited && "border-accent/35 shadow-[0_18px_36px_-28px_rgba(49,94,251,0.45)]",
-        isHighlighted &&
-          "border-accent bg-accent-soft/55 ring-1 ring-accent/28 shadow-[0_20px_40px_-28px_rgba(49,94,251,0.55)]",
+          ? "border-warning/35 bg-warning-soft/65"
+          : "",
+        isCited && "is-cited",
+        isHighlighted && "is-highlighted",
+        detailsOpen && "is-open",
       )}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
-            {resolvedLabel && (
-              <span className="count-chip rounded-full px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.18em]">
-                {resolvedLabel}
-              </span>
-            )}
-            <span
-              className={cn(
-                "rounded-full border px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.18em]",
-                isCounter
-                  ? "border-warning/28 bg-warning-soft text-warning"
-                  : "border-border/80 bg-panel text-ink-muted",
-              )}
-            >
-              {isCounter ? "Counter evidence" : "Evidence"}
-            </span>
-            {isCited && (
-              <span className="rounded-full border border-accent/25 bg-accent-soft px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-accent">
-                Cited
-              </span>
-            )}
-          </div>
-          <h3 className="text-[1.08rem] font-semibold leading-8 text-ink">{dp.claimText}</h3>
-        </div>
-
-        {onSelect && (
-          <button
-            type="button"
-            onClick={onSelect}
-            className={cn(
-              "shrink-0 rounded-full border px-3 py-1.5 text-[0.72rem] font-semibold uppercase tracking-[0.12em]",
-              isHighlighted
-                ? "border-accent bg-accent text-white"
-                : "border-border bg-panel text-ink-soft hover:border-accent/30 hover:text-accent",
-            )}
-          >
-            {isHighlighted ? "Focused" : "Focus card"}
-          </button>
-        )}
-      </div>
-
-      <div className="mt-4 rounded-[1.2rem] border border-accent/12 quote-block px-4 py-3.5">
-        <div className="meta-kicker text-accent">Verbatim text</div>
-        <blockquote className="mt-2 text-[0.96rem] leading-7 text-ink-soft">
-          "{dp.anchorQuote}"
-        </blockquote>
-      </div>
-
-      <div className="mt-4">
-        <SourceBadge source={source} compact />
-      </div>
-
-      {dp.extractionNote && (
-        <div className="mt-4 rounded-[1.2rem] border border-border/80 bg-panel-muted/88 px-4 py-3.5">
-          <div className="meta-kicker">Curator note</div>
-          <p className="mt-2 text-sm leading-7 text-ink-soft">{dp.extractionNote}</p>
-        </div>
-      )}
-
-      <div className="mt-4 rounded-[1.15rem] border border-border/75 bg-panel/70">
-        <button
-          type="button"
-          onClick={(event) => {
-            event.stopPropagation();
-            setDetailsOpen((open) => !open);
-          }}
-          className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-panel-muted/60"
-        >
-          <span className="text-[0.7rem] font-semibold uppercase tracking-[0.22em] text-ink-muted">
-            Secondary metadata
+      <details
+        className="trace-details"
+        open={detailsOpen}
+        onToggle={(event) => setDetailsOpen((event.currentTarget as HTMLDetailsElement).open)}
+      >
+        <summary className="trace-summary">
+          <span className="trace-summary-source">{sourceTitle}</span>
+          <span className="trace-toggle" aria-hidden="true">
+            <ChevronDown className="size-4" />
           </span>
-          {detailsOpen ? (
-            <ChevronUp className="size-4 text-ink-muted" />
-          ) : (
-            <ChevronDown className="size-4 text-ink-muted" />
-          )}
-        </button>
+          <p className="trace-summary-text">{dp.claimText}</p>
+          <span className="trace-summary-meta">
+            {resolvedLabel && <span className="trace-chip">{resolvedLabel}</span>}
+            <span className={cn("trace-chip", isCounter && "is-warning")}>
+              {isCounter ? "Counter" : "Evidence"}
+            </span>
+            {isCited && <span className="trace-chip is-accent">Cited</span>}
+            {dp.confidence && <span className="trace-chip">Conf {dp.confidence}</span>}
+          </span>
+        </summary>
 
-        {detailsOpen && (
-          <div className="border-t border-border/70 bg-panel-muted/56 px-4 py-3">
+        <div className="trace-body">
+          <article className="trace-node">
+            <div className="trace-node-header">
+              <span className="trace-node-id">{resolvedLabel ?? "DP"}</span>
+            </div>
+            <p className="trace-node-claim">{dp.claimText}</p>
+            <p className="trace-node-anchor">Anchor: "{dp.anchorQuote}"</p>
+          </article>
+
+          <SourceBadge source={source} compact />
+
+          {dp.extractionNote && (
+            <article className="trace-node trace-note-card">
+              <div className="trace-node-header">
+                <span className="trace-node-id">Curator note</span>
+              </div>
+              <p className="trace-note">{dp.extractionNote}</p>
+            </article>
+          )}
+
+          <article className="trace-node">
+            <div className="trace-node-header">
+              <span className="trace-node-id">Secondary metadata</span>
+            </div>
             <div className="flex flex-wrap gap-2">
               <SecondaryPill label={dp.evidenceType.replace("-", " ")} />
-              {dp.confidence && <SecondaryPill label={`confidence ${dp.confidence}`} />}
               {dp.sourceType && <SecondaryPill label={dp.sourceType} />}
               {typeof source?.tier === "number" && (
                 <SecondaryPill label={`tier ${source.tier}`} />
               )}
             </div>
-          </div>
-        )}
-      </div>
+          </article>
+
+          {onSelect && (
+            <div className="trace-actions">
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onSelect();
+                }}
+                className={cn(
+                  "trace-action-button",
+                  isHighlighted && "border-accent/30 text-accent",
+                )}
+              >
+                {isHighlighted ? "Focused" : "Focus card"}
+              </button>
+            </div>
+          )}
+        </div>
+      </details>
     </article>
   );
 }
 
 function SecondaryPill({ label }: { label: string }) {
   return (
-    <span className="count-chip rounded-full px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.18em]">
+    <span className="trace-chip">
       {label}
     </span>
   );

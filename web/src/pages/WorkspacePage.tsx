@@ -904,15 +904,15 @@ function EvidencePane({
             <p className="mt-3 text-sm leading-7 text-ink-soft">{state.emptyDescription}</p>
           </div>
         ) : (
-          <div className="space-y-5">
+          <div className="trace-doc">
             {sections.map((section) => (
               <section
                 key={section.key}
-                className="rounded-[1.45rem] border border-border/75 bg-panel/55 p-4"
+                className="trace-section"
               >
-                <div className="flex items-start justify-between gap-3 border-b border-border/70 pb-3">
+                <div className="trace-identity-row border-b border-border/70 pb-3">
                   <div>
-                    <div className="meta-kicker">{section.title}</div>
+                    <div className="trace-section-title">{section.title}</div>
                     <p className="mt-1 text-sm leading-6 text-ink-soft">{section.subtitle}</p>
                   </div>
                   <div className="count-chip rounded-full px-3 py-1 text-xs font-semibold">
@@ -920,18 +920,22 @@ function EvidencePane({
                   </div>
                 </div>
 
-                <div className="mt-4 space-y-3">
-                  {section.items.map((item, index) => (
-                    <DataPointCard
-                      key={item._id}
-                      dp={item}
-                      variant={section.variant}
-                      isHighlighted={highlightedEvidenceId === item._id}
-                      isCited={section.cited}
-                      onSelect={() => onSelectEvidence(item._id)}
-                      label={`${section.cited ? "DP" : section.variant === "counter" ? "CT" : "EV"} ${String(index + 1).padStart(2, "0")}`}
-                    />
-                  ))}
+                <div className="mt-4">
+                  <ol className="trace-list">
+                    {section.items.map((item, index) => (
+                      <li key={item._id} className="list-none">
+                        <DataPointCard
+                          dp={item}
+                          variant={section.variant}
+                          isHighlighted={highlightedEvidenceId === item._id}
+                          isCited={section.cited}
+                          onSelect={() => onSelectEvidence(item._id)}
+                          defaultOpen={index === 0 || highlightedEvidenceId === item._id}
+                          label={`${section.cited ? "DP" : section.variant === "counter" ? "CT" : "EV"} ${String(index + 1).padStart(2, "0")}`}
+                        />
+                      </li>
+                    ))}
+                  </ol>
                 </div>
               </section>
             ))}
