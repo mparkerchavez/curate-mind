@@ -1,0 +1,75 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - img [ref=e8]
+        - generic [ref=e10]:
+          - generic [ref=e11]: Curate Mind workspace
+          - heading "Calm research cockpit" [level=1] [ref=e13]
+          - paragraph [ref=e14]: Read in the main canvas, keep evidence anchored beside it, and open chat above the context only when you need to query the corpus.
+      - navigation [ref=e15]:
+        - link "Workspace" [ref=e16] [cursor=pointer]:
+          - /url: /
+          - img [ref=e17]
+          - text: Workspace
+        - link "Themes" [ref=e19] [cursor=pointer]:
+          - /url: /browse
+          - img [ref=e20]
+          - text: Themes
+        - button "Open chat" [ref=e22] [cursor=pointer]:
+          - img [ref=e23]
+          - text: Open chat
+  - generic [ref=e25]:
+    - button "Main" [ref=e26] [cursor=pointer]
+    - button "Evidence" [ref=e27] [cursor=pointer]
+    - button "Ask" [ref=e28] [cursor=pointer]:
+      - img [ref=e29]
+      - text: Ask
+  - generic [ref=e34]:
+    - generic [ref=e35]:
+      - img [ref=e37]
+      - generic [ref=e39]:
+        - generic [ref=e40]: Reading canvas
+        - heading "Browse research themes" [level=2] [ref=e41]
+        - paragraph [ref=e42]: Use the left rail to scan themes, then review the selected thread as a structured detail document without leaving the workspace shell.
+    - generic [ref=e43]: Theme browser
+  - dialog "Ask with context" [ref=e49]:
+    - generic [ref=e50]:
+      - generic [ref=e51]:
+        - generic [ref=e52]:
+          - generic [ref=e53]: Chat overlay
+          - heading "Ask with live context" [level=2] [ref=e54]
+          - paragraph [ref=e55]: The answer writes into the main canvas while this overlay keeps the prompt flow, history, and scope controls in one place.
+        - button "Close" [ref=e56] [cursor=pointer]
+      - generic [ref=e57]:
+        - generic [ref=e58]: Theme browser
+        - generic [ref=e59]: 0 / 4 turns
+    - generic [ref=e60]:
+      - generic [ref=e61]:
+        - generic [ref=e63]:
+          - generic [ref=e64]: Suggested prompts
+          - paragraph [ref=e65]: Start narrow, then use the evidence column to verify what the answer relied on.
+        - generic [ref=e66]:
+          - button "Which theme has the strongest current research posture?" [ref=e67] [cursor=pointer]:
+            - generic [ref=e68]: Which theme has the strongest current research posture?
+            - img [ref=e69]
+          - button "Where are the most active positions right now?" [ref=e71] [cursor=pointer]:
+            - generic [ref=e72]: Where are the most active positions right now?
+            - img [ref=e73]
+          - button "Which theme looks under-developed and needs more evidence?" [ref=e75] [cursor=pointer]:
+            - generic [ref=e76]: Which theme looks under-developed and needs more evidence?
+            - img [ref=e77]
+      - generic [ref=e79]:
+        - generic [ref=e81]: Conversation
+        - paragraph [ref=e83]: Ask a question from the current context. The answer will replace the main canvas and line up its cited cards in the evidence column.
+    - generic [ref=e85]:
+      - generic [ref=e86]:
+        - generic [ref=e87]:
+          - img [ref=e88]
+          - text: Ask or search the corpus
+        - textbox "Ask about the current theme, position, source, or the wider corpus..." [ref=e90]
+      - generic [ref=e91]:
+        - generic [ref=e92]: Cmd/Ctrl + Enter to submit
+        - button "Ask" [disabled] [ref=e93]:
+          - text: Ask
+          - img [ref=e94]

@@ -1,0 +1,50 @@
+[     362ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://127.0.0.1:5004/node_modules/.vite/deps/chunk-PJEEZAML.js?v=ebe77f24:21550
+[     391ms] [WARNING] ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition. @ http://127.0.0.1:5004/node_modules/.vite/deps/react-router-dom.js?v=ebe77f24:4435
+[     391ms] [WARNING] ⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath. @ http://127.0.0.1:5004/node_modules/.vite/deps/react-router-dom.js?v=ebe77f24:4435
+[     404ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:5004/favicon.ico:0
+[  350444ms] ReferenceError: Cannot access 'themes' before initialization
+    at WorkspacePage (http://127.0.0.1:5004/src/pages/WorkspacePage.tsx?t=1775844562585:53:6)
+    at renderWithHooks (http://127.0.0.1:5004/node_modules/.vite/deps/chunk-PJEEZAML.js?v=ebe77f24:11548:26)
+    at mountIndeterminateComponent (http://127.0.0.1:5004/node_modules/.vite/deps/chunk-PJEEZAML.js?v=ebe77f24:14926:21)
+    at beginWork (http://127.0.0.1:5004/node_modules/.vite/deps/chunk-PJEEZAML.js?v=ebe77f24:15914:22)
+    at HTMLUnknownElement.callCallback2 (http://127.0.0.1:5004/node_modules/.vite/deps/chunk-PJEEZAML.js?v=ebe77f24:3674:22)
+    at Object.invokeGuardedCallbackDev (http://127.0.0.1:5004/node_modules/.vite/deps/chunk-PJEEZAML.js?v=ebe77f24:3699:24)
+    at invokeGuardedCallback (http://127.0.0.1:5004/node_modules/.vite/deps/chunk-PJEEZAML.js?v=ebe77f24:3733:39)
+    at beginWork$1 (http://127.0.0.1:5004/node_modules/.vite/deps/chunk-PJEEZAML.js?v=ebe77f24:19765:15)
+    at performUnitOfWork (http://127.0.0.1:5004/node_modules/.vite/deps/chunk-PJEEZAML.js?v=ebe77f24:19198:20)
+    at workLoopSync (http://127.0.0.1:5004/node_modules/.vite/deps/chunk-PJEEZAML.js?v=ebe77f24:19137:13)
+[  350446ms] ReferenceError: Cannot access 'themes' before initialization
+    at WorkspacePage (http://127.0.0.1:5004/src/pages/WorkspacePage.tsx?t=1775844562585:53:6)
+    at renderWithHooks (http://127.0.0.1:5004/node_modules/.vite/deps/chunk-PJEEZAML.js?v=ebe77f24:11548:26)
+    at mountIndeterminateComponent (http://127.0.0.1:5004/node_modules/.vite/deps/chunk-PJEEZAML.js?v=ebe77f24:14926:21)
+    at beginWork (http://127.0.0.1:5004/node_modules/.vite/deps/chunk-PJEEZAML.js?v=ebe77f24:15914:22)
+    at HTMLUnknownElement.callCallback2 (http://127.0.0.1:5004/node_modules/.vite/deps/chunk-PJEEZAML.js?v=ebe77f24:3674:22)
+    at Object.invokeGuardedCallbackDev (http://127.0.0.1:5004/node_modules/.vite/deps/chunk-PJEEZAML.js?v=ebe77f24:3699:24)
+    at invokeGuardedCallback (http://127.0.0.1:5004/node_modules/.vite/deps/chunk-PJEEZAML.js?v=ebe77f24:3733:39)
+    at beginWork$1 (http://127.0.0.1:5004/node_modules/.vite/deps/chunk-PJEEZAML.js?v=ebe77f24:19765:15)
+    at performUnitOfWork (http://127.0.0.1:5004/node_modules/.vite/deps/chunk-PJEEZAML.js?v=ebe77f24:19198:20)
+    at workLoopSync (http://127.0.0.1:5004/node_modules/.vite/deps/chunk-PJEEZAML.js?v=ebe77f24:19137:13)
+[  350446ms] [ERROR] The above error occurred in the <WorkspacePage> component:
+
+    at WorkspacePage (http://127.0.0.1:5004/src/pages/WorkspacePage.tsx?t=1775844562585:39:47)
+    at RenderedRoute (http://127.0.0.1:5004/node_modules/.vite/deps/react-router-dom.js?v=ebe77f24:4131:5)
+    at Routes (http://127.0.0.1:5004/node_modules/.vite/deps/react-router-dom.js?v=ebe77f24:4601:5)
+    at ProjectProvider (http://127.0.0.1:5004/src/ProjectContext.tsx:27:35)
+    at App
+    at Router (http://127.0.0.1:5004/node_modules/.vite/deps/react-router-dom.js?v=ebe77f24:4544:15)
+    at BrowserRouter (http://127.0.0.1:5004/node_modules/.vite/deps/react-router-dom.js?v=ebe77f24:5290:5)
+    at ConvexProvider (http://127.0.0.1:5004/node_modules/.vite/deps/convex_react.js?v=ebe77f24:3664:25)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries. @ http://127.0.0.1:5004/node_modules/.vite/deps/chunk-PJEEZAML.js?v=ebe77f24:14031
+[  350447ms] ReferenceError: Cannot access 'themes' before initialization
+    at WorkspacePage (http://127.0.0.1:5004/src/pages/WorkspacePage.tsx?t=1775844562585:53:6)
+    at renderWithHooks (http://127.0.0.1:5004/node_modules/.vite/deps/chunk-PJEEZAML.js?v=ebe77f24:11548:26)
+    at mountIndeterminateComponent (http://127.0.0.1:5004/node_modules/.vite/deps/chunk-PJEEZAML.js?v=ebe77f24:14926:21)
+    at beginWork (http://127.0.0.1:5004/node_modules/.vite/deps/chunk-PJEEZAML.js?v=ebe77f24:15914:22)
+    at beginWork$1 (http://127.0.0.1:5004/node_modules/.vite/deps/chunk-PJEEZAML.js?v=ebe77f24:19753:22)
+    at performUnitOfWork (http://127.0.0.1:5004/node_modules/.vite/deps/chunk-PJEEZAML.js?v=ebe77f24:19198:20)
+    at workLoopSync (http://127.0.0.1:5004/node_modules/.vite/deps/chunk-PJEEZAML.js?v=ebe77f24:19137:13)
+    at renderRootSync (http://127.0.0.1:5004/node_modules/.vite/deps/chunk-PJEEZAML.js?v=ebe77f24:19116:15)
+    at recoverFromConcurrentError (http://127.0.0.1:5004/node_modules/.vite/deps/chunk-PJEEZAML.js?v=ebe77f24:18736:28)
+    at performSyncWorkOnRoot (http://127.0.0.1:5004/node_modules/.vite/deps/chunk-PJEEZAML.js?v=ebe77f24:18879:28)

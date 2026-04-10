@@ -17,7 +17,7 @@ import { useProject } from "@/ProjectContext";
 import { api, Id } from "@/api";
 import { cn } from "@/lib/cn";
 
-type RouteKind = "home" | "theme" | "position" | "source" | "ask";
+type RouteKind = "home" | "browse" | "theme" | "position" | "source" | "ask";
 type PaneMode = "main" | "evidence";
 
 type ChatCitation = {
@@ -71,22 +71,35 @@ export default function WorkspacePage() {
   const themeRecordId = themeId as Id<"researchThemes"> | undefined;
   const positionRecordId = positionId as Id<"researchPositions"> | undefined;
   const sourceRecordId = sourceId as Id<"sources"> | undefined;
-  const contextKey = getContextKey({
-    routeKind,
-    themeId: themeRecordId,
-    positionId: positionRecordId,
-    sourceId: sourceRecordId,
-  });
+  const [browseSelectedThemeId, setBrowseSelectedThemeId] = useState<Id<"researchThemes"> | null>(null);
 
   const askGrounded = useAction(api.chat.askGrounded);
   const themes = useQuery(
     api.positions.getThemes,
     projectId ? { projectId } : "skip",
   );
+  const sortedThemes = useMemo(
+    () =>
+      [...(themes ?? [])].sort((left: any, right: any) => {
+        const countDiff = (right.positionCount ?? 0) - (left.positionCount ?? 0);
+        if (countDiff !== 0) return countDiff;
+        return String(left.title ?? "").localeCompare(String(right.title ?? ""));
+      }),
+    [themes],
+  );
+  const browseThemeRecordId =
+    routeKind === "browse" ? (browseSelectedThemeId ?? undefined) : undefined;
+  const selectedThemeRecordId = themeRecordId ?? browseThemeRecordId;
+  const contextKey = getContextKey({
+    routeKind,
+    themeId: selectedThemeRecordId,
+    positionId: positionRecordId,
+    sourceId: sourceRecordId,
+  });
   const allPositions = useQuery(api.positions.listAllPositions, projectId ? {} : "skip");
   const themePositions = useQuery(
     api.positions.getPositionsByTheme,
-    themeRecordId ? { themeId: themeRecordId } : "skip",
+    selectedThemeRecordId ? { themeId: selectedThemeRecordId } : "skip",
   );
   const positionDetail = useQuery(
     api.positions.getPositionDetail,
@@ -97,8 +110,23 @@ export default function WorkspacePage() {
     sourceRecordId ? { sourceId: sourceRecordId } : "skip",
   );
 
+  useEffect(() => {
+    if (routeKind !== "browse") return;
+    if (!sortedThemes.length) return;
+
+    const hasSelectedTheme = browseSelectedThemeId
+      ? sortedThemes.some((theme: any) => String(theme._id) === String(browseSelectedThemeId))
+      : false;
+
+    if (!hasSelectedTheme) {
+      setBrowseSelectedThemeId(sortedThemes[0]._id);
+    }
+  }, [browseSelectedThemeId, routeKind, sortedThemes]);
+
   const activeTheme =
-    themes?.find((theme: any) => String(theme._id) === themeId) ?? positionDetail?.theme ?? null;
+    routeKind === "browse"
+      ? sortedThemes.find((theme: any) => String(theme._id) === String(browseSelectedThemeId)) ?? null
+      : themes?.find((theme: any) => String(theme._id) === themeId) ?? positionDetail?.theme ?? null;
 
   const [turns, setTurns] = useState<Turn[]>([]);
   const [activeAnswer, setActiveAnswer] = useState<AssistantAnswer | null>(null);
@@ -141,9 +169,9 @@ export default function WorkspacePage() {
   const scopeArgs = useMemo(() => {
     if (sourceRecordId) return { sourceId: sourceRecordId };
     if (positionRecordId) return { positionId: positionRecordId };
-    if (themeRecordId) return { themeId: themeRecordId };
+    if (selectedThemeRecordId) return { themeId: selectedThemeRecordId };
     return {};
-  }, [positionRecordId, sourceRecordId, themeRecordId]);
+  }, [positionRecordId, selectedThemeRecordId, sourceRecordId]);
 
   const scopeLabel = getScopeLabel({
     routeKind,
@@ -220,6 +248,14 @@ export default function WorkspacePage() {
 
   const userTurnsCount = turns.filter((turn) => turn.role === "user").length;
   const reachedTurnLimit = userTurnsCount >= USER_TURN_LIMIT;
+  const isMainLoading =
+    loading ||
+    themes === undefined ||
+    allPositions === undefined ||
+    (routeKind === "browse" && sortedThemes.length > 0 && !browseSelectedThemeId) ||
+    (selectedThemeRecordId ? themePositions === undefined : false) ||
+    (positionRecordId ? positionDetail === undefined : false) ||
+    (sourceRecordId ? sourceDetail === undefined : false);
 
   async function handleAskQuestion(questionText?: string) {
     const question = (questionText ?? input).trim();
@@ -343,12 +379,14 @@ export default function WorkspacePage() {
           )}
         >
           <MainPane
-            loading={loading}
+            loading={isMainLoading}
             routeKind={routeKind}
-            themes={themes ?? []}
+            themes={sortedThemes}
             allPositions={allPositions ?? []}
             activeTheme={activeTheme}
             themePositions={themePositions ?? []}
+            browseSelectedThemeId={browseSelectedThemeId}
+            onSelectBrowseTheme={setBrowseSelectedThemeId}
             positionDetail={positionDetail}
             sourceDetail={sourceDetail}
             activeAnswer={activeAnswer}
@@ -443,7 +481,7 @@ function WorkspaceTopbar({
             <HomeLine className="size-4" />
             Workspace
           </TopbarLink>
-          <TopbarLink to="/browse" active={routeKind === "theme"}>
+          <TopbarLink to="/browse" active={routeKind === "browse" || routeKind === "theme"}>
             <Compass01 className="size-4" />
             Themes
           </TopbarLink>
@@ -503,6 +541,8 @@ function MainPane({
   allPositions,
   activeTheme,
   themePositions,
+  browseSelectedThemeId,
+  onSelectBrowseTheme,
   positionDetail,
   sourceDetail,
   activeAnswer,
@@ -516,6 +556,8 @@ function MainPane({
   allPositions: any[];
   activeTheme: any;
   themePositions: any[];
+  browseSelectedThemeId: Id<"researchThemes"> | null;
+  onSelectBrowseTheme: (themeId: Id<"researchThemes">) => void;
   positionDetail: any;
   sourceDetail: any;
   activeAnswer: AssistantAnswer | null;
@@ -560,6 +602,15 @@ function MainPane({
           <LoadingState />
         ) : activeAnswer ? (
           <AnswerDocument answerState={activeAnswer} onCitationClick={onCitationClick} />
+        ) : routeKind === "browse" ? (
+          <BrowseDocument
+            themes={themes}
+            selectedTheme={activeTheme}
+            selectedThemeId={browseSelectedThemeId}
+            themePositions={themePositions}
+            allPositions={allPositions}
+            onSelectTheme={onSelectBrowseTheme}
+          />
         ) : positionDetail ? (
           <PositionDocument positionDetail={positionDetail} />
         ) : sourceDetail ? (
@@ -605,6 +656,195 @@ function PaneHeader({
           </div>
         </div>
         {action}
+      </div>
+    </div>
+  );
+}
+
+function BrowseDocument({
+  themes,
+  selectedTheme,
+  selectedThemeId,
+  themePositions,
+  allPositions,
+  onSelectTheme,
+}: {
+  themes: any[];
+  selectedTheme: any;
+  selectedThemeId: Id<"researchThemes"> | null;
+  themePositions: any[];
+  allPositions: any[];
+  onSelectTheme: (themeId: Id<"researchThemes">) => void;
+}) {
+  const featuredPositions = [...themePositions]
+    .sort((left, right) => comparePositionsByFreshness(left, right))
+    .slice(0, 2);
+  const posture = getThemePosture(themePositions);
+
+  if (!themes.length) {
+    return (
+      <div className="browse-empty-state">
+        <div className="meta-kicker">No themes yet</div>
+        <p className="mt-3 text-sm leading-7 text-ink-soft">
+          Create research themes first, then this browse surface will turn into a CRIS-style
+          master-detail workspace for scanning them.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="browse-layout">
+      <aside className="browse-list-panel">
+        <div className="browse-list-header">
+          <div className="meta-kicker">Browse by theme</div>
+          <h3 className="mt-2 text-xl font-semibold text-ink">Research threads in play</h3>
+          <p className="browse-list-meta">
+            {themes.length} themes · {allPositions.length} positions · Select a thread to inspect
+            its active positions and research posture.
+          </p>
+        </div>
+
+        <div className="browse-list" role="listbox" aria-label="Research themes">
+          {themes.map((theme) => {
+            const isActive = String(theme._id) === String(selectedThemeId);
+            return (
+              <button
+                key={theme._id}
+                type="button"
+                role="option"
+                aria-selected={isActive}
+                onClick={() => onSelectTheme(theme._id)}
+                className={cn("browse-list-item", isActive && "is-active")}
+              >
+                <div className="browse-list-item-header">
+                  <span className="browse-list-item-title">{theme.title}</span>
+                  <span className="browse-list-item-count">{theme.positionCount} positions</span>
+                </div>
+                <p className="browse-list-item-description">
+                  {summarizeText(
+                    theme.description ??
+                      "Open this theme to review the positions currently carrying the strongest weight.",
+                    150,
+                  )}
+                </p>
+              </button>
+            );
+          })}
+        </div>
+      </aside>
+
+      <div className="browse-detail">
+        {!selectedTheme ? (
+          <div className="browse-empty-state">
+            <div className="meta-kicker">Select a theme</div>
+            <p className="mt-3 text-sm leading-7 text-ink-soft">
+              Choose a theme from the left rail to load its detail document.
+            </p>
+          </div>
+        ) : (
+          <article className="browse-detail-content">
+            <header className="browse-detail-header">
+              <div className="meta-kicker">Theme detail</div>
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <h3 className="browse-detail-title">{selectedTheme.title}</h3>
+                  <p className="mt-3 max-w-3xl text-[0.98rem] leading-8 text-ink-soft">
+                    {selectedTheme.description ??
+                      "This theme groups positions that share a strategic thread. Use it as the scan surface, then open a position when you want evidence-level inspection."}
+                  </p>
+                </div>
+                <Link
+                  to={`/themes/${selectedTheme._id}`}
+                  className="shell-nav-link inline-flex items-center gap-2 self-start rounded-full border px-3.5 py-2 text-sm font-semibold"
+                >
+                  Open full theme
+                  <ArrowRight className="size-4" />
+                </Link>
+              </div>
+
+              <div className="browse-signal-row">
+                <SignalChip label="Positions" value={themePositions.length} />
+                <SignalChip label="Confidence mix" value={posture.confidenceSummary} />
+                <SignalChip label="Latest movement" value={posture.latestFreshness} />
+              </div>
+            </header>
+
+            <BrowseDetailSection title="Theme framing">
+              <div className="browse-detail-prose">
+                <p>
+                  {selectedTheme.description ??
+                    "This theme is active in the corpus and ready for position-level review."}
+                </p>
+                <p>
+                  {themePositions.length > 0
+                    ? `${themePositions.length} positions currently sit inside this theme, with ${posture.statusSummary.toLowerCase()} across the current working set.`
+                    : "This theme exists, but it does not have positions attached yet."}
+                </p>
+              </div>
+            </BrowseDetailSection>
+
+            <BrowseDetailSection
+              title="Current positions"
+              meta={`${themePositions.length} positions`}
+            >
+              {themePositions.length > 0 ? (
+                <div className="browse-position-list">
+                  {themePositions
+                    .slice()
+                    .sort((left, right) => comparePositionsByFreshness(left, right))
+                    .map((position) => (
+                      <PositionRow
+                        key={position._id}
+                        position={position}
+                        variant="browse"
+                      />
+                    ))}
+                </div>
+              ) : (
+                <div className="browse-empty-copy">
+                  No positions are attached to this theme yet.
+                </div>
+              )}
+            </BrowseDetailSection>
+
+            <BrowseDetailSection title="Research posture">
+              <div className="browse-posture-grid">
+                {posture.cards.map((card) => (
+                  <div key={card.label} className="browse-posture-card">
+                    <div className="meta-kicker">{card.label}</div>
+                    <div className="mt-3 text-lg font-semibold leading-7 text-ink">
+                      {card.value}
+                    </div>
+                    <p className="mt-2 text-sm leading-6 text-ink-soft">{card.description}</p>
+                  </div>
+                ))}
+              </div>
+            </BrowseDetailSection>
+
+            <BrowseDetailSection
+              title="Open next"
+              meta={featuredPositions.length ? `${featuredPositions.length} suggested` : undefined}
+            >
+              {featuredPositions.length > 0 ? (
+                <div className="browse-position-list">
+                  {featuredPositions.map((position) => (
+                    <PositionRow
+                      key={position._id}
+                      position={position}
+                      variant="browse"
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="browse-empty-copy">
+                  Add a version date to positions in this theme to make freshness-based suggestions
+                  more informative.
+                </div>
+              )}
+            </BrowseDetailSection>
+          </article>
+        )}
       </div>
     </div>
   );
@@ -707,6 +947,26 @@ function AskDocument() {
         ))}
       </section>
     </div>
+  );
+}
+
+function BrowseDetailSection({
+  title,
+  meta,
+  children,
+}: {
+  title: string;
+  meta?: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="browse-detail-section">
+      <div className="browse-detail-section-header">
+        <div className="browse-detail-section-title">{title}</div>
+        {meta ? <div className="browse-detail-section-meta">{meta}</div> : null}
+      </div>
+      <div className="browse-detail-section-body">{children}</div>
+    </section>
   );
 }
 
@@ -1217,8 +1477,47 @@ function ThemeCard({ theme }: { theme: any }) {
   );
 }
 
-function PositionRow({ position }: { position: any }) {
+function PositionRow({
+  position,
+  variant = "default",
+}: {
+  position: any;
+  variant?: "default" | "browse";
+}) {
   const stance = position.currentVersion?.currentStance ?? position.currentStance;
+  const confidenceLevel =
+    position.currentVersion?.confidenceLevel ?? position.confidenceLevel ?? null;
+  const status = position.currentVersion?.status ?? position.status ?? null;
+  const versionDate = position.currentVersion?.versionDate ?? position.versionDate ?? null;
+
+  if (variant === "browse") {
+    return (
+      <Link to={`/positions/${position._id}`} className="browse-position-row">
+        <div className="browse-position-main">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="meta-kicker">{position.themeTitle ?? "Position"}</span>
+            {confidenceLevel ? (
+              <StatusPill label={`Confidence ${confidenceLevel}`} tone="accent" />
+            ) : null}
+            {status ? <StatusPill label={status} /> : null}
+          </div>
+          <div className="mt-2 text-base font-semibold leading-7 text-ink">{position.title}</div>
+          {stance ? (
+            <p className="mt-2 text-sm leading-7 text-ink-soft">
+              {summarizeText(stance, 210)}
+            </p>
+          ) : null}
+          <div className="browse-position-meta">
+            {versionDate ? `Updated ${formatDateLabel(versionDate)}` : "No version date yet"}
+          </div>
+        </div>
+        <div className="browse-position-action">
+          <span>Open position</span>
+          <ArrowRight className="size-4" />
+        </div>
+      </Link>
+    );
+  }
 
   return (
     <Link
@@ -1234,6 +1533,21 @@ function PositionRow({ position }: { position: any }) {
         <ArrowRight className="mt-1 size-4 shrink-0 text-ink-muted" />
       </div>
     </Link>
+  );
+}
+
+function SignalChip({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | number;
+}) {
+  return (
+    <div className="browse-signal">
+      <div className="browse-signal-label">{label}</div>
+      <div className="browse-signal-value">{value}</div>
+    </div>
   );
 }
 
@@ -1290,6 +1604,90 @@ function LoadingState() {
       <div className="h-40 animate-pulse rounded-[1.5rem] bg-panel-muted/85" />
     </div>
   );
+}
+
+function comparePositionsByFreshness(left: any, right: any) {
+  const leftTime = left.currentVersion?.versionDate
+    ? Date.parse(left.currentVersion.versionDate)
+    : 0;
+  const rightTime = right.currentVersion?.versionDate
+    ? Date.parse(right.currentVersion.versionDate)
+    : 0;
+
+  if (rightTime !== leftTime) return rightTime - leftTime;
+  return String(left.title ?? "").localeCompare(String(right.title ?? ""));
+}
+
+function getThemePosture(themePositions: any[]) {
+  const statusCounts = new Map<string, number>();
+  const confidenceCounts = new Map<string, number>();
+  let latestVersionDate: string | null = null;
+
+  for (const position of themePositions) {
+    const status = position.currentVersion?.status;
+    if (status) {
+      statusCounts.set(status, (statusCounts.get(status) ?? 0) + 1);
+    }
+
+    const confidence = position.currentVersion?.confidenceLevel;
+    if (confidence) {
+      confidenceCounts.set(confidence, (confidenceCounts.get(confidence) ?? 0) + 1);
+    }
+
+    const versionDate = position.currentVersion?.versionDate;
+    if (versionDate && (!latestVersionDate || Date.parse(versionDate) > Date.parse(latestVersionDate))) {
+      latestVersionDate = versionDate;
+    }
+  }
+
+  const statusSummary =
+    summarizeCounts(statusCounts, ["active", "emerging", "established", "evolved", "retired"]) ??
+    "no status signals yet";
+  const confidenceSummary =
+    summarizeCounts(confidenceCounts, ["established", "active", "emerging"]) ?? "not yet classified";
+
+  return {
+    statusSummary,
+    confidenceSummary,
+    latestFreshness: latestVersionDate ? formatDateLabel(latestVersionDate) : "No dated movement yet",
+    cards: [
+      {
+        label: "Current mix",
+        value: statusSummary,
+        description: "A quick read on how mature or in-motion the positions inside this theme are.",
+      },
+      {
+        label: "Confidence",
+        value: confidenceSummary,
+        description: "Shows whether the theme is mostly emerging, actively forming, or already established.",
+      },
+      {
+        label: "Freshest update",
+        value: latestVersionDate ? formatDateLabel(latestVersionDate) : "No version dates yet",
+        description: "Use freshness to decide which positions are most likely to reward immediate review.",
+      },
+    ],
+  };
+}
+
+function summarizeCounts(counts: Map<string, number>, priorityOrder: string[]) {
+  const orderedEntries = priorityOrder
+    .map((key) => [key, counts.get(key) ?? 0] as const)
+    .filter(([, count]) => count > 0);
+
+  if (!orderedEntries.length) return null;
+  return orderedEntries.map(([label, count]) => `${count} ${label}`).join(" · ");
+}
+
+function formatDateLabel(dateString: string) {
+  const parsed = Date.parse(dateString);
+  if (Number.isNaN(parsed)) return dateString;
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date(parsed));
 }
 
 function renderAnswerDocument(
@@ -1563,6 +1961,7 @@ function getContextKey({
 
 function getRouteKind(pathname: string): RouteKind {
   if (pathname === "/ask") return "ask";
+  if (pathname === "/browse") return "browse";
   if (pathname.startsWith("/themes/")) return "theme";
   if (pathname.startsWith("/positions/")) return "position";
   if (pathname.startsWith("/sources/")) return "source";
@@ -1584,6 +1983,7 @@ function getScopeLabel({
   if (positionDetail) return `Position · ${positionDetail.title}`;
   if (activeTheme) return `Theme · ${activeTheme.title}`;
   if (routeKind === "ask") return "Corpus-wide scope";
+  if (routeKind === "browse") return "Theme browser";
   return "Workspace overview";
 }
 
@@ -1593,6 +1993,7 @@ function getMainPaneTitle(
   positionDetail: any,
   sourceDetail: any,
 ) {
+  if (routeKind === "browse") return "Browse research themes";
   if (positionDetail) return positionDetail.title;
   if (sourceDetail) return sourceDetail.source.title;
   if (activeTheme) return activeTheme.title;
@@ -1606,6 +2007,10 @@ function getMainPaneDescription(
   positionDetail: any,
   sourceDetail: any,
 ) {
+  if (routeKind === "browse") {
+    return "Use the left rail to scan themes, then review the selected thread as a structured detail document without leaving the workspace shell.";
+  }
+
   if (positionDetail) {
     return "Read the current stance here while the evidence column keeps the supporting and counter-signals in view.";
   }
@@ -1647,6 +2052,14 @@ function getSuggestions(routeKind: RouteKind) {
       "What are the main tensions inside this theme?",
       "Which positions here are most evidence-rich?",
       "What questions remain unresolved in this theme?",
+    ];
+  }
+
+  if (routeKind === "browse") {
+    return [
+      "Which theme has the strongest current research posture?",
+      "Where are the most active positions right now?",
+      "Which theme looks under-developed and needs more evidence?",
     ];
   }
 
