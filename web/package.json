@@ -9,18 +9,20 @@
     "preview": "vite preview --host 0.0.0.0 --port 5000"
   },
   "dependencies": {
-    "@untitledui/icons": "latest",
+    "@untitledui/file-icons": "^0.0.9",
+    "@untitledui/icons": "^0.0.22",
     "convex": "^1.34.0",
     "react": "^18.3.1",
-    "react-aria-components": "latest",
+    "react-aria": "^3.47.0",
+    "react-aria-components": "^1.16.0",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.26.2",
-    "tailwind-merge": "latest"
+    "tailwind-merge": "^3.5.0"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "latest",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
-    "@tailwindcss/vite": "latest",
     "@vitejs/plugin-react": "^4.3.1",
     "tailwindcss": "latest",
     "tailwindcss-animate": "latest",

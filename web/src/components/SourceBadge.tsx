@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { ArrowUpRight } from "@untitledui/icons";
+import { Button } from "@/components/base/buttons/button";
+import { Badge } from "@/components/base/badges/badges";
 import { cn } from "@/lib/cn";
 
 export type SourceMeta = {
@@ -42,7 +44,7 @@ function renderLinked({
 }: {
   href: string;
   linkKind: "storage" | "canonical" | "internal";
-  className: string;
+  className?: string;
   children: ReactNode;
 }) {
   if (linkKind === "internal") {
@@ -78,7 +80,7 @@ export default function SourceBadge({
   compact?: boolean;
 }) {
   if (!source) {
-    return <div className="text-sm text-ink-muted">Source unavailable</div>;
+    return <p className="text-sm text-slate-500">Source unavailable</p>;
   }
 
   const sourcePagePath = source.sourcePagePath ?? `/sources/${source._id}`;
@@ -86,104 +88,112 @@ export default function SourceBadge({
     source.resolvedUrl ?? source.storageUrl ?? source.canonicalUrl ?? sourcePagePath;
   const linkKind =
     source.resolvedLinkKind ??
-    (source.storageUrl
-      ? "storage"
-      : source.canonicalUrl
-        ? "canonical"
-        : "internal");
+    (source.storageUrl ? "storage" : source.canonicalUrl ? "canonical" : "internal");
   const title = source.title ?? "Untitled source";
   const date = formatDate(source.publishedDate);
   const sourceBits = [source.authorName, source.publisherName, date].filter(Boolean);
   const actionLabel =
-    linkKind === "internal" ? "View source" : linkKind === "storage" ? "Open file" : "Open original";
+    linkKind === "internal"
+      ? "View source"
+      : linkKind === "storage"
+        ? "Open file"
+        : "Open original";
 
   if (compact) {
     return (
-      <div className="trace-node">
-        <div className="trace-node-header">
-          <span className="trace-node-id">Source</span>
-          {renderLinked({
-            href,
-            linkKind,
-            className: "trace-action-button",
-            children: (
-              <>
-                {actionLabel}
-                <ArrowUpRight className="size-3.5" />
-              </>
-            ),
-          })}
+      <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
+              Source
+            </p>
+            {renderLinked({
+              href,
+              linkKind,
+              className:
+                "mt-1 block text-sm font-semibold leading-6 text-slate-900 hover:text-utility-brand-700",
+              children: title,
+            })}
+          </div>
+
+          <Button
+            size="xs"
+            color="secondary"
+            iconTrailing={ArrowUpRight}
+            className="shrink-0"
+            {...(linkKind === "internal"
+              ? {}
+              : {
+                  href,
+                  target: "_blank",
+                  rel: "noreferrer noopener",
+                })}
+          >
+            {actionLabel}
+          </Button>
         </div>
 
-        {renderLinked({
-          href,
-          linkKind,
-          className: "trace-node-claim",
-          children: title,
-        })}
-
         {sourceBits.length > 0 && (
-          <p className="trace-node-anchor">{sourceBits.join(" · ")}</p>
+          <p className="mt-2 text-sm leading-6 text-slate-600">{sourceBits.join(" · ")}</p>
         )}
       </div>
     );
   }
 
   return (
-    <div
-      className={cn(
-        "rounded-[1.35rem] border browser-card p-4",
-        "space-y-3",
-      )}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="space-y-1">
-          <div className="meta-kicker">Source</div>
+    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0">
+          <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
+            Source
+          </p>
           {renderLinked({
             href,
             linkKind,
             className:
-              "text-sm font-semibold leading-6 text-ink hover:text-accent md:text-[0.95rem]",
+              "mt-1 block text-base font-semibold leading-7 text-slate-900 hover:text-utility-brand-700",
             children: title,
           })}
+
+          {sourceBits.length > 0 && (
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              {sourceBits.join(" · ")}
+            </p>
+          )}
         </div>
 
-        {renderLinked({
-          href,
-          linkKind,
-          className:
-            "inline-flex shrink-0 items-center gap-1 rounded-full border border-border bg-panel px-3 py-1.5 text-[0.72rem] font-semibold uppercase tracking-[0.12em] text-ink-soft hover:border-accent/30 hover:text-accent",
-          children: (
-            <>
-              {actionLabel}
-              <ArrowUpRight className="size-3.5" />
-            </>
-          ),
-        })}
-      </div>
-
-      {sourceBits.length > 0 && (
-        <div className="flex flex-wrap gap-x-2 gap-y-1 text-[0.82rem] leading-5 text-ink-muted">
-          {sourceBits.map((bit) => (
-            <span key={bit}>{bit}</span>
-          ))}
-        </div>
-      )}
-
-      {!compact && (source.sourceType || typeof source.tier === "number") && (
-        <div className="flex flex-wrap gap-2">
-          {source.sourceType && (
-            <span className="count-chip rounded-full px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.2em]">
+        <div className="flex flex-wrap items-center gap-2">
+          {source.sourceType ? (
+            <Badge type="color" size="sm" color="gray">
               {source.sourceType}
-            </span>
-          )}
-          {typeof source.tier === "number" && (
-            <span className="count-chip rounded-full px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.2em]">
+            </Badge>
+          ) : null}
+          {typeof source.tier === "number" ? (
+            <Badge type="color" size="sm" color="gray">
               Tier {source.tier}
-            </span>
+            </Badge>
+          ) : null}
+
+          {linkKind === "internal" ? (
+            <Link to={href} className="inline-flex">
+              <Button size="sm" color="secondary" iconTrailing={ArrowUpRight}>
+                {actionLabel}
+              </Button>
+            </Link>
+          ) : (
+            <Button
+              size="sm"
+              color="secondary"
+              iconTrailing={ArrowUpRight}
+              href={href}
+              target="_blank"
+              rel="noreferrer noopener"
+            >
+              {actionLabel}
+            </Button>
           )}
         </div>
-      )}
+      </div>
     </div>
   );
 }

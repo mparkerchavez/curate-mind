@@ -9,8 +9,16 @@ import {
   SearchLg,
 } from "@untitledui/icons";
 import { useAction, useQuery } from "convex/react";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Link, useLocation, useParams } from "react-router-dom";
+import { useEffect, useMemo, useState, type FC, type ReactNode } from "react";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { EmptyState } from "@/components/application/empty-state/empty-state";
+import { LoadingIndicator } from "@/components/application/loading-indicator/loading-indicator";
+import { Dialog, Modal, ModalOverlay } from "@/components/application/modals/modal";
+import { TabList, Tabs } from "@/components/application/tabs/tabs";
+import { Badge, BadgeWithDot } from "@/components/base/badges/badges";
+import { Button } from "@/components/base/buttons/button";
+import { TextAreaBase } from "@/components/base/textarea/textarea";
+import { ConfidenceBadge, StatusBadge } from "@/components/Badges";
 import DataPointCard, { type DataPointForCard } from "@/components/DataPointCard";
 import SourceBadge from "@/components/SourceBadge";
 import { useProject } from "@/ProjectContext";
@@ -59,6 +67,7 @@ type EvidenceSection = {
 const USER_TURN_LIMIT = 4;
 
 export default function WorkspacePage() {
+  const navigate = useNavigate();
   const { projectId, projectName, loading } = useProject();
   const location = useLocation();
   const { themeId, positionId, sourceId } = useParams<{
@@ -74,10 +83,8 @@ export default function WorkspacePage() {
   const [browseSelectedThemeId, setBrowseSelectedThemeId] = useState<Id<"researchThemes"> | null>(null);
 
   const askGrounded = useAction(api.chat.askGrounded);
-  const themes = useQuery(
-    api.positions.getThemes,
-    projectId ? { projectId } : "skip",
-  );
+  const themes = useQuery(api.positions.getThemes, projectId ? { projectId } : "skip");
+  const allPositions = useQuery(api.positions.listAllPositions, projectId ? {} : "skip");
   const sortedThemes = useMemo(
     () =>
       [...(themes ?? [])].sort((left: any, right: any) => {
@@ -87,16 +94,11 @@ export default function WorkspacePage() {
       }),
     [themes],
   );
+
   const browseThemeRecordId =
     routeKind === "browse" ? (browseSelectedThemeId ?? undefined) : undefined;
   const selectedThemeRecordId = themeRecordId ?? browseThemeRecordId;
-  const contextKey = getContextKey({
-    routeKind,
-    themeId: selectedThemeRecordId,
-    positionId: positionRecordId,
-    sourceId: sourceRecordId,
-  });
-  const allPositions = useQuery(api.positions.listAllPositions, projectId ? {} : "skip");
+
   const themePositions = useQuery(
     api.positions.getPositionsByTheme,
     selectedThemeRecordId ? { themeId: selectedThemeRecordId } : "skip",
@@ -128,6 +130,13 @@ export default function WorkspacePage() {
       ? sortedThemes.find((theme: any) => String(theme._id) === String(browseSelectedThemeId)) ?? null
       : themes?.find((theme: any) => String(theme._id) === themeId) ?? positionDetail?.theme ?? null;
 
+  const contextKey = getContextKey({
+    routeKind,
+    themeId: selectedThemeRecordId,
+    positionId: positionRecordId,
+    sourceId: sourceRecordId,
+  });
+
   const [turns, setTurns] = useState<Turn[]>([]);
   const [activeAnswer, setActiveAnswer] = useState<AssistantAnswer | null>(null);
   const [input, setInput] = useState("");
@@ -153,19 +162,6 @@ export default function WorkspacePage() {
     }
   }, [routeKind]);
 
-  useEffect(() => {
-    if (!isChatOpen) return;
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setIsChatOpen(false);
-      }
-    }
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isChatOpen]);
-
   const scopeArgs = useMemo(() => {
     if (sourceRecordId) return { sourceId: sourceRecordId };
     if (positionRecordId) return { positionId: positionRecordId };
@@ -189,14 +185,14 @@ export default function WorkspacePage() {
         {
           key: "cited",
           title: "Cited in the answer",
-          subtitle: "These cards were explicitly cited in the current answer.",
+          subtitle: "These records were directly cited in the current response.",
           items: cited,
           cited: true,
         },
         {
           key: "retrieved",
           title: "Retrieved for context",
-          subtitle: "Adjacent evidence retrieved to ground the answer, even if it was not cited directly.",
+          subtitle: "Adjacent evidence used to ground the answer.",
           items: retrieved,
         },
       ].filter((section) => section.items.length > 0);
@@ -207,13 +203,13 @@ export default function WorkspacePage() {
         {
           key: "support",
           title: "Supporting evidence",
-          subtitle: "The evidence chain attached to this position version.",
+          subtitle: "Evidence attached to this position version.",
           items: positionDetail.currentVersion.supportingEvidenceDetails ?? [],
         },
         {
           key: "counter",
           title: "Counter evidence",
-          subtitle: "Signals that challenge, qualify, or narrow the current stance.",
+          subtitle: "Signals that narrow, qualify, or challenge the current stance.",
           items: positionDetail.currentVersion.counterEvidenceDetails ?? [],
           variant: "counter" as const,
         },
@@ -225,7 +221,7 @@ export default function WorkspacePage() {
         {
           key: "source",
           title: "Linked data points",
-          subtitle: "Claims currently extracted from this source record.",
+          subtitle: "Claims currently extracted from this source.",
           items: sourceDetail.dataPoints ?? [],
         },
       ].filter((section) => section.items.length > 0);
@@ -241,13 +237,13 @@ export default function WorkspacePage() {
         activeTheme,
         positionDetail,
         sourceDetail,
-        sections: evidenceSections,
       }),
-    [activeAnswer, activeTheme, evidenceSections, positionDetail, sourceDetail],
+    [activeAnswer, activeTheme, positionDetail, sourceDetail],
   );
 
   const userTurnsCount = turns.filter((turn) => turn.role === "user").length;
   const reachedTurnLimit = userTurnsCount >= USER_TURN_LIMIT;
+
   const isMainLoading =
     loading ||
     themes === undefined ||
@@ -304,10 +300,9 @@ export default function WorkspacePage() {
       ]);
       setActiveAnswer(answerState);
       setHighlightedEvidenceId(
-        answerState.citedDataPointIds[0] ??
-          answerState.retrievedDataPoints[0]?._id ??
-          null,
+        answerState.citedDataPointIds[0] ?? answerState.retrievedDataPoints[0]?._id ?? null,
       );
+      setIsChatOpen(false);
     } catch (err: any) {
       setTurns(nextTurns);
       setError(err?.message ?? "Something went wrong while querying the corpus.");
@@ -327,98 +322,134 @@ export default function WorkspacePage() {
   function handleCitationClick(dataPointId: string) {
     setHighlightedEvidenceId(dataPointId);
     setMobilePane("evidence");
-    setIsChatOpen(false);
   }
 
+  const navItems = [
+    { key: "home", label: "Workspace", path: "/", icon: HomeLine },
+    { key: "browse", label: "Browse", path: "/browse", icon: Compass01 },
+    { key: "ask", label: "Ask", path: "/ask", icon: MessageChatCircle },
+  ] as const;
+
   return (
-    <div className="px-[var(--spacing-page-x)] py-[var(--spacing-page-y)]">
-      <WorkspaceTopbar
-        projectName={projectName}
-        routeKind={routeKind}
-        scopeLabel={scopeLabel}
-        activeAnswer={activeAnswer}
-        isChatOpen={isChatOpen}
-        onToggleChat={() => setIsChatOpen((open) => !open)}
-      />
+    <div className="min-h-screen">
+      <div className="mx-auto flex max-w-[1680px] flex-col gap-4 px-4 py-4 lg:px-6">
+        <WorkspaceHeader
+          projectName={projectName}
+          routeKind={routeKind}
+          scopeLabel={scopeLabel}
+          activeAnswer={activeAnswer}
+          navItems={navItems}
+          onNavigate={(path) => navigate(path)}
+          onOpenChat={() => setIsChatOpen(true)}
+        />
 
-      <div className="mb-3 flex items-center gap-2 lg:hidden">
-        {(
-          [
-            { key: "main", label: "Main" },
-            { key: "evidence", label: "Evidence" },
-          ] as Array<{ key: PaneMode; label: string }>
-        ).map((pane) => (
-          <button
-            key={pane.key}
-            type="button"
-            onClick={() => setMobilePane(pane.key)}
-            className={cn(
-              "shell-nav-link rounded-full border px-4 py-2 text-sm font-semibold",
-              mobilePane === pane.key && "pane-tab-active",
-            )}
-          >
-            {pane.label}
-          </button>
-        ))}
+        <div className="lg:hidden">
+          <Tabs selectedKey={mobilePane} onSelectionChange={(key) => setMobilePane(String(key) as PaneMode)}>
+            <TabList
+              size="sm"
+              type="button-border"
+              items={[
+                { id: "main", children: "Canvas" },
+                { id: "evidence", children: "Evidence" },
+              ]}
+            />
+          </Tabs>
+        </div>
 
-        <button
-          type="button"
-          onClick={() => setIsChatOpen(true)}
-          className="ml-auto inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white shadow-[0_16px_36px_-26px_rgba(49,94,251,0.85)]"
-        >
-          <MessageChatCircle className="size-4" />
-          Ask
-        </button>
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.85fr)_minmax(360px,1fr)]">
+          <ShellPanel className={cn(mobilePane !== "main" && "hidden lg:block")}>
+            <PaneHeader
+              icon={<BookOpen01 className="size-5" />}
+              kicker={activeAnswer ? "Answer canvas" : "Reading canvas"}
+              title={
+                activeAnswer
+                  ? activeAnswer.question
+                  : getMainPaneTitle(routeKind, activeTheme, positionDetail, sourceDetail)
+              }
+              description={
+                activeAnswer
+                  ? `Generated in ${activeAnswer.scopeLabel.toLowerCase()}. Citations in the answer jump to the exact evidence cards beside it.`
+                  : getMainPaneDescription(routeKind, activeTheme, positionDetail, sourceDetail)
+              }
+              action={
+                <div className="flex flex-wrap items-center gap-2">
+                  {activeAnswer ? (
+                    <Button size="sm" color="secondary" onClick={() => setActiveAnswer(null)}>
+                      Return to browsing
+                    </Button>
+                  ) : null}
+                  <Button size="sm" color="primary" iconLeading={MessageChatCircle} onClick={() => setIsChatOpen(true)}>
+                    Ask
+                  </Button>
+                </div>
+              }
+            />
+
+            <div className="px-4 pb-4 pt-2 lg:px-5">
+              {isMainLoading ? (
+                <LoadingState />
+              ) : activeAnswer ? (
+                <AnswerDocument answerState={activeAnswer} onCitationClick={handleCitationClick} />
+              ) : routeKind === "browse" ? (
+                <BrowseDocument
+                  themes={sortedThemes}
+                  selectedTheme={activeTheme}
+                  selectedThemeId={browseSelectedThemeId}
+                  themePositions={themePositions ?? []}
+                  allPositions={allPositions ?? []}
+                  onSelectTheme={setBrowseSelectedThemeId}
+                  onOpenTheme={(id) => navigate(`/themes/${id}`)}
+                  onOpenPosition={(id) => navigate(`/positions/${id}`)}
+                />
+              ) : positionDetail ? (
+                <PositionDocument
+                  positionDetail={positionDetail}
+                  onOpenPosition={(id) => navigate(`/positions/${id}`)}
+                />
+              ) : sourceDetail ? (
+                <SourceDocument sourceDetail={sourceDetail} />
+              ) : activeTheme ? (
+                <ThemeDocument
+                  activeTheme={activeTheme}
+                  themePositions={themePositions ?? []}
+                  onOpenPosition={(id) => navigate(`/positions/${id}`)}
+                />
+              ) : routeKind === "ask" ? (
+                <AskDocument onOpenChat={() => setIsChatOpen(true)} />
+              ) : (
+                <HomeDocument
+                  themes={sortedThemes}
+                  allPositions={allPositions ?? []}
+                  onOpenTheme={(id) => navigate(`/themes/${id}`)}
+                  onBrowse={() => navigate("/browse")}
+                  onOpenPosition={(id) => navigate(`/positions/${id}`)}
+                />
+              )}
+            </div>
+          </ShellPanel>
+
+          <ShellPanel className={cn(mobilePane !== "evidence" && "hidden lg:block")}>
+            <PaneHeader
+              icon={<File02 className="size-5" />}
+              kicker="Evidence column"
+              title={evidencePaneState.title}
+              description={evidencePaneState.description}
+              action={
+                sectionsCountBadge(evidenceSections)
+              }
+            />
+
+            <EvidencePane
+              state={evidencePaneState}
+              sections={evidenceSections}
+              highlightedEvidenceId={highlightedEvidenceId}
+              onSelectEvidence={(dataPointId) => setHighlightedEvidenceId(dataPointId)}
+            />
+          </ShellPanel>
+        </div>
       </div>
 
-      <div className="workspace-grid">
-        <section
-          className={cn(
-            "pane-shell editorial-panel min-h-[calc(100vh-13.75rem)]",
-            mobilePane !== "main" && "hidden lg:flex",
-          )}
-        >
-          <MainPane
-            loading={isMainLoading}
-            routeKind={routeKind}
-            themes={sortedThemes}
-            allPositions={allPositions ?? []}
-            activeTheme={activeTheme}
-            themePositions={themePositions ?? []}
-            browseSelectedThemeId={browseSelectedThemeId}
-            onSelectBrowseTheme={setBrowseSelectedThemeId}
-            positionDetail={positionDetail}
-            sourceDetail={sourceDetail}
-            activeAnswer={activeAnswer}
-            scopeLabel={scopeLabel}
-            onClearAnswer={() => setActiveAnswer(null)}
-            onCitationClick={handleCitationClick}
-          />
-        </section>
-
-        <section
-          className={cn(
-            "pane-shell editorial-panel-muted min-h-[calc(100vh-13.75rem)]",
-            mobilePane !== "evidence" && "hidden lg:flex",
-          )}
-        >
-          <EvidencePane
-            state={evidencePaneState}
-            sections={evidenceSections}
-            highlightedEvidenceId={highlightedEvidenceId}
-            onSelectEvidence={(dataPointId) => setHighlightedEvidenceId(dataPointId)}
-          />
-        </section>
-      </div>
-
-      <ChatDockButton
-        isOpen={isChatOpen}
-        scopeLabel={scopeLabel}
-        pending={pending}
-        onClick={() => setIsChatOpen(true)}
-      />
-
-      <ChatOverlay
+      <ChatModal
         isOpen={isChatOpen}
         routeKind={routeKind}
         scopeLabel={scopeLabel}
@@ -438,192 +469,94 @@ export default function WorkspacePage() {
   );
 }
 
-function WorkspaceTopbar({
+function WorkspaceHeader({
   projectName,
   routeKind,
   scopeLabel,
   activeAnswer,
-  isChatOpen,
-  onToggleChat,
+  navItems,
+  onNavigate,
+  onOpenChat,
 }: {
   projectName: string | null;
   routeKind: RouteKind;
   scopeLabel: string;
   activeAnswer: AssistantAnswer | null;
-  isChatOpen: boolean;
-  onToggleChat: () => void;
+  navItems: ReadonlyArray<{
+    key: string;
+    label: string;
+    path: string;
+    icon: FC<{ className?: string }>;
+  }>;
+  onNavigate: (path: string) => void;
+  onOpenChat: () => void;
 }) {
   return (
-    <header className="shell-topbar mb-4 rounded-[1.8rem] border px-5 py-4 shadow-[var(--shadow-panel)]">
+    <header className="sticky top-4 z-20 rounded-[28px] border border-white/60 bg-white/90 px-4 py-4 shadow-[var(--ui-shell-shadow)] backdrop-blur lg:px-5">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div className="flex items-start gap-4">
-          <div className="flex size-12 items-center justify-center rounded-2xl bg-accent text-white shadow-[0_14px_28px_-18px_rgba(49,94,251,0.8)]">
+          <div className="flex size-12 items-center justify-center rounded-2xl bg-brand-solid text-white shadow-xs-skeuomorphic">
             <LayersThree01 className="size-6" />
           </div>
           <div>
-            <div className="meta-kicker">Curate Mind workspace</div>
-            <div className="mt-1 flex flex-wrap items-center gap-2">
-              <h1 className="display-balance text-[2rem] leading-none text-ink sm:text-[2.2rem]">Calm research cockpit</h1>
-              {projectName && (
-                <span className="count-chip rounded-full px-3 py-1 text-xs font-semibold">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge type="color" size="sm" color="brand">
+                Curate Mind
+              </Badge>
+              {projectName ? (
+                <Badge type="color" size="sm" color="gray">
                   {projectName}
-                </span>
-              )}
+                </Badge>
+              ) : null}
+              {activeAnswer ? (
+                <Badge type="color" size="sm" color="brand">
+                  Answer in focus
+                </Badge>
+              ) : null}
             </div>
-            <p className="mt-1 max-w-3xl text-[0.98rem] leading-8 text-ink-soft">
-              Read in the main canvas, keep evidence anchored beside it, and open chat above the context only when you need to query the corpus.
+            <h1 className="mt-3 text-display-xs font-semibold tracking-[-0.02em] text-slate-950">
+              Research workspace
+            </h1>
+            <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-600">
+              Untitled UI now drives the shell, controls, and content surfaces across the entire app while keeping the reading, evidence, and grounded chat workflow intact.
             </p>
           </div>
         </div>
 
-        <nav className="flex flex-wrap items-center gap-2">
-          <TopbarLink to="/" active={routeKind === "home"}>
-            <HomeLine className="size-4" />
-            Workspace
-          </TopbarLink>
-          <TopbarLink to="/browse" active={routeKind === "browse" || routeKind === "theme"}>
-            <Compass01 className="size-4" />
-            Themes
-          </TopbarLink>
-          <button
-            type="button"
-            onClick={onToggleChat}
-            className={cn(
-              "shell-nav-link inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-sm font-semibold",
-              isChatOpen
-                ? "shell-nav-link-active"
-                : "",
-            )}
-          >
-            <MessageChatCircle className="size-4" />
-            {isChatOpen ? "Hide chat" : "Open chat"}
-          </button>
-          <div className="count-chip hidden rounded-full px-3 py-2 text-xs font-semibold lg:flex">
-            {scopeLabel}
+        <div className="flex flex-col gap-3 xl:items-end">
+          <nav className="flex flex-wrap items-center gap-2">
+            {navItems.map((item) => {
+              const isActive =
+                (item.key === "home" && routeKind === "home") ||
+                (item.key === "browse" && (routeKind === "browse" || routeKind === "theme")) ||
+                (item.key === "ask" && routeKind === "ask");
+
+              return (
+                <Button
+                  key={item.key}
+                  size="sm"
+                  color={isActive ? "primary" : "secondary"}
+                  iconLeading={item.icon}
+                  onClick={() => onNavigate(item.path)}
+                >
+                  {item.label}
+                </Button>
+              );
+            })}
+
+            <Button size="sm" color="secondary" iconLeading={MessageChatCircle} onClick={onOpenChat}>
+              Open chat
+            </Button>
+          </nav>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <BadgeWithDot type="pill-color" size="sm" color="gray">
+              {scopeLabel}
+            </BadgeWithDot>
           </div>
-          {activeAnswer && (
-            <div className="hidden rounded-full border border-accent/20 bg-accent-soft px-3 py-2 text-xs font-semibold text-accent lg:flex">
-              Answer in focus
-            </div>
-          )}
-        </nav>
+        </div>
       </div>
     </header>
-  );
-}
-
-function TopbarLink({
-  to,
-  active,
-  children,
-}: {
-  to: string;
-  active: boolean;
-  children: ReactNode;
-}) {
-  return (
-    <Link
-      to={to}
-      className={cn(
-        "shell-nav-link inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-sm font-semibold",
-        active && "shell-nav-link-active",
-      )}
-    >
-      {children}
-    </Link>
-  );
-}
-
-function MainPane({
-  loading,
-  routeKind,
-  themes,
-  allPositions,
-  activeTheme,
-  themePositions,
-  browseSelectedThemeId,
-  onSelectBrowseTheme,
-  positionDetail,
-  sourceDetail,
-  activeAnswer,
-  scopeLabel,
-  onClearAnswer,
-  onCitationClick,
-}: {
-  loading: boolean;
-  routeKind: RouteKind;
-  themes: any[];
-  allPositions: any[];
-  activeTheme: any;
-  themePositions: any[];
-  browseSelectedThemeId: Id<"researchThemes"> | null;
-  onSelectBrowseTheme: (themeId: Id<"researchThemes">) => void;
-  positionDetail: any;
-  sourceDetail: any;
-  activeAnswer: AssistantAnswer | null;
-  scopeLabel: string;
-  onClearAnswer: () => void;
-  onCitationClick: (dataPointId: string) => void;
-}) {
-  return (
-    <>
-      <PaneHeader
-        icon={<BookOpen01 className="size-5" />}
-        kicker={activeAnswer ? "Answer canvas" : "Reading canvas"}
-        title={
-          activeAnswer
-            ? activeAnswer.question
-            : getMainPaneTitle(routeKind, activeTheme, positionDetail, sourceDetail)
-        }
-        description={
-          activeAnswer
-            ? `Generated inside ${activeAnswer.scopeLabel.toLowerCase()}. Inline citations open the exact evidence cards beside this answer.`
-            : getMainPaneDescription(routeKind, activeTheme, positionDetail, sourceDetail)
-        }
-        action={
-          activeAnswer ? (
-            <button
-              type="button"
-              onClick={onClearAnswer}
-              className="shell-nav-link rounded-full border px-3 py-2 text-xs font-semibold"
-            >
-              Return to browsing
-            </button>
-          ) : (
-            <div className="count-chip rounded-full px-3 py-2 text-xs font-semibold">
-              {scopeLabel}
-            </div>
-          )
-        }
-      />
-
-      <div className="pane-scroll px-5 pb-5 pt-4">
-        {loading ? (
-          <LoadingState />
-        ) : activeAnswer ? (
-          <AnswerDocument answerState={activeAnswer} onCitationClick={onCitationClick} />
-        ) : routeKind === "browse" ? (
-          <BrowseDocument
-            themes={themes}
-            selectedTheme={activeTheme}
-            selectedThemeId={browseSelectedThemeId}
-            themePositions={themePositions}
-            allPositions={allPositions}
-            onSelectTheme={onSelectBrowseTheme}
-          />
-        ) : positionDetail ? (
-          <PositionDocument positionDetail={positionDetail} />
-        ) : sourceDetail ? (
-          <SourceDocument sourceDetail={sourceDetail} />
-        ) : activeTheme ? (
-          <ThemeDocument activeTheme={activeTheme} themePositions={themePositions} />
-        ) : routeKind === "ask" ? (
-          <AskDocument />
-        ) : (
-          <HomeDocument themes={themes} allPositions={allPositions} />
-        )}
-      </div>
-    </>
   );
 }
 
@@ -641,22 +574,119 @@ function PaneHeader({
   action?: ReactNode;
 }) {
   return (
-    <div className="panel-divider px-5 pt-5">
+    <div className="border-b border-slate-200 px-4 py-4 lg:px-5">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="flex items-start gap-3">
-          <div className="flex size-11 items-center justify-center rounded-2xl border border-border/80 bg-panel text-accent">
+          <div className="flex size-11 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-fg-brand-primary">
             {icon}
           </div>
           <div>
-            <div className="meta-kicker">{kicker}</div>
-            <h2 className="display-balance mt-2 text-display-xs text-ink md:text-display-sm">
+            <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">{kicker}</p>
+            <h2 className="mt-2 text-[1.65rem] font-semibold tracking-[-0.02em] text-slate-950">
               {title}
             </h2>
-            <p className="mt-2 max-w-3xl text-[0.98rem] leading-8 text-ink-soft">{description}</p>
+            <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-600">{description}</p>
           </div>
         </div>
+
         {action}
       </div>
+    </div>
+  );
+}
+
+function ShellPanel({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <section
+      className={cn(
+        "min-h-[calc(100vh-10rem)] overflow-hidden rounded-[28px] border border-white/60 bg-white shadow-[var(--ui-shell-shadow)]",
+        className,
+      )}
+    >
+      {children}
+    </section>
+  );
+}
+
+function HomeDocument({
+  themes,
+  allPositions,
+  onOpenTheme,
+  onBrowse,
+  onOpenPosition,
+}: {
+  themes: any[];
+  allPositions: any[];
+  onOpenTheme: (id: string) => void;
+  onBrowse: () => void;
+  onOpenPosition: (id: string) => void;
+}) {
+  const featuredPositions = [...allPositions].slice(0, 4);
+
+  return (
+    <div className="space-y-6">
+      <section className="rounded-[24px] border border-slate-200 bg-slate-50/70 p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
+              Workspace brief
+            </p>
+            <h3 className="mt-2 text-2xl font-semibold tracking-[-0.02em] text-slate-950">
+              Start with the highest-signal research threads.
+            </h3>
+            <p className="mt-2 max-w-2xl text-sm leading-7 text-slate-600">
+              Browse themes, open a position when you want stance and lineage, or launch grounded chat when you want synthesis without leaving the source context.
+            </p>
+          </div>
+
+          <Button size="sm" color="primary" iconTrailing={ArrowRight} onClick={onBrowse}>
+            Browse themes
+          </Button>
+        </div>
+
+        <div className="mt-5 grid gap-3 md:grid-cols-3">
+          <MetricCard label="Themes" value={themes.length} />
+          <MetricCard label="Positions" value={allPositions.length} />
+          <MetricCard label="Mode" value="Reading + evidence + chat" />
+        </div>
+      </section>
+
+      <ContentSection
+        kicker="Themes"
+        title="Research threads in play"
+        meta={`${themes.length} total`}
+      >
+        <div className="grid gap-4 xl:grid-cols-2">
+          {themes.map((theme) => (
+            <ActionCard
+              key={theme._id}
+              eyebrow={`Theme · ${theme.positionCount ?? 0} positions`}
+              title={theme.title}
+              description={theme.description ?? "Open this theme to review the current position set and its research posture."}
+              onClick={() => onOpenTheme(theme._id)}
+              cta="Open theme"
+            />
+          ))}
+        </div>
+      </ContentSection>
+
+      <ContentSection kicker="Fast paths" title="Recently active positions">
+        <div className="space-y-3">
+          {featuredPositions.map((position) => (
+            <PositionRow
+              key={position._id}
+              position={position}
+              onOpen={() => onOpenPosition(position._id)}
+            />
+          ))}
+        </div>
+      </ContentSection>
     </div>
   );
 }
@@ -668,6 +698,8 @@ function BrowseDocument({
   themePositions,
   allPositions,
   onSelectTheme,
+  onOpenTheme,
+  onOpenPosition,
 }: {
   themes: any[];
   selectedTheme: any;
@@ -675,401 +707,283 @@ function BrowseDocument({
   themePositions: any[];
   allPositions: any[];
   onSelectTheme: (themeId: Id<"researchThemes">) => void;
+  onOpenTheme: (id: string) => void;
+  onOpenPosition: (id: string) => void;
 }) {
+  const posture = getThemePosture(themePositions);
   const featuredPositions = [...themePositions]
     .sort((left, right) => comparePositionsByFreshness(left, right))
-    .slice(0, 2);
-  const posture = getThemePosture(themePositions);
-
-  if (!themes.length) {
-    return (
-      <div className="browse-empty-state">
-        <div className="meta-kicker">No themes yet</div>
-        <p className="mt-3 text-sm leading-7 text-ink-soft">
-          Create research themes first, then this browse surface will turn into a CRIS-style
-          master-detail workspace for scanning them.
-        </p>
-      </div>
-    );
-  }
+    .slice(0, 3);
 
   return (
-    <div className="browse-layout">
-      <aside className="browse-list-panel">
-        <div className="browse-list-header">
-          <div className="meta-kicker">Browse by theme</div>
-          <h3 className="mt-2 text-xl font-semibold text-ink">Research threads in play</h3>
-          <p className="browse-list-meta">
-            {themes.length} themes · {allPositions.length} positions · Select a thread to inspect
-            its active positions and research posture.
+    <div className="grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)]">
+      <aside className="rounded-[24px] border border-slate-200 bg-slate-50/70 p-4">
+        <div className="border-b border-slate-200 pb-4">
+          <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
+            Theme selector
+          </p>
+          <h3 className="mt-2 text-lg font-semibold text-slate-950">
+            Scan the corpus by thread
+          </h3>
+          <p className="mt-2 text-sm leading-6 text-slate-600">
+            {themes.length} themes · {allPositions.length} positions
           </p>
         </div>
 
-        <div className="browse-list" role="listbox" aria-label="Research themes">
+        <div className="mt-4 space-y-2">
           {themes.map((theme) => {
             const isActive = String(theme._id) === String(selectedThemeId);
             return (
               <button
                 key={theme._id}
                 type="button"
-                role="option"
-                aria-selected={isActive}
                 onClick={() => onSelectTheme(theme._id)}
-                className={cn("browse-list-item", isActive && "is-active")}
+                className={cn(
+                  "w-full rounded-2xl border px-4 py-3 text-left transition",
+                  isActive
+                    ? "border-utility-brand-200 bg-utility-brand-50 shadow-[0_1px_2px_rgba(16,24,40,0.04)]"
+                    : "border-transparent bg-white hover:border-slate-200 hover:bg-slate-50",
+                )}
               >
-                <div className="browse-list-item-header">
-                  <span className="browse-list-item-title">{theme.title}</span>
-                  <span className="browse-list-item-count">{theme.positionCount} positions</span>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-950">{theme.title}</p>
+                    <p className="mt-1 text-xs uppercase tracking-[0.14em] text-slate-500">
+                      {theme.positionCount ?? 0} positions
+                    </p>
+                  </div>
+                  <ArrowRight className={cn("mt-1 size-4 text-slate-400", isActive && "text-utility-brand-700")} />
                 </div>
-                <p className="browse-list-item-description">
-                  {summarizeText(
-                    theme.description ??
-                      "Open this theme to review the positions currently carrying the strongest weight.",
-                    150,
-                  )}
-                </p>
+                {theme.description ? (
+                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                    {summarizeText(theme.description, 120)}
+                  </p>
+                ) : null}
               </button>
             );
           })}
         </div>
       </aside>
 
-      <div className="browse-detail">
-        {!selectedTheme ? (
-          <div className="browse-empty-state">
-            <div className="meta-kicker">Select a theme</div>
-            <p className="mt-3 text-sm leading-7 text-ink-soft">
-              Choose a theme from the left rail to load its detail document.
-            </p>
-          </div>
-        ) : (
-          <article className="browse-detail-content">
-            <header className="browse-detail-header">
-              <div className="meta-kicker">Theme detail</div>
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                <div>
-                  <h3 className="browse-detail-title">{selectedTheme.title}</h3>
-                  <p className="mt-3 max-w-3xl text-[0.98rem] leading-8 text-ink-soft">
-                    {selectedTheme.description ??
-                      "This theme groups positions that share a strategic thread. Use it as the scan surface, then open a position when you want evidence-level inspection."}
-                  </p>
-                </div>
-                <Link
-                  to={`/themes/${selectedTheme._id}`}
-                  className="shell-nav-link inline-flex items-center gap-2 self-start rounded-full border px-3.5 py-2 text-sm font-semibold"
-                >
-                  Open full theme
-                  <ArrowRight className="size-4" />
-                </Link>
-              </div>
-
-              <div className="browse-signal-row">
-                <SignalChip label="Positions" value={themePositions.length} />
-                <SignalChip label="Confidence mix" value={posture.confidenceSummary} />
-                <SignalChip label="Latest movement" value={posture.latestFreshness} />
-              </div>
-            </header>
-
-            <BrowseDetailSection title="Theme framing">
-              <div className="browse-detail-prose">
-                <p>
-                  {selectedTheme.description ??
-                    "This theme is active in the corpus and ready for position-level review."}
+      {selectedTheme ? (
+        <div className="space-y-4">
+          <section className="rounded-[24px] border border-slate-200 bg-white p-5">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
+                  Theme detail
                 </p>
-                <p>
-                  {themePositions.length > 0
-                    ? `${themePositions.length} positions currently sit inside this theme, with ${posture.statusSummary.toLowerCase()} across the current working set.`
-                    : "This theme exists, but it does not have positions attached yet."}
+                <h3 className="mt-2 text-[1.75rem] font-semibold tracking-[-0.02em] text-slate-950">
+                  {selectedTheme.title}
+                </h3>
+                <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600">
+                  {selectedTheme.description ?? "This theme groups the positions that currently share the same strategic thread."}
                 </p>
               </div>
-            </BrowseDetailSection>
 
-            <BrowseDetailSection
+              <Button size="sm" color="secondary" iconTrailing={ArrowRight} onClick={() => onOpenTheme(selectedTheme._id)}>
+                Open full theme
+              </Button>
+            </div>
+
+            <div className="mt-5 flex flex-wrap gap-2">
+              <BadgeWithDot type="pill-color" size="sm" color="gray">
+                {themePositions.length} positions
+              </BadgeWithDot>
+              <BadgeWithDot type="pill-color" size="sm" color="brand">
+                {posture.confidenceSummary}
+              </BadgeWithDot>
+              <BadgeWithDot type="pill-color" size="sm" color="gray">
+                {posture.latestFreshness}
+              </BadgeWithDot>
+            </div>
+          </section>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <SectionCard
               title="Current positions"
-              meta={`${themePositions.length} positions`}
+              meta={`${themePositions.length} total`}
             >
-              {themePositions.length > 0 ? (
-                <div className="browse-position-list">
-                  {themePositions
+              <div className="space-y-3">
+                {themePositions.length > 0 ? (
+                  themePositions
                     .slice()
                     .sort((left, right) => comparePositionsByFreshness(left, right))
                     .map((position) => (
                       <PositionRow
                         key={position._id}
                         position={position}
-                        variant="browse"
+                        onOpen={() => onOpenPosition(position._id)}
+                        compact
                       />
-                    ))}
-                </div>
-              ) : (
-                <div className="browse-empty-copy">
-                  No positions are attached to this theme yet.
-                </div>
-              )}
-            </BrowseDetailSection>
+                    ))
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 px-4 py-5 text-sm leading-6 text-slate-600">
+                    No positions are attached to this theme yet.
+                  </div>
+                )}
+              </div>
+            </SectionCard>
 
-            <BrowseDetailSection title="Research posture">
-              <div className="browse-posture-grid">
+            <SectionCard title="Research posture">
+              <div className="grid gap-3">
                 {posture.cards.map((card) => (
-                  <div key={card.label} className="browse-posture-card">
-                    <div className="meta-kicker">{card.label}</div>
-                    <div className="mt-3 text-lg font-semibold leading-7 text-ink">
-                      {card.value}
-                    </div>
-                    <p className="mt-2 text-sm leading-6 text-ink-soft">{card.description}</p>
+                  <div key={card.label} className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+                    <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
+                      {card.label}
+                    </p>
+                    <p className="mt-2 text-base font-semibold text-slate-950">{card.value}</p>
+                    <p className="mt-2 text-sm leading-6 text-slate-600">{card.description}</p>
                   </div>
                 ))}
               </div>
-            </BrowseDetailSection>
+            </SectionCard>
+          </div>
 
-            <BrowseDetailSection
-              title="Open next"
-              meta={featuredPositions.length ? `${featuredPositions.length} suggested` : undefined}
-            >
+          <SectionCard title="Open next" meta={`${featuredPositions.length} suggested`}>
+            <div className="space-y-3">
               {featuredPositions.length > 0 ? (
-                <div className="browse-position-list">
-                  {featuredPositions.map((position) => (
-                    <PositionRow
-                      key={position._id}
-                      position={position}
-                      variant="browse"
-                    />
-                  ))}
-                </div>
+                featuredPositions.map((position) => (
+                  <PositionRow
+                    key={position._id}
+                    position={position}
+                    onOpen={() => onOpenPosition(position._id)}
+                    compact
+                  />
+                ))
               ) : (
-                <div className="browse-empty-copy">
-                  Add a version date to positions in this theme to make freshness-based suggestions
-                  more informative.
+                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 px-4 py-5 text-sm leading-6 text-slate-600">
+                  Add version dates to positions in this theme to unlock freshness-based suggestions.
                 </div>
               )}
-            </BrowseDetailSection>
-          </article>
-        )}
-      </div>
+            </div>
+          </SectionCard>
+        </div>
+      ) : (
+        <EmptyPaneState
+          title="Choose a theme"
+          description="Select a theme from the left rail to load its position set, posture snapshot, and next-open recommendations."
+        />
+      )}
     </div>
-  );
-}
-
-function HomeDocument({
-  themes,
-  allPositions,
-}: {
-  themes: any[];
-  allPositions: any[];
-}) {
-  const sortedThemes = [...themes].sort(
-    (left, right) => (right.positionCount ?? 0) - (left.positionCount ?? 0),
-  );
-  const featuredPositions = [...allPositions].slice(0, 4);
-
-  return (
-    <div className="space-y-8">
-      <section className="editorial-panel rounded-[1.6rem] border p-5">
-        <div className="meta-kicker">Workspace brief</div>
-        <div className="mt-3 grid gap-4 md:grid-cols-3">
-          <Metric label="Themes" value={themes.length} />
-          <Metric label="Positions" value={allPositions.length} />
-          <Metric label="Experience" value="2 panes + chat" />
-        </div>
-      </section>
-
-      <section className="editorial-panel rounded-[1.6rem] border p-6">
-        <div className="meta-kicker">How to use the workspace</div>
-        <div className="mt-4 grid gap-4 md:grid-cols-3">
-          <NarrativeCard
-            title="Browse in one reading flow"
-            body="The left canvas stays focused on the current theme, position, source, or answer so the reader always knows what is primary."
-          />
-          <NarrativeCard
-            title="Keep evidence anchored"
-            body="The right column is the lineage layer. Supporting and counter-cards stay visible whether you are reading or asking."
-          />
-          <NarrativeCard
-            title="Open chat only when needed"
-            body="The chat overlay sits above the workspace instead of consuming layout width, so questioning never overwhelms reading."
-          />
-        </div>
-      </section>
-
-      <section className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="meta-kicker">Explore</div>
-            <h3 className="mt-2 text-xl font-semibold text-ink">Themes to open next</h3>
-          </div>
-          <span className="count-chip rounded-full px-3 py-1 text-xs font-semibold">
-            {sortedThemes.length} themes
-          </span>
-        </div>
-        <div className="grid gap-4 xl:grid-cols-2">
-          {sortedThemes.map((theme) => (
-            <ThemeCard key={theme._id} theme={theme} />
-          ))}
-        </div>
-      </section>
-
-      <section className="space-y-4">
-        <div>
-          <div className="meta-kicker">Fast paths</div>
-          <h3 className="mt-2 text-xl font-semibold text-ink">Active positions</h3>
-        </div>
-        <div className="space-y-3">
-          {featuredPositions.map((position) => (
-            <PositionRow key={position._id} position={position} />
-          ))}
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function AskDocument() {
-  return (
-    <div className="space-y-6">
-      <section className="editorial-panel rounded-[1.6rem] border p-6">
-        <div className="meta-kicker">Query the corpus</div>
-        <h3 className="display-balance mt-2 text-[2rem] leading-none text-ink">Open chat without losing the reading frame.</h3>
-        <p className="mt-3 max-w-2xl text-sm leading-7 text-ink-soft">
-          Questions begin in the overlay. Once you ask, the answer replaces this canvas and the evidence column reorganizes itself into cited cards first, retrieved context second.
-        </p>
-      </section>
-      <section className="grid gap-4 md:grid-cols-2">
-        {[
-          "Where does the research disagree on enterprise AI adoption?",
-          "What patterns show up in successful agentic workflow rollouts?",
-          "What counter-evidence weakens the strongest positions?",
-          "Which themes are still evidence-thin?",
-        ].map((prompt) => (
-          <div key={prompt} className="browser-card rounded-[1.35rem] border p-4">
-            <div className="meta-kicker">Suggested prompt</div>
-            <p className="mt-2 text-sm leading-7 text-ink-soft">{prompt}</p>
-          </div>
-        ))}
-      </section>
-    </div>
-  );
-}
-
-function BrowseDetailSection({
-  title,
-  meta,
-  children,
-}: {
-  title: string;
-  meta?: string;
-  children: ReactNode;
-}) {
-  return (
-    <section className="browse-detail-section">
-      <div className="browse-detail-section-header">
-        <div className="browse-detail-section-title">{title}</div>
-        {meta ? <div className="browse-detail-section-meta">{meta}</div> : null}
-      </div>
-      <div className="browse-detail-section-body">{children}</div>
-    </section>
   );
 }
 
 function ThemeDocument({
   activeTheme,
   themePositions,
+  onOpenPosition,
 }: {
   activeTheme: any;
   themePositions: any[];
+  onOpenPosition: (id: string) => void;
 }) {
   return (
     <div className="space-y-6">
-      <section className="editorial-panel rounded-[1.5rem] border p-6">
-        <div className="meta-kicker">Theme overview</div>
-        <p className="mt-3 text-sm leading-7 text-ink-soft">
-          {activeTheme.description ?? "Open a position to see its stance and evidence chain."}
+      <section className="rounded-[24px] border border-slate-200 bg-slate-50/70 p-5">
+        <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
+          Theme overview
+        </p>
+        <h3 className="mt-2 text-[1.65rem] font-semibold tracking-[-0.02em] text-slate-950">
+          {activeTheme.title}
+        </h3>
+        <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600">
+          {activeTheme.description ?? "Open a position to see the current stance and evidence chain."}
         </p>
       </section>
 
-      <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="meta-kicker">Positions</div>
-            <h3 className="mt-2 text-xl font-semibold text-ink">Current theses inside this theme</h3>
-          </div>
-          <div className="count-chip rounded-full px-3 py-1 text-xs font-semibold">
-            {themePositions.length} positions
-          </div>
-        </div>
-
+      <ContentSection
+        kicker="Positions"
+        title="Current theses inside this theme"
+        meta={`${themePositions.length} positions`}
+      >
         <div className="space-y-3">
           {themePositions.map((position) => (
-            <PositionRow key={position._id} position={position} />
+            <PositionRow
+              key={position._id}
+              position={position}
+              onOpen={() => onOpenPosition(position._id)}
+            />
           ))}
         </div>
-      </section>
+      </ContentSection>
     </div>
   );
 }
 
-function PositionDocument({ positionDetail }: { positionDetail: any }) {
+function PositionDocument({
+  positionDetail,
+}: {
+  positionDetail: any;
+  onOpenPosition: (id: string) => void;
+}) {
   const version = positionDetail.currentVersion;
 
   return (
     <div className="space-y-6">
-      <section className="editorial-hero rounded-[1.65rem] border p-6">
+      <section className="rounded-[24px] border border-utility-brand-200 bg-utility-brand-50/50 p-5">
         <div className="flex flex-wrap items-center gap-2">
-          <StatusPill label={version?.status ?? "active"} />
-          {version?.confidenceLevel && (
-            <StatusPill label={`Confidence ${version.confidenceLevel}`} tone="accent" />
-          )}
-          {typeof version?.versionNumber === "number" && (
-            <span className="count-chip rounded-full px-3 py-1 text-xs font-semibold">
+          {version?.status ? <StatusBadge status={version.status} /> : null}
+          {version?.confidenceLevel ? <ConfidenceBadge confidence={version.confidenceLevel} /> : null}
+          {typeof version?.versionNumber === "number" ? (
+            <Badge type="color" size="sm" color="gray">
               Version {version.versionNumber}
-            </span>
-          )}
+            </Badge>
+          ) : null}
         </div>
-        <div className="workspace-richtext mt-5">
-          <p>{version?.currentStance ?? "No stance has been written for this position yet."}</p>
+
+        <div className="mt-5 space-y-4">
+          <h3 className="text-[1.75rem] font-semibold tracking-[-0.02em] text-slate-950">
+            {positionDetail.title}
+          </h3>
+          <p className="text-base leading-8 text-slate-700">
+            {version?.currentStance ?? "No stance has been written for this position yet."}
+          </p>
         </div>
       </section>
 
-      {version?.openQuestions?.length > 0 && (
-        <section className="editorial-panel rounded-[1.5rem] border p-6">
-          <div className="meta-kicker">Open questions</div>
-          <ul className="workspace-richtext mt-4 space-y-3">
+      {version?.openQuestions?.length > 0 ? (
+        <SectionCard title="Open questions">
+          <ul className="space-y-3">
             {version.openQuestions.map((question: string) => (
-              <li key={question}>{question}</li>
+              <li key={question} className="rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-sm leading-7 text-slate-700">
+                {question}
+              </li>
             ))}
           </ul>
-        </section>
-      )}
+        </SectionCard>
+      ) : null}
 
-      {version?.observationDetails?.length > 0 && (
-        <section className="editorial-panel rounded-[1.5rem] border p-6">
-          <div className="meta-kicker">Curator observations</div>
-          <div className="mt-4 space-y-3">
+      {version?.observationDetails?.length > 0 ? (
+        <SectionCard title="Curator observations">
+          <div className="space-y-3">
             {version.observationDetails.map((observation: any) => (
               <div
                 key={observation._id}
-                className="rounded-[1.25rem] border browser-card p-4 text-sm leading-7 text-ink-soft"
+                className="rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-4 text-sm leading-7 text-slate-700"
               >
                 {observation.observationText}
               </div>
             ))}
           </div>
-        </section>
-      )}
+        </SectionCard>
+      ) : null}
 
-      {version?.mentalModelDetails?.length > 0 && (
-        <section className="editorial-panel rounded-[1.5rem] border p-6">
-          <div className="meta-kicker">Mental models</div>
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
+      {version?.mentalModelDetails?.length > 0 ? (
+        <SectionCard title="Mental models">
+          <div className="grid gap-3 md:grid-cols-2">
             {version.mentalModelDetails.map((model: any) => (
-              <div key={model._id} className="rounded-[1.25rem] border browser-card p-4">
-                <div className="meta-kicker">{model.modelType}</div>
-                <div className="mt-2 text-base font-semibold text-ink">{model.title}</div>
-                <p className="mt-2 text-sm leading-6 text-ink-soft">{model.description}</p>
+              <div key={model._id} className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+              <Badge type="color" size="sm" color="gray">
+                  {model.modelType}
+                </Badge>
+                <p className="mt-3 text-base font-semibold text-slate-950">{model.title}</p>
+                <p className="mt-2 text-sm leading-6 text-slate-600">{model.description}</p>
               </div>
             ))}
           </div>
-        </section>
-      )}
+        </SectionCard>
+      ) : null}
     </div>
   );
 }
@@ -1077,21 +991,54 @@ function PositionDocument({ positionDetail }: { positionDetail: any }) {
 function SourceDocument({ sourceDetail }: { sourceDetail: any }) {
   return (
     <div className="space-y-6">
-      <section className="editorial-panel rounded-[1.5rem] border p-6">
-        <div className="meta-kicker">Source record</div>
+      <section className="rounded-[24px] border border-slate-200 bg-slate-50/70 p-5">
+        <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
+          Source record
+        </p>
         <div className="mt-4">
           <SourceBadge source={sourceDetail.source} />
         </div>
-        {sourceDetail.sourceSynthesis && (
-          <p className="mt-4 text-sm leading-7 text-ink-soft">{sourceDetail.sourceSynthesis}</p>
-        )}
+        {sourceDetail.sourceSynthesis ? (
+          <p className="mt-4 text-sm leading-7 text-slate-600">{sourceDetail.sourceSynthesis}</p>
+        ) : null}
       </section>
 
-      <section className="grid gap-4 md:grid-cols-3">
-        <Metric label="Linked data points" value={sourceDetail.dataPointCount} />
-        <Metric label="Accessibility" value={sourceDetail.urlAccessibility} />
-        <Metric label="Status" value={sourceDetail.status} />
+      <div className="grid gap-3 md:grid-cols-3">
+        <MetricCard label="Linked data points" value={sourceDetail.dataPointCount} />
+        <MetricCard label="Accessibility" value={sourceDetail.urlAccessibility} />
+        <MetricCard label="Status" value={sourceDetail.status} />
+      </div>
+    </div>
+  );
+}
+
+function AskDocument({ onOpenChat }: { onOpenChat: () => void }) {
+  return (
+    <div className="space-y-6">
+      <section className="rounded-[24px] border border-slate-200 bg-slate-50/70 p-5">
+        <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
+          Query the corpus
+        </p>
+        <h3 className="mt-2 text-[1.75rem] font-semibold tracking-[-0.02em] text-slate-950">
+          Ask grounded questions without losing the reading frame.
+        </h3>
+        <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
+          The chat drawer uses the current theme, position, source, or the full corpus as scope. Answers write back into the main canvas and reconfigure the evidence column around citations first.
+        </p>
+        <div className="mt-4">
+          <Button size="sm" color="primary" iconLeading={MessageChatCircle} onClick={onOpenChat}>
+            Open grounded chat
+          </Button>
+        </div>
       </section>
+
+      <SectionCard title="Suggested prompts">
+        <div className="grid gap-3 md:grid-cols-2">
+          {getSuggestions("ask").map((prompt) => (
+            <PromptCard key={prompt} prompt={prompt} onClick={() => onOpenChat()} />
+          ))}
+        </div>
+      </SectionCard>
     </div>
   );
 }
@@ -1109,23 +1056,25 @@ function AnswerDocument({
 
   return (
     <article className="space-y-6">
-      <section className="editorial-hero rounded-[1.6rem] border p-6">
+      <section className="rounded-[24px] border border-utility-brand-200 bg-utility-brand-50/50 p-5">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-full border border-accent/20 bg-accent-soft px-3 py-1 text-xs font-semibold text-accent">
+          <Badge type="color" size="sm" color="brand">
             {answerState.scopeLabel}
-          </span>
-          <span className="count-chip rounded-full px-3 py-1 text-xs font-semibold">
+          </Badge>
+          <Badge type="color" size="sm" color="gray">
             {answerState.citedDataPointIds.length} citations
-          </span>
+          </Badge>
         </div>
-        <div className="mt-4">
-          <div className="meta-kicker">Question</div>
-          <p className="mt-2 text-lg font-semibold leading-8 text-ink">{answerState.question}</p>
+        <div className="mt-5">
+          <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">Question</p>
+          <p className="mt-2 text-xl font-semibold leading-8 text-slate-950">{answerState.question}</p>
         </div>
       </section>
 
-      <section className="workspace-richtext editorial-panel rounded-[1.5rem] border p-6">
-        {renderAnswerDocument(answerState.answer, citationMap, onCitationClick)}
+      <section className="rounded-[24px] border border-slate-200 bg-white p-6">
+        <div className="space-y-4 text-[1rem] leading-8 text-slate-700">
+          {renderAnswerDocument(answerState.answer, citationMap, onCitationClick)}
+        </div>
       </section>
     </article>
   );
@@ -1149,97 +1098,46 @@ function EvidencePane({
   }, [highlightedEvidenceId]);
 
   return (
-    <>
-      <PaneHeader
-        icon={<File02 className="size-5" />}
-        kicker="Evidence column"
-        title={state.title}
-        description={state.description}
-      />
-
-      <div className="pane-scroll px-5 pb-5 pt-4">
-        {sections.length === 0 ? (
-          <div className="rounded-[1.5rem] border border-dashed border-border/90 bg-panel/55 p-5">
-            <div className="meta-kicker">{state.emptyTitle}</div>
-            <p className="mt-3 text-sm leading-7 text-ink-soft">{state.emptyDescription}</p>
-          </div>
-        ) : (
-          <div className="trace-doc">
-            {sections.map((section) => (
-              <section
-                key={section.key}
-                className="trace-section"
-              >
-                <div className="trace-identity-row border-b border-border/70 pb-3">
-                  <div>
-                    <div className="trace-section-title">{section.title}</div>
-                    <p className="mt-1 text-sm leading-6 text-ink-soft">{section.subtitle}</p>
-                  </div>
-                  <div className="count-chip rounded-full px-3 py-1 text-xs font-semibold">
-                    {section.items.length}
-                  </div>
+    <div className="px-4 pb-4 pt-2 lg:px-5">
+      {sections.length === 0 ? (
+        <EmptyPaneState title={state.emptyTitle} description={state.emptyDescription} />
+      ) : (
+        <div className="space-y-4">
+          {sections.map((section) => (
+            <section key={section.key} className="rounded-[24px] border border-slate-200 bg-slate-50/70 p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 pb-3">
+                <div>
+                  <h3 className="text-base font-semibold text-slate-950">{section.title}</h3>
+                  <p className="mt-1 text-sm leading-6 text-slate-600">{section.subtitle}</p>
                 </div>
+                <Badge type="color" size="sm" color="gray">
+                  {section.items.length}
+                </Badge>
+              </div>
 
-                <div className="mt-4">
-                  <ol className="trace-list">
-                    {section.items.map((item, index) => (
-                      <li key={item._id} className="list-none">
-                        <DataPointCard
-                          dp={item}
-                          variant={section.variant}
-                          isHighlighted={highlightedEvidenceId === item._id}
-                          isCited={section.cited}
-                          onSelect={() => onSelectEvidence(item._id)}
-                          defaultOpen={index === 0 || highlightedEvidenceId === item._id}
-                          label={`${section.cited ? "DP" : section.variant === "counter" ? "CT" : "EV"} ${String(index + 1).padStart(2, "0")}`}
-                        />
-                      </li>
-                    ))}
-                  </ol>
-                </div>
-              </section>
-            ))}
-          </div>
-        )}
-      </div>
-    </>
-  );
-}
-
-function ChatDockButton({
-  isOpen,
-  scopeLabel,
-  pending,
-  onClick,
-}: {
-  isOpen: boolean;
-  scopeLabel: string;
-  pending: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "fixed bottom-5 right-5 z-30 hidden items-center gap-3 rounded-full border border-accent/20 bg-panel/95 px-4 py-3 text-left shadow-[0_22px_48px_-28px_rgba(47,36,22,0.45)] backdrop-blur lg:inline-flex",
-        isOpen && "pointer-events-none translate-y-2 opacity-0",
-      )}
-    >
-      <div className="flex size-10 items-center justify-center rounded-full bg-accent text-white">
-        <MessageChatCircle className="size-4.5" />
-      </div>
-      <div>
-        <div className="text-sm font-semibold text-ink">
-          {pending ? "Thinking through the evidence..." : "Ask with context"}
+              <ol className="mt-4 space-y-3">
+                {section.items.map((item, index) => (
+                  <li key={item._id}>
+                    <DataPointCard
+                      dp={item}
+                      variant={section.variant}
+                      isHighlighted={highlightedEvidenceId === item._id}
+                      isCited={section.cited}
+                      onSelect={() => onSelectEvidence(item._id)}
+                      label={`${section.cited ? "DP" : section.variant === "counter" ? "CT" : "EV"} ${String(index + 1).padStart(2, "0")}`}
+                    />
+                  </li>
+                ))}
+              </ol>
+            </section>
+          ))}
         </div>
-        <div className="mt-0.5 text-xs text-ink-muted">{scopeLabel}</div>
-      </div>
-    </button>
+      )}
+    </div>
   );
 }
 
-function ChatOverlay({
+function ChatModal({
   isOpen,
   routeKind,
   scopeLabel,
@@ -1272,217 +1170,273 @@ function ChatOverlay({
 }) {
   const suggestions = getSuggestions(routeKind);
 
+  if (!isOpen) return null;
+
   return (
-    <>
-      <div
-        aria-hidden={!isOpen}
-        onClick={onClose}
-        className={cn(
-          "fixed inset-0 z-40 bg-slate-950/18 backdrop-blur-[2px] transition-opacity duration-300",
-          isOpen ? "opacity-100" : "pointer-events-none opacity-0",
-        )}
-      />
+    <ModalOverlay isOpen={isOpen} isDismissable onOpenChange={(open) => !open && onClose()}>
+      <Modal className="w-full max-w-5xl">
+        <Dialog className="w-full">
+          <div className="w-full overflow-hidden rounded-[32px] border border-white/40 bg-white shadow-[var(--ui-shell-shadow)]">
+            <div className="flex flex-col gap-0 xl:grid xl:grid-cols-[minmax(0,1fr)_420px]">
+              <div className="border-b border-slate-200 xl:border-b-0 xl:border-r">
+                <div className="border-b border-slate-200 px-5 py-5">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
+                        Grounded chat
+                      </p>
+                      <h2 className="mt-2 text-[1.75rem] font-semibold tracking-[-0.02em] text-slate-950">
+                        Ask with live context
+                      </h2>
+                      <p className="mt-2 max-w-2xl text-sm leading-7 text-slate-600">
+                        The answer writes into the main canvas while the modal keeps prompts, history, and scope controls together in one place.
+                      </p>
+                    </div>
 
-      <aside
-        role="dialog"
-        aria-modal="true"
-        aria-label="Ask with context"
-        className={cn(
-          "fixed inset-y-0 right-0 z-50 flex w-full max-w-[30rem] flex-col border-l border-border/70 bg-panel/96 shadow-[-30px_0_60px_-42px_rgba(47,36,22,0.45)] backdrop-blur-lg transition-transform duration-300",
-          isOpen ? "translate-x-0" : "translate-x-full",
-        )}
-      >
-        <div className="border-b border-border/70 px-5 py-5">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <div className="meta-kicker">Chat overlay</div>
-              <h2 className="mt-2 text-xl font-semibold text-ink">Ask with live context</h2>
-              <p className="mt-2 text-sm leading-6 text-ink-soft">
-                The answer writes into the main canvas while this overlay keeps the prompt flow, history, and scope controls in one place.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="shell-nav-link rounded-full border px-3 py-2 text-xs font-semibold"
-            >
-              Close
-            </button>
-          </div>
-
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            <span className="rounded-full border border-accent/20 bg-accent-soft px-3 py-1 text-xs font-semibold text-accent">
-              {scopeLabel}
-            </span>
-            <span className="count-chip rounded-full px-3 py-1 text-xs font-semibold">
-              {userTurnsCount} / {USER_TURN_LIMIT} turns
-            </span>
-          </div>
-        </div>
-
-        <div className="pane-scroll px-5 pb-5 pt-4">
-          <div className="editorial-panel rounded-[1.5rem] border p-4">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <div className="meta-kicker">Suggested prompts</div>
-                <p className="mt-1 text-sm leading-6 text-ink-soft">
-                  Start narrow, then use the evidence column to verify what the answer relied on.
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-3 space-y-2">
-              {suggestions.map((suggestion) => (
-                <button
-                  key={suggestion}
-                  type="button"
-                  onClick={() => onUseSuggestion(suggestion)}
-                  className="browser-card flex w-full items-start justify-between gap-3 rounded-[1.15rem] border px-4 py-3 text-left text-sm leading-6 text-ink-soft"
-                >
-                  <span>{suggestion}</span>
-                  <ArrowRight className="mt-1 size-4 shrink-0 text-ink-muted" />
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="mt-5 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="meta-kicker">Conversation</div>
-              {turns.length > 0 && (
-                <button
-                  type="button"
-                  onClick={onReset}
-                  className="text-xs font-semibold text-ink-muted hover:text-accent"
-                >
-                  Reset conversation
-                </button>
-              )}
-            </div>
-
-            {turns.length === 0 ? (
-              <div className="rounded-[1.35rem] border border-dashed border-border bg-panel-muted/60 p-4">
-                <p className="text-sm leading-7 text-ink-soft">
-                  Ask a question from the current context. The answer will replace the main canvas and line up its cited cards in the evidence column.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {turns.map((turn, index) => (
-                  <div
-                    key={`${turn.role}-${index}`}
-                    className={cn(
-                      "rounded-[1.25rem] border px-4 py-3",
-                      turn.role === "user"
-                        ? "border-accent/18 bg-accent-soft/55"
-                        : "border-border browser-card",
-                    )}
-                  >
-                    <div className="meta-kicker">{turn.role === "user" ? "You" : "Assistant"}</div>
-                    <p className="mt-2 text-sm leading-7 text-ink-soft">
-                      {turn.role === "assistant" ? summarizeText(turn.content, 260) : turn.content}
-                    </p>
+                    <Button size="sm" color="secondary" onClick={onClose}>
+                      Close
+                    </Button>
                   </div>
-                ))}
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <BadgeWithDot type="pill-color" size="sm" color="brand">
+                      {scopeLabel}
+                    </BadgeWithDot>
+                    <BadgeWithDot type="pill-color" size="sm" color="gray">
+                      {userTurnsCount} / {USER_TURN_LIMIT} turns
+                    </BadgeWithDot>
+                  </div>
+                </div>
+
+                <div className="max-h-[70vh] space-y-5 overflow-y-auto px-5 py-5">
+                  <SectionCard title="Suggested prompts">
+                    <div className="space-y-2">
+                      {suggestions.map((suggestion) => (
+                        <PromptCard
+                          key={suggestion}
+                          prompt={suggestion}
+                          onClick={() => onUseSuggestion(suggestion)}
+                        />
+                      ))}
+                    </div>
+                  </SectionCard>
+
+                  <SectionCard
+                    title="Conversation"
+                    action={
+                      turns.length > 0 ? (
+                        <Button size="xs" color="tertiary" onClick={onReset}>
+                          Reset
+                        </Button>
+                      ) : null
+                    }
+                  >
+                    {turns.length === 0 ? (
+                      <EmptyState size="sm" className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 px-4 py-8">
+                        <EmptyState.Header pattern="none">
+                          <EmptyState.FeaturedIcon icon={SearchLg} color="gray" theme="modern" />
+                        </EmptyState.Header>
+                        <EmptyState.Content>
+                          <EmptyState.Title>Ask from the current context</EmptyState.Title>
+                          <EmptyState.Description>
+                            The answer will replace the main canvas and line up its cited cards in the evidence column.
+                          </EmptyState.Description>
+                        </EmptyState.Content>
+                      </EmptyState>
+                    ) : (
+                      <div className="space-y-3">
+                        {turns.map((turn, index) => (
+                          <div
+                            key={`${turn.role}-${index}`}
+                            className={cn(
+                              "rounded-2xl border px-4 py-3",
+                              turn.role === "user"
+                                ? "border-utility-brand-200 bg-utility-brand-50"
+                                : "border-slate-200 bg-slate-50/70",
+                            )}
+                          >
+                            <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
+                              {turn.role === "user" ? "You" : "Assistant"}
+                            </p>
+                            <p className="mt-2 text-sm leading-7 text-slate-700">
+                              {turn.role === "assistant" ? summarizeText(turn.content, 280) : turn.content}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </SectionCard>
+                </div>
               </div>
-            )}
+
+              <div className="flex flex-col px-5 py-5">
+                <div className="rounded-[24px] border border-slate-200 bg-slate-50/70 p-4">
+                  <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
+                    Ask or search the corpus
+                  </p>
+                  <form
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      void onSubmit();
+                    }}
+                    className="mt-4 space-y-4"
+                  >
+                    <TextAreaBase
+                      value={input}
+                      onChange={(event) => setInput(event.target.value)}
+                      rows={10}
+                      disabled={pending || reachedTurnLimit}
+                      placeholder={
+                        reachedTurnLimit
+                          ? "Conversation limit reached. Reset to ask another question."
+                          : "Ask about the current theme, position, source, or the wider corpus..."
+                      }
+                      className="min-h-52 resize-none"
+                    />
+
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-xs font-medium text-slate-500">
+                        Cmd/Ctrl + Enter to submit
+                      </p>
+
+                      <Button
+                        type="submit"
+                        size="sm"
+                        color="primary"
+                        iconTrailing={ArrowRight}
+                        disabled={pending || reachedTurnLimit || !input.trim()}
+                      >
+                        {pending ? "Asking" : "Ask"}
+                      </Button>
+                    </div>
+                  </form>
+                </div>
+
+                {pending ? (
+                  <div className="mt-4 rounded-2xl border border-utility-brand-200 bg-utility-brand-50 px-4 py-3 text-sm text-utility-brand-700">
+                    Thinking through the evidence...
+                  </div>
+                ) : null}
+
+                {error ? (
+                  <div className="mt-4 rounded-2xl border border-utility-red-200 bg-utility-red-50 px-4 py-3 text-sm text-utility-red-700">
+                    {error}
+                  </div>
+                ) : null}
+              </div>
+            </div>
           </div>
-
-          {pending && (
-            <div className="mt-4 rounded-[1.25rem] border border-accent/18 bg-accent-soft/50 px-4 py-3 text-sm text-accent">
-              Thinking through the evidence...
-            </div>
-          )}
-
-          {error && (
-            <div className="mt-4 rounded-[1.25rem] border border-danger/20 bg-danger-soft px-4 py-3 text-sm text-danger">
-              {error}
-            </div>
-          )}
-        </div>
-
-        <div className="border-t border-border/70 px-5 py-4">
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              void onSubmit();
-            }}
-            className="space-y-3"
-          >
-            <div className="rounded-[1.45rem] border border-border bg-panel-muted/60 px-4 py-3">
-              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-ink-muted">
-                <SearchLg className="size-3.5" />
-                Ask or search the corpus
-              </div>
-              <textarea
-                value={input}
-                onChange={(event) => setInput(event.target.value)}
-                rows={4}
-                disabled={pending || reachedTurnLimit}
-                placeholder={
-                  reachedTurnLimit
-                    ? "Conversation limit reached. Reset to ask another question."
-                    : "Ask about the current theme, position, source, or the wider corpus..."
-                }
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
-                    event.preventDefault();
-                    void onSubmit();
-                  }
-                }}
-                className="mt-3 w-full resize-none bg-transparent text-sm leading-7 text-ink outline-none placeholder:text-ink-muted"
-              />
-            </div>
-            <div className="flex items-center justify-between gap-3">
-              <div className="text-xs font-semibold text-ink-muted">
-                Cmd/Ctrl + Enter to submit
-              </div>
-              <button
-                type="submit"
-                disabled={pending || reachedTurnLimit || !input.trim()}
-                className="inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-strong disabled:bg-ink-muted"
-              >
-                Ask
-                <ArrowRight className="size-4" />
-              </button>
-            </div>
-          </form>
-        </div>
-      </aside>
-    </>
+        </Dialog>
+      </Modal>
+    </ModalOverlay>
   );
 }
 
-function ThemeCard({ theme }: { theme: any }) {
+function ContentSection({
+  kicker,
+  title,
+  meta,
+  children,
+}: {
+  kicker: string;
+  title: string;
+  meta?: string;
+  children: ReactNode;
+}) {
   return (
-    <Link
-      to={`/themes/${theme._id}`}
-      className="group browser-card block rounded-[1.4rem] border p-5 transition-all hover:shadow-[var(--shadow-float)]"
-    >
-      <div className="flex items-center justify-between">
-        <div className="meta-kicker">Theme</div>
-        <div className="count-chip rounded-full px-3 py-1 text-xs font-semibold">
-          {theme.positionCount} positions
+    <section className="space-y-4">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">{kicker}</p>
+          <h3 className="mt-2 text-xl font-semibold text-slate-950">{title}</h3>
         </div>
+        {meta ? (
+          <Badge type="color" size="sm" color="gray">
+            {meta}
+          </Badge>
+        ) : null}
       </div>
-      <div className="mt-3 text-[1.45rem] leading-10 text-ink">{theme.title}</div>
-      {theme.description && (
-        <p className="mt-2 text-sm leading-7 text-ink-soft">{theme.description}</p>
-      )}
-      <div className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-accent">
-        Open theme
-        <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
+      {children}
+    </section>
+  );
+}
+
+function SectionCard({
+  title,
+  meta,
+  action,
+  children,
+}: {
+  title: string;
+  meta?: string;
+  action?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <section className="rounded-[24px] border border-slate-200 bg-white p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
+        <div className="flex items-center gap-3">
+          <h3 className="text-lg font-semibold text-slate-950">{title}</h3>
+          {meta ? (
+            <Badge type="color" size="sm" color="gray">
+              {meta}
+            </Badge>
+          ) : null}
+        </div>
+        {action}
       </div>
-    </Link>
+      <div className="mt-4">{children}</div>
+    </section>
+  );
+}
+
+function MetricCard({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="rounded-[20px] border border-slate-200 bg-white p-4">
+      <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">{label}</p>
+      <p className="mt-3 text-2xl font-semibold text-slate-950">{value}</p>
+    </div>
+  );
+}
+
+function ActionCard({
+  eyebrow,
+  title,
+  description,
+  cta,
+  onClick,
+}: {
+  eyebrow: string;
+  title: string;
+  description: string;
+  cta: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group rounded-[24px] border border-slate-200 bg-white p-5 text-left shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-[0_8px_24px_rgba(16,24,40,0.08)]"
+    >
+      <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">{eyebrow}</p>
+      <p className="mt-3 text-xl font-semibold tracking-[-0.02em] text-slate-950">{title}</p>
+      <p className="mt-2 text-sm leading-7 text-slate-600">{description}</p>
+      <div className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-utility-brand-700">
+        {cta}
+        <ArrowRight className="size-4 transition group-hover:translate-x-1" />
+      </div>
+    </button>
   );
 }
 
 function PositionRow({
   position,
-  variant = "default",
+  onOpen,
+  compact = false,
 }: {
   position: any;
-  variant?: "default" | "browse";
+  onOpen: () => void;
+  compact?: boolean;
 }) {
   const stance = position.currentVersion?.currentStance ?? position.currentStance;
   const confidenceLevel =
@@ -1490,120 +1444,103 @@ function PositionRow({
   const status = position.currentVersion?.status ?? position.status ?? null;
   const versionDate = position.currentVersion?.versionDate ?? position.versionDate ?? null;
 
-  if (variant === "browse") {
-    return (
-      <Link to={`/positions/${position._id}`} className="browse-position-row">
-        <div className="browse-position-main">
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="group w-full rounded-[20px] border border-slate-200 bg-white px-4 py-4 text-left transition hover:border-slate-300 hover:bg-slate-50"
+    >
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="meta-kicker">{position.themeTitle ?? "Position"}</span>
-            {confidenceLevel ? (
-              <StatusPill label={`Confidence ${confidenceLevel}`} tone="accent" />
-            ) : null}
-            {status ? <StatusPill label={status} /> : null}
+            <Badge type="color" size="sm" color="gray">
+              {position.themeTitle ?? "Position"}
+            </Badge>
+            {status ? <StatusBadge status={status} /> : null}
+            {confidenceLevel ? <ConfidenceBadge confidence={confidenceLevel} /> : null}
           </div>
-          <div className="mt-2 text-base font-semibold leading-7 text-ink">{position.title}</div>
+
+          <p className="mt-3 text-base font-semibold leading-7 text-slate-950">{position.title}</p>
           {stance ? (
-            <p className="mt-2 text-sm leading-7 text-ink-soft">
-              {summarizeText(stance, 210)}
+            <p className="mt-2 text-sm leading-7 text-slate-600">
+              {summarizeText(stance, compact ? 160 : 220)}
             </p>
           ) : null}
-          <div className="browse-position-meta">
-            {versionDate ? `Updated ${formatDateLabel(versionDate)}` : "No version date yet"}
-          </div>
+          {versionDate ? (
+            <p className="mt-3 text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
+              Updated {formatDateLabel(versionDate)}
+            </p>
+          ) : null}
         </div>
-        <div className="browse-position-action">
-          <span>Open position</span>
-          <ArrowRight className="size-4" />
-        </div>
-      </Link>
-    );
-  }
 
+        <div className="inline-flex items-center gap-2 text-sm font-semibold text-utility-brand-700">
+          Open
+          <ArrowRight className="size-4 transition group-hover:translate-x-1" />
+        </div>
+      </div>
+    </button>
+  );
+}
+
+function PromptCard({
+  prompt,
+  onClick,
+}: {
+  prompt: string;
+  onClick: () => void;
+}) {
   return (
-    <Link
-      to={`/positions/${position._id}`}
-      className="browser-card block rounded-[1.35rem] border p-4 transition-all hover:shadow-[var(--shadow-float)]"
+    <button
+      type="button"
+      onClick={onClick}
+      className="group w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left transition hover:border-slate-300 hover:bg-slate-50"
     >
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="meta-kicker">{position.themeTitle ?? "Position"}</div>
-          <div className="mt-2 text-base font-semibold text-ink">{position.title}</div>
-          {stance && <p className="mt-2 text-sm leading-7 text-ink-soft">{summarizeText(stance, 180)}</p>}
-        </div>
-        <ArrowRight className="mt-1 size-4 shrink-0 text-ink-muted" />
+        <p className="text-sm leading-6 text-slate-700">{prompt}</p>
+        <ArrowRight className="mt-1 size-4 shrink-0 text-slate-400 transition group-hover:translate-x-1 group-hover:text-utility-brand-700" />
       </div>
-    </Link>
+    </button>
   );
 }
 
-function SignalChip({
-  label,
-  value,
-}: {
-  label: string;
-  value: string | number;
-}) {
-  return (
-    <div className="browse-signal">
-      <div className="browse-signal-label">{label}</div>
-      <div className="browse-signal-value">{value}</div>
-    </div>
-  );
-}
-
-function NarrativeCard({
+function EmptyPaneState({
   title,
-  body,
+  description,
 }: {
   title: string;
-  body: string;
+  description: string;
 }) {
   return (
-    <div className="browser-card rounded-[1.3rem] border p-4">
-      <div className="text-sm font-semibold text-ink">{title}</div>
-      <p className="mt-2 text-sm leading-7 text-ink-soft">{body}</p>
-    </div>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="browser-card rounded-[1.25rem] border p-4">
-      <div className="meta-kicker">{label}</div>
-      <div className="mt-3 text-2xl font-semibold text-ink">{value}</div>
-    </div>
-  );
-}
-
-function StatusPill({
-  label,
-  tone = "neutral",
-}: {
-  label: string;
-  tone?: "neutral" | "accent";
-}) {
-  return (
-    <span
-      className={cn(
-        "rounded-full border px-3 py-1 text-xs font-semibold",
-        tone === "accent"
-          ? "border-accent/18 bg-accent-soft text-accent"
-          : "border-border/85 bg-panel text-ink-muted",
-      )}
+    <EmptyState
+      size="md"
+      className="rounded-[24px] border border-dashed border-slate-200 bg-slate-50/70 px-6 py-10"
     >
-      {label}
-    </span>
+      <EmptyState.Header pattern="none">
+        <EmptyState.FeaturedIcon icon={SearchLg} color="gray" theme="modern" />
+      </EmptyState.Header>
+      <EmptyState.Content>
+        <EmptyState.Title>{title}</EmptyState.Title>
+        <EmptyState.Description>{description}</EmptyState.Description>
+      </EmptyState.Content>
+    </EmptyState>
   );
 }
 
 function LoadingState() {
   return (
-    <div className="space-y-4">
-      <div className="h-28 animate-pulse rounded-[1.5rem] bg-panel-muted/85" />
-      <div className="h-52 animate-pulse rounded-[1.5rem] bg-panel-muted/85" />
-      <div className="h-40 animate-pulse rounded-[1.5rem] bg-panel-muted/85" />
+    <div className="flex min-h-[24rem] items-center justify-center">
+      <LoadingIndicator type="line-simple" size="lg" label="Loading workspace" />
     </div>
   );
+}
+
+function sectionsCountBadge(sections: EvidenceSection[]) {
+  const total = sections.reduce((sum, section) => sum + section.items.length, 0);
+  return total > 0 ? (
+    <Badge type="color" size="sm" color="gray">
+      {total} records
+    </Badge>
+  ) : null;
 }
 
 function comparePositionsByFreshness(left: any, right: any) {
@@ -1635,7 +1572,10 @@ function getThemePosture(themePositions: any[]) {
     }
 
     const versionDate = position.currentVersion?.versionDate;
-    if (versionDate && (!latestVersionDate || Date.parse(versionDate) > Date.parse(latestVersionDate))) {
+    if (
+      versionDate &&
+      (!latestVersionDate || Date.parse(versionDate) > Date.parse(latestVersionDate))
+    ) {
       latestVersionDate = versionDate;
     }
   }
@@ -1644,7 +1584,8 @@ function getThemePosture(themePositions: any[]) {
     summarizeCounts(statusCounts, ["active", "emerging", "established", "evolved", "retired"]) ??
     "no status signals yet";
   const confidenceSummary =
-    summarizeCounts(confidenceCounts, ["established", "active", "emerging"]) ?? "not yet classified";
+    summarizeCounts(confidenceCounts, ["established", "active", "emerging"]) ??
+    "not yet classified";
 
   return {
     statusSummary,
@@ -1659,7 +1600,7 @@ function getThemePosture(themePositions: any[]) {
       {
         label: "Confidence",
         value: confidenceSummary,
-        description: "Shows whether the theme is mostly emerging, actively forming, or already established.",
+        description: "Shows whether the theme is still emerging, actively forming, or already established.",
       },
       {
         label: "Freshest update",
@@ -1708,7 +1649,7 @@ function renderAnswerDocument(
     }
 
     if (/^(-{3,}|\*{3,})$/.test(current)) {
-      blocks.push(<hr key={`rule-${index}`} className="workspace-rule" />);
+      blocks.push(<hr key={`rule-${index}`} className="border-t border-slate-200" />);
       index += 1;
       continue;
     }
@@ -1716,27 +1657,23 @@ function renderAnswerDocument(
     const headingMatch = current.match(/^(#{1,3})\s+(.*)$/);
     if (headingMatch) {
       const level = headingMatch[1].length;
-      const content = renderInlineRichText(
-        headingMatch[2],
-        citationMap,
-        onCitationClick,
-      );
+      const content = renderInlineRichText(headingMatch[2], citationMap, onCitationClick);
 
       if (level === 1) {
         blocks.push(
-          <h1 key={`heading-${index}`} className="text-display-xs md:text-display-sm">
+          <h1 key={`heading-${index}`} className="text-display-xs font-semibold tracking-[-0.02em] text-slate-950">
             {content}
           </h1>,
         );
       } else if (level === 2) {
         blocks.push(
-          <h2 key={`heading-${index}`} className="text-2xl">
+          <h2 key={`heading-${index}`} className="text-2xl font-semibold tracking-[-0.02em] text-slate-950">
             {content}
           </h2>,
         );
       } else {
         blocks.push(
-          <h3 key={`heading-${index}`} className="text-xl">
+          <h3 key={`heading-${index}`} className="text-xl font-semibold text-slate-950">
             {content}
           </h3>,
         );
@@ -1753,7 +1690,10 @@ function renderAnswerDocument(
         index += 1;
       }
       blocks.push(
-        <blockquote key={`quote-${index}`}>
+        <blockquote
+          key={`quote-${index}`}
+          className="rounded-2xl border border-utility-brand-200 bg-utility-brand-50 px-4 py-3 text-sm leading-7 text-slate-700"
+        >
           {renderInlineRichText(quoteLines.join(" "), citationMap, onCitationClick)}
         </blockquote>,
       );
@@ -1769,8 +1709,9 @@ function renderAnswerDocument(
       blocks.push(
         <ul key={`list-${index}`} className="space-y-3">
           {items.map((item, itemIndex) => (
-            <li key={`${item}-${itemIndex}`}>
-              {renderInlineRichText(item, citationMap, onCitationClick)}
+            <li key={`${item}-${itemIndex}`} className="flex items-start gap-3">
+              <span className="mt-3 size-1.5 rounded-full bg-utility-brand-500" />
+              <span>{renderInlineRichText(item, citationMap, onCitationClick)}</span>
             </li>
           ))}
         </ul>,
@@ -1785,7 +1726,7 @@ function renderAnswerDocument(
         index += 1;
       }
       blocks.push(
-        <ol key={`ordered-${index}`} className="workspace-ordered-list space-y-3">
+        <ol key={`ordered-${index}`} className="list-decimal space-y-3 pl-5">
           {items.map((item, itemIndex) => (
             <li key={`${item}-${itemIndex}`}>
               {renderInlineRichText(item, citationMap, onCitationClick)}
@@ -1814,7 +1755,7 @@ function renderAnswerDocument(
     }
 
     blocks.push(
-      <p key={`paragraph-${index}`}>
+      <p key={`paragraph-${index}`} className="text-base leading-8 text-slate-700">
         {renderInlineRichText(paragraphLines.join(" "), citationMap, onCitationClick)}
       </p>,
     );
@@ -1839,7 +1780,7 @@ function renderInlineRichText(
         <button
           key={`${label}-${index}`}
           type="button"
-          className="citation-chip mx-1 align-middle"
+          className="mx-1 inline-flex rounded-full border border-utility-brand-200 bg-utility-brand-50 px-2.5 py-1 text-xs font-semibold text-utility-brand-700"
           onClick={() => onCitationClick(dataPointId)}
         >
           {part}
@@ -1848,12 +1789,15 @@ function renderInlineRichText(
     }
 
     if (part.startsWith("**") && part.endsWith("**")) {
-      return <strong key={`${part}-${index}`}>{part.slice(2, -2)}</strong>;
+      return <strong key={`${part}-${index}`} className="font-semibold text-slate-950">{part.slice(2, -2)}</strong>;
     }
 
     if (part.startsWith("`") && part.endsWith("`")) {
       return (
-        <code key={`${part}-${index}`} className="rounded bg-panel-muted px-1.5 py-0.5 text-[0.95em] text-ink">
+        <code
+          key={`${part}-${index}`}
+          className="rounded-md bg-slate-100 px-1.5 py-0.5 font-mono text-[0.95em] text-slate-900"
+        >
           {part.slice(1, -1)}
         </code>
       );
@@ -1868,13 +1812,11 @@ function getEvidencePaneState({
   activeTheme,
   positionDetail,
   sourceDetail,
-  sections,
 }: {
   activeAnswer: AssistantAnswer | null;
   activeTheme: any;
   positionDetail: any;
   sourceDetail: any;
-  sections: EvidenceSection[];
 }) {
   if (activeAnswer) {
     return {
@@ -1902,7 +1844,7 @@ function getEvidencePaneState({
     return {
       title: "Claims extracted from this source",
       description:
-        "The evidence column shows every data point currently linked to this source so you can inspect its lineage without leaving the reading flow.",
+        "The evidence column shows every data point linked to this source so you can inspect provenance without leaving the reading flow.",
       emptyTitle: "No extracted claims yet",
       emptyDescription:
         "This source has not produced linked data points yet.",
@@ -1913,31 +1855,20 @@ function getEvidencePaneState({
     return {
       title: "Evidence will follow the position you open",
       description:
-        "Themes organize positions, but the evidence column becomes active once you open a position or ask a question grounded in the theme.",
+        "Themes organize positions, but the evidence column becomes active once you open a position or ask a grounded question inside that theme.",
       emptyTitle: "Choose a position to inspect",
       emptyDescription:
         "Open one of this theme’s positions to bring supporting evidence into view.",
     };
   }
 
-  if (sections.length > 0) {
-    return {
-      title: "Evidence in current context",
-      description:
-        "This column stays reserved for claims, quotes, and source lineage tied to what you are reading.",
-      emptyTitle: "No evidence yet",
-      emptyDescription:
-        "Open a position, source, or grounded answer to populate the evidence column.",
-    };
-  }
-
   return {
     title: "Evidence column",
     description:
-      "The right column is the lineage layer. Open a position, inspect a source, or ask a grounded question to populate it.",
+      "The evidence column stays reserved for claims, quotes, and provenance tied to whatever you are reading or asking.",
     emptyTitle: "No evidence in view",
     emptyDescription:
-      "The evidence column will populate as soon as you open a position, source, or grounded answer.",
+      "Open a position, inspect a source, or ask a grounded question to populate this pane.",
   };
 }
 
@@ -2008,7 +1939,7 @@ function getMainPaneDescription(
   sourceDetail: any,
 ) {
   if (routeKind === "browse") {
-    return "Use the left rail to scan themes, then review the selected thread as a structured detail document without leaving the workspace shell.";
+    return "Use the browse rail to scan themes, then review the selected thread as a structured detail surface without leaving the workspace shell.";
   }
 
   if (positionDetail) {
@@ -2016,7 +1947,7 @@ function getMainPaneDescription(
   }
 
   if (sourceDetail) {
-    return "Inspect the source record and synthesis here while the extracted evidence cards stay visible beside it.";
+    return "Inspect the source record here while extracted evidence remains visible beside it.";
   }
 
   if (activeTheme) {
@@ -2024,10 +1955,10 @@ function getMainPaneDescription(
   }
 
   if (routeKind === "ask") {
-    return "Questions start in the chat overlay. The answer is written here, with citations opening the evidence cards beside it.";
+    return "Questions start in grounded chat. The answer is written here, with citations opening the evidence cards beside it.";
   }
 
-  return "This workspace keeps reading and evidence stable, then layers chat on top only when the user wants to query the corpus.";
+  return "This workspace keeps reading and evidence stable, then layers grounded chat on top only when you need synthesis.";
 }
 
 function getSuggestions(routeKind: RouteKind) {

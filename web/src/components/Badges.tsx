@@ -1,29 +1,40 @@
+import { Badge, BadgeWithDot } from "@/components/base/badges/badges";
+
 type Status = "emerging" | "active" | "established" | "evolved" | "retired";
 type Confidence = "emerging" | "active" | "established" | "strong" | "moderate" | "suggestive";
 
-const STATUS_STYLES: Record<string, string> = {
-  emerging: "border-sage/50 text-sage bg-sage/5",
-  active: "border-ochre/60 text-ochreDeep bg-ochre/5",
-  established: "border-ink/40 text-ink bg-ink/5",
-  evolved: "border-slateInk/40 text-slateInk bg-slateInk/5",
-  retired: "border-inkMute/40 text-inkMute bg-inkMute/5",
+const STATUS_COLORS = {
+  emerging: "warning",
+  active: "brand",
+  established: "success",
+  evolved: "gray",
+  retired: "gray",
+} as const;
+
+const CONFIDENCE_COLORS = {
+  strong: "success",
+  moderate: "warning",
+  suggestive: "gray",
+} as const;
+
+const EVIDENCE_COLORS: Record<string, "brand" | "gray" | "warning" | "success"> = {
+  statistic: "brand",
+  framework: "success",
+  prediction: "warning",
+  "case-study": "brand",
+  observation: "gray",
+  recommendation: "success",
 };
 
-const CONF_DOTS: Record<string, string> = {
-  strong: "bg-ochreDeep",
-  moderate: "bg-ochre/70",
-  suggestive: "bg-ochre/40",
-};
+function prettify(value: string) {
+  return value.replace(/-/g, " ");
+}
 
 export function StatusBadge({ status }: { status: Status }) {
-  const cls = STATUS_STYLES[status] ?? STATUS_STYLES.active;
   return (
-    <span
-      className={`label inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 ${cls}`}
-    >
-      <span className="h-1 w-1 rounded-full bg-current" />
-      {status}
-    </span>
+    <BadgeWithDot type="pill-color" size="sm" color={STATUS_COLORS[status] ?? "gray"}>
+      {prettify(status)}
+    </BadgeWithDot>
   );
 }
 
@@ -33,59 +44,44 @@ export function ConfidenceBadge({
   confidence: Confidence | undefined;
 }) {
   if (!confidence) return null;
-  // Position confidence values reuse the status vocabulary;
-  // data-point confidence uses strong/moderate/suggestive.
+
   if (
     confidence === "emerging" ||
     confidence === "active" ||
     confidence === "established"
   ) {
     return (
-      <span className="label inline-flex items-center gap-1.5 text-inkMute">
-        <span className="h-1 w-1 rounded-full bg-inkMute" />
-        confidence: {confidence}
-      </span>
+      <BadgeWithDot type="pill-color" size="sm" color={STATUS_COLORS[confidence]}>
+        confidence {confidence}
+      </BadgeWithDot>
     );
   }
+
   return (
-    <span className="label inline-flex items-center gap-1.5 text-inkMute">
-      <span
-        className={`h-1.5 w-1.5 rounded-full ${CONF_DOTS[confidence] ?? "bg-inkMute"}`}
-      />
+    <BadgeWithDot type="pill-color" size="sm" color={CONFIDENCE_COLORS[confidence]}>
       {confidence}
-    </span>
+    </BadgeWithDot>
   );
 }
 
-const EVIDENCE_STYLES: Record<string, string> = {
-  statistic: "border-ochre/60 text-ochreDeep",
-  framework: "border-slateInk/40 text-slateInk",
-  prediction: "border-sage/50 text-sage",
-  "case-study": "border-ink/40 text-ink",
-  observation: "border-inkMute/50 text-inkMute",
-  recommendation: "border-ochreDeep/50 text-ochreDeep",
-};
-
 export function EvidenceBadge({ type }: { type: string }) {
-  const cls = EVIDENCE_STYLES[type] ?? "border-inkMute/40 text-inkMute";
   return (
-    <span
-      className={`label inline-flex rounded-sm border px-2 py-0.5 ${cls}`}
-    >
-      {type}
-    </span>
+    <Badge type="color" size="sm" color={EVIDENCE_COLORS[type] ?? "gray"}>
+      {prettify(type)}
+    </Badge>
   );
 }
 
 export function TierBadge({ tier }: { tier: number }) {
   const labels: Record<number, string> = {
-    1: "Tier 1 · Primary",
-    2: "Tier 2 · Practitioner",
-    3: "Tier 3 · Commentary",
+    1: "Tier 1",
+    2: "Tier 2",
+    3: "Tier 3",
   };
+
   return (
-    <span className="label text-inkMute">
+    <Badge type="color" size="sm" color="gray">
       {labels[tier] ?? `Tier ${tier}`}
-    </span>
+    </Badge>
   );
 }
