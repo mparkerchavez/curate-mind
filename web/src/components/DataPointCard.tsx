@@ -73,37 +73,40 @@ export default function DataPointCard({
     <article
       id={`evidence-card-${dp._id}`}
       className={cn(
-        "group rounded-[1.35rem] border bg-panel p-4 shadow-[var(--shadow-float)]",
+        "group rounded-[1.45rem] border p-4 transition-colors duration-200",
         isCounter
-          ? "border-warning/25 bg-warning-soft/55"
-          : "border-border/80 bg-panel/95",
-        isCited && "border-accent/35 ring-1 ring-accent/18",
-        isHighlighted && "border-accent bg-accent-soft/60 ring-2 ring-accent/24",
+          ? "border-warning/35 bg-warning-soft/72"
+          : "evidence-frame",
+        isCited && "border-accent/35 shadow-[0_18px_36px_-28px_rgba(49,94,251,0.45)]",
+        isHighlighted &&
+          "border-accent bg-accent-soft/55 ring-1 ring-accent/28 shadow-[0_20px_40px_-28px_rgba(49,94,251,0.55)]",
       )}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
             {resolvedLabel && (
-              <span className="rounded-full bg-panel px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-ink-muted">
+              <span className="count-chip rounded-full px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.18em]">
                 {resolvedLabel}
               </span>
             )}
             <span
               className={cn(
-                "rounded-full px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.18em]",
-                isCounter ? "bg-warning/12 text-warning" : "bg-panel-muted text-ink-muted",
+                "rounded-full border px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.18em]",
+                isCounter
+                  ? "border-warning/28 bg-warning-soft text-warning"
+                  : "border-border/80 bg-panel text-ink-muted",
               )}
             >
               {isCounter ? "Counter evidence" : "Evidence"}
             </span>
             {isCited && (
-              <span className="rounded-full bg-accent px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-white">
+              <span className="rounded-full border border-accent/25 bg-accent-soft px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-accent">
                 Cited
               </span>
             )}
           </div>
-          <h3 className="text-base font-semibold leading-7 text-ink">{dp.claimText}</h3>
+          <h3 className="text-[1.08rem] font-semibold leading-8 text-ink">{dp.claimText}</h3>
         </div>
 
         {onSelect && (
@@ -111,7 +114,7 @@ export default function DataPointCard({
             type="button"
             onClick={onSelect}
             className={cn(
-              "shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold",
+              "shrink-0 rounded-full border px-3 py-1.5 text-[0.72rem] font-semibold uppercase tracking-[0.12em]",
               isHighlighted
                 ? "border-accent bg-accent text-white"
                 : "border-border bg-panel text-ink-soft hover:border-accent/30 hover:text-accent",
@@ -122,9 +125,9 @@ export default function DataPointCard({
         )}
       </div>
 
-      <div className="mt-4 rounded-[1.15rem] border border-accent/12 quote-block px-4 py-3.5">
+      <div className="mt-4 rounded-[1.2rem] border border-accent/12 quote-block px-4 py-3.5">
         <div className="meta-kicker text-accent">Verbatim text</div>
-        <blockquote className="mt-2 text-sm leading-7 text-ink-soft">
+        <blockquote className="mt-2 text-[0.96rem] leading-7 text-ink-soft">
           "{dp.anchorQuote}"
         </blockquote>
       </div>
@@ -134,22 +137,22 @@ export default function DataPointCard({
       </div>
 
       {dp.extractionNote && (
-        <div className="mt-4 rounded-[1.15rem] border border-border/70 bg-panel-muted/85 px-4 py-3">
+        <div className="mt-4 rounded-[1.2rem] border border-border/80 bg-panel-muted/88 px-4 py-3.5">
           <div className="meta-kicker">Curator note</div>
-          <p className="mt-2 text-sm leading-6 text-ink-soft">{dp.extractionNote}</p>
+          <p className="mt-2 text-sm leading-7 text-ink-soft">{dp.extractionNote}</p>
         </div>
       )}
 
-      <div className="mt-4 rounded-[1.1rem] border border-border/70 bg-panel-muted/60">
+      <div className="mt-4 rounded-[1.15rem] border border-border/75 bg-panel/70">
         <button
           type="button"
           onClick={(event) => {
             event.stopPropagation();
             setDetailsOpen((open) => !open);
           }}
-          className="flex w-full items-center justify-between px-4 py-3 text-left"
+          className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-panel-muted/60"
         >
-          <span className="text-xs font-semibold uppercase tracking-[0.22em] text-ink-muted">
+          <span className="text-[0.7rem] font-semibold uppercase tracking-[0.22em] text-ink-muted">
             Secondary metadata
           </span>
           {detailsOpen ? (
@@ -160,7 +163,7 @@ export default function DataPointCard({
         </button>
 
         {detailsOpen && (
-          <div className="border-t border-border/70 px-4 py-3">
+          <div className="border-t border-border/70 bg-panel-muted/56 px-4 py-3">
             <div className="flex flex-wrap gap-2">
               <SecondaryPill label={dp.evidenceType.replace("-", " ")} />
               {dp.confidence && <SecondaryPill label={`confidence ${dp.confidence}`} />}
@@ -178,7 +181,7 @@ export default function DataPointCard({
 
 function SecondaryPill({ label }: { label: string }) {
   return (
-    <span className="rounded-full border border-border bg-panel px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-ink-muted">
+    <span className="count-chip rounded-full px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.18em]">
       {label}
     </span>
   );

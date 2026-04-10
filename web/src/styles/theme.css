@@ -1,28 +1,64 @@
-@theme {
-  --font-body: "Manrope", "Segoe UI", sans-serif;
-  --font-display: "Newsreader", Georgia, serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+@font-face {
+  font-family: "Uncut Sans";
+  src: url("/fonts/UncutSans-Variable.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
+}
 
-  --color-canvas: #f3f4f7;
-  --color-canvas-strong: #e7ebf2;
-  --color-panel: #ffffff;
-  --color-panel-muted: #f7f8fb;
-  --color-panel-strong: #eef2f8;
-  --color-border: #d7dde8;
-  --color-border-strong: #bcc7d9;
-  --color-ink: #111827;
-  --color-ink-soft: #445063;
-  --color-ink-muted: #66758d;
+@font-face {
+  font-family: "Uncut Sans";
+  src: url("/fonts/UncutSans-Regular.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Uncut Sans";
+  src: url("/fonts/UncutSans-Medium.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Uncut Sans";
+  src: url("/fonts/UncutSans-Semibold.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+}
+
+@theme {
+  --font-body: "Uncut Sans", "Segoe UI", sans-serif;
+  --font-display: "Instrument Serif", "Newsreader", Georgia, serif;
+  --font-mono: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
+
+  --color-canvas: #f5f0e8;
+  --color-canvas-strong: #ece4d8;
+  --color-panel: #fffdfa;
+  --color-panel-muted: #f8f3ec;
+  --color-panel-strong: #f1e9dd;
+  --color-border: #d8cec0;
+  --color-border-strong: #beb09d;
+  --color-ink: #211b14;
+  --color-ink-soft: #51483e;
+  --color-ink-muted: #7c7166;
   --color-accent: #315efb;
-  --color-accent-soft: #e8eeff;
+  --color-accent-soft: #e8edff;
   --color-accent-strong: #2447c8;
-  --color-success: #0f9f6e;
-  --color-success-soft: #e9faf4;
-  --color-warning: #c17a09;
-  --color-warning-soft: #fff6df;
-  --color-danger: #c2415b;
-  --color-danger-soft: #fff0f4;
-  --color-quote: #f8fbff;
+  --color-accent-warm: #c16b32;
+  --color-accent-warm-soft: #fff2e7;
+  --color-success: #1f7a56;
+  --color-success-soft: #edf9f3;
+  --color-warning: #986319;
+  --color-warning-soft: #fff6e5;
+  --color-danger: #b55348;
+  --color-danger-soft: #fff1ef;
+  --color-quote: #f5f7ff;
+  --color-shell: rgba(255, 252, 247, 0.86);
+  --color-shell-border: rgba(190, 176, 157, 0.72);
 
   --text-2xs: 0.6875rem;
   --text-2xs--line-height: 1rem;
@@ -52,10 +88,10 @@
   --radius-2xl: 1.875rem;
   --radius-full: 9999px;
 
-  --shadow-panel: 0 24px 80px -44px rgba(17, 24, 39, 0.3);
-  --shadow-float: 0 18px 40px -26px rgba(17, 24, 39, 0.24);
+  --shadow-panel: 0 28px 70px -46px rgba(47, 36, 22, 0.34);
+  --shadow-float: 0 18px 34px -26px rgba(47, 36, 22, 0.24);
 
-  --spacing-pane: 1.25rem;
+  --spacing-pane: 1.125rem;
   --spacing-page-x: clamp(1rem, 1vw + 0.8rem, 1.5rem);
-  --spacing-page-y: clamp(1rem, 1vw + 0.9rem, 1.5rem);
+  --spacing-page-y: clamp(0.9rem, 1vw + 0.85rem, 1.35rem);
 }

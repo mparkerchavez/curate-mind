@@ -100,8 +100,8 @@ export default function SourceBadge({
   return (
     <div
       className={cn(
-        "rounded-2xl border border-border/80 bg-panel-muted/80 p-3.5",
-        compact ? "space-y-2" : "space-y-3",
+        "rounded-[1.35rem] border browser-card p-4",
+        compact ? "space-y-2.5" : "space-y-3",
       )}
     >
       <div className="flex items-start justify-between gap-3">
@@ -111,7 +111,7 @@ export default function SourceBadge({
             href,
             linkKind,
             className:
-              "text-sm font-semibold text-ink hover:text-accent md:text-[0.95rem]",
+              "text-sm font-semibold leading-6 text-ink hover:text-accent md:text-[0.95rem]",
             children: title,
           })}
         </div>
@@ -120,7 +120,7 @@ export default function SourceBadge({
           href,
           linkKind,
           className:
-            "inline-flex shrink-0 items-center gap-1 rounded-full border border-border bg-panel px-3 py-1.5 text-xs font-semibold text-ink-soft hover:border-accent/30 hover:text-accent",
+            "inline-flex shrink-0 items-center gap-1 rounded-full border border-border bg-panel px-3 py-1.5 text-[0.72rem] font-semibold uppercase tracking-[0.12em] text-ink-soft hover:border-accent/30 hover:text-accent",
           children: (
             <>
               {actionLabel}
@@ -131,7 +131,7 @@ export default function SourceBadge({
       </div>
 
       {sourceBits.length > 0 && (
-        <div className="flex flex-wrap gap-x-2 gap-y-1 text-xs text-ink-muted">
+        <div className="flex flex-wrap gap-x-2 gap-y-1 text-[0.82rem] leading-5 text-ink-muted">
           {sourceBits.map((bit) => (
             <span key={bit}>{bit}</span>
           ))}
@@ -141,12 +141,12 @@ export default function SourceBadge({
       {!compact && (source.sourceType || typeof source.tier === "number") && (
         <div className="flex flex-wrap gap-2">
           {source.sourceType && (
-            <span className="rounded-full bg-panel px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-ink-muted">
+            <span className="count-chip rounded-full px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.2em]">
               {source.sourceType}
             </span>
           )}
           {typeof source.tier === "number" && (
-            <span className="rounded-full bg-panel px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-ink-muted">
+            <span className="count-chip rounded-full px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.2em]">
               Tier {source.tier}
             </span>
           )}

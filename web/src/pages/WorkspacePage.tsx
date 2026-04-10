@@ -317,7 +317,7 @@ export default function WorkspacePage() {
             type="button"
             onClick={() => setMobilePane(pane.key)}
             className={cn(
-              "rounded-full border border-border bg-panel px-4 py-2 text-sm font-semibold text-ink-soft",
+              "shell-nav-link rounded-full border px-4 py-2 text-sm font-semibold",
               mobilePane === pane.key && "pane-tab-active",
             )}
           >
@@ -338,7 +338,7 @@ export default function WorkspacePage() {
       <div className="workspace-grid">
         <section
           className={cn(
-            "pane-shell min-h-[calc(100vh-13.75rem)]",
+            "pane-shell editorial-panel min-h-[calc(100vh-13.75rem)]",
             mobilePane !== "main" && "hidden lg:flex",
           )}
         >
@@ -360,7 +360,7 @@ export default function WorkspacePage() {
 
         <section
           className={cn(
-            "pane-shell min-h-[calc(100vh-13.75rem)]",
+            "pane-shell editorial-panel-muted min-h-[calc(100vh-13.75rem)]",
             mobilePane !== "evidence" && "hidden lg:flex",
           )}
         >
@@ -416,7 +416,7 @@ function WorkspaceTopbar({
   onToggleChat: () => void;
 }) {
   return (
-    <header className="mb-4 rounded-[1.9rem] border border-border/75 bg-panel/95 px-5 py-4 shadow-[var(--shadow-panel)]">
+    <header className="shell-topbar mb-4 rounded-[1.8rem] border px-5 py-4 shadow-[var(--shadow-panel)]">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div className="flex items-start gap-4">
           <div className="flex size-12 items-center justify-center rounded-2xl bg-accent text-white shadow-[0_14px_28px_-18px_rgba(49,94,251,0.8)]">
@@ -425,14 +425,14 @@ function WorkspaceTopbar({
           <div>
             <div className="meta-kicker">Curate Mind workspace</div>
             <div className="mt-1 flex flex-wrap items-center gap-2">
-              <h1 className="text-xl font-semibold text-ink">Calm research cockpit</h1>
+              <h1 className="display-balance text-[2rem] leading-none text-ink sm:text-[2.2rem]">Calm research cockpit</h1>
               {projectName && (
-                <span className="rounded-full bg-panel-muted px-3 py-1 text-xs font-semibold text-ink-muted">
+                <span className="count-chip rounded-full px-3 py-1 text-xs font-semibold">
                   {projectName}
                 </span>
               )}
             </div>
-            <p className="mt-1 max-w-3xl text-sm leading-6 text-ink-soft">
+            <p className="mt-1 max-w-3xl text-[0.98rem] leading-8 text-ink-soft">
               Read in the main canvas, keep evidence anchored beside it, and open chat above the context only when you need to query the corpus.
             </p>
           </div>
@@ -451,20 +451,20 @@ function WorkspaceTopbar({
             type="button"
             onClick={onToggleChat}
             className={cn(
-              "inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-sm font-semibold",
+              "shell-nav-link inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-sm font-semibold",
               isChatOpen
-                ? "border-accent/30 bg-accent-soft text-accent"
-                : "border-border bg-panel text-ink-soft hover:border-accent/20 hover:text-accent",
+                ? "shell-nav-link-active"
+                : "",
             )}
           >
             <MessageChatCircle className="size-4" />
             {isChatOpen ? "Hide chat" : "Open chat"}
           </button>
-          <div className="hidden rounded-full border border-border bg-panel-muted px-3 py-2 text-xs font-semibold text-ink-muted lg:flex">
+          <div className="count-chip hidden rounded-full px-3 py-2 text-xs font-semibold lg:flex">
             {scopeLabel}
           </div>
           {activeAnswer && (
-            <div className="hidden rounded-full bg-accent-soft px-3 py-2 text-xs font-semibold text-accent lg:flex">
+            <div className="hidden rounded-full border border-accent/20 bg-accent-soft px-3 py-2 text-xs font-semibold text-accent lg:flex">
               Answer in focus
             </div>
           )}
@@ -487,8 +487,8 @@ function TopbarLink({
     <Link
       to={to}
       className={cn(
-        "inline-flex items-center gap-2 rounded-full border border-border bg-panel px-3.5 py-2 text-sm font-semibold text-ink-soft hover:border-accent/20 hover:text-accent",
-        active && "pane-tab-active",
+        "shell-nav-link inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-sm font-semibold",
+        active && "shell-nav-link-active",
       )}
     >
       {children}
@@ -543,12 +543,12 @@ function MainPane({
             <button
               type="button"
               onClick={onClearAnswer}
-              className="rounded-full border border-border bg-panel px-3 py-2 text-xs font-semibold text-ink-soft hover:border-accent/20 hover:text-accent"
+              className="shell-nav-link rounded-full border px-3 py-2 text-xs font-semibold"
             >
               Return to browsing
             </button>
           ) : (
-            <div className="rounded-full bg-panel-muted px-3 py-2 text-xs font-semibold text-ink-muted">
+            <div className="count-chip rounded-full px-3 py-2 text-xs font-semibold">
               {scopeLabel}
             </div>
           )
@@ -593,7 +593,7 @@ function PaneHeader({
     <div className="panel-divider px-5 pt-5">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="flex items-start gap-3">
-          <div className="flex size-11 items-center justify-center rounded-2xl bg-panel-muted text-accent">
+          <div className="flex size-11 items-center justify-center rounded-2xl border border-border/80 bg-panel text-accent">
             {icon}
           </div>
           <div>
@@ -601,7 +601,7 @@ function PaneHeader({
             <h2 className="display-balance mt-2 text-display-xs text-ink md:text-display-sm">
               {title}
             </h2>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-ink-soft">{description}</p>
+            <p className="mt-2 max-w-3xl text-[0.98rem] leading-8 text-ink-soft">{description}</p>
           </div>
         </div>
         {action}
@@ -624,7 +624,7 @@ function HomeDocument({
 
   return (
     <div className="space-y-8">
-      <section className="rounded-[1.6rem] border border-border/75 bg-panel-muted/75 p-5">
+      <section className="editorial-panel rounded-[1.6rem] border p-5">
         <div className="meta-kicker">Workspace brief</div>
         <div className="mt-3 grid gap-4 md:grid-cols-3">
           <Metric label="Themes" value={themes.length} />
@@ -633,7 +633,7 @@ function HomeDocument({
         </div>
       </section>
 
-      <section className="rounded-[1.6rem] border border-border/75 bg-panel p-6">
+      <section className="editorial-panel rounded-[1.6rem] border p-6">
         <div className="meta-kicker">How to use the workspace</div>
         <div className="mt-4 grid gap-4 md:grid-cols-3">
           <NarrativeCard
@@ -657,7 +657,7 @@ function HomeDocument({
             <div className="meta-kicker">Explore</div>
             <h3 className="mt-2 text-xl font-semibold text-ink">Themes to open next</h3>
           </div>
-          <span className="rounded-full bg-panel-muted px-3 py-1 text-xs font-semibold text-ink-muted">
+          <span className="count-chip rounded-full px-3 py-1 text-xs font-semibold">
             {sortedThemes.length} themes
           </span>
         </div>
@@ -686,9 +686,9 @@ function HomeDocument({
 function AskDocument() {
   return (
     <div className="space-y-6">
-      <section className="rounded-[1.6rem] border border-border/75 bg-panel-muted/75 p-6">
+      <section className="editorial-panel rounded-[1.6rem] border p-6">
         <div className="meta-kicker">Query the corpus</div>
-        <h3 className="mt-2 text-2xl font-semibold text-ink">Open chat without losing the reading frame.</h3>
+        <h3 className="display-balance mt-2 text-[2rem] leading-none text-ink">Open chat without losing the reading frame.</h3>
         <p className="mt-3 max-w-2xl text-sm leading-7 text-ink-soft">
           Questions begin in the overlay. Once you ask, the answer replaces this canvas and the evidence column reorganizes itself into cited cards first, retrieved context second.
         </p>
@@ -700,7 +700,7 @@ function AskDocument() {
           "What counter-evidence weakens the strongest positions?",
           "Which themes are still evidence-thin?",
         ].map((prompt) => (
-          <div key={prompt} className="rounded-[1.35rem] border border-border/75 bg-panel p-4">
+          <div key={prompt} className="browser-card rounded-[1.35rem] border p-4">
             <div className="meta-kicker">Suggested prompt</div>
             <p className="mt-2 text-sm leading-7 text-ink-soft">{prompt}</p>
           </div>
@@ -719,7 +719,7 @@ function ThemeDocument({
 }) {
   return (
     <div className="space-y-6">
-      <section className="rounded-[1.5rem] border border-border/75 bg-panel-muted/70 p-6">
+      <section className="editorial-panel rounded-[1.5rem] border p-6">
         <div className="meta-kicker">Theme overview</div>
         <p className="mt-3 text-sm leading-7 text-ink-soft">
           {activeTheme.description ?? "Open a position to see its stance and evidence chain."}
@@ -732,7 +732,7 @@ function ThemeDocument({
             <div className="meta-kicker">Positions</div>
             <h3 className="mt-2 text-xl font-semibold text-ink">Current theses inside this theme</h3>
           </div>
-          <div className="rounded-full bg-panel-muted px-3 py-1 text-xs font-semibold text-ink-muted">
+          <div className="count-chip rounded-full px-3 py-1 text-xs font-semibold">
             {themePositions.length} positions
           </div>
         </div>
@@ -752,14 +752,14 @@ function PositionDocument({ positionDetail }: { positionDetail: any }) {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-[1.5rem] border border-border/75 bg-panel-muted/75 p-6">
+      <section className="editorial-hero rounded-[1.65rem] border p-6">
         <div className="flex flex-wrap items-center gap-2">
           <StatusPill label={version?.status ?? "active"} />
           {version?.confidenceLevel && (
             <StatusPill label={`Confidence ${version.confidenceLevel}`} tone="accent" />
           )}
           {typeof version?.versionNumber === "number" && (
-            <span className="rounded-full bg-panel px-3 py-1 text-xs font-semibold text-ink-muted">
+            <span className="count-chip rounded-full px-3 py-1 text-xs font-semibold">
               Version {version.versionNumber}
             </span>
           )}
@@ -770,7 +770,7 @@ function PositionDocument({ positionDetail }: { positionDetail: any }) {
       </section>
 
       {version?.openQuestions?.length > 0 && (
-        <section className="rounded-[1.5rem] border border-border/75 bg-panel p-6">
+        <section className="editorial-panel rounded-[1.5rem] border p-6">
           <div className="meta-kicker">Open questions</div>
           <ul className="workspace-richtext mt-4 space-y-3">
             {version.openQuestions.map((question: string) => (
@@ -781,13 +781,13 @@ function PositionDocument({ positionDetail }: { positionDetail: any }) {
       )}
 
       {version?.observationDetails?.length > 0 && (
-        <section className="rounded-[1.5rem] border border-border/75 bg-panel p-6">
+        <section className="editorial-panel rounded-[1.5rem] border p-6">
           <div className="meta-kicker">Curator observations</div>
           <div className="mt-4 space-y-3">
             {version.observationDetails.map((observation: any) => (
               <div
                 key={observation._id}
-                className="rounded-[1.25rem] border border-border/75 bg-panel-muted/80 p-4 text-sm leading-7 text-ink-soft"
+                className="rounded-[1.25rem] border browser-card p-4 text-sm leading-7 text-ink-soft"
               >
                 {observation.observationText}
               </div>
@@ -797,11 +797,11 @@ function PositionDocument({ positionDetail }: { positionDetail: any }) {
       )}
 
       {version?.mentalModelDetails?.length > 0 && (
-        <section className="rounded-[1.5rem] border border-border/75 bg-panel p-6">
+        <section className="editorial-panel rounded-[1.5rem] border p-6">
           <div className="meta-kicker">Mental models</div>
           <div className="mt-4 grid gap-3 md:grid-cols-2">
             {version.mentalModelDetails.map((model: any) => (
-              <div key={model._id} className="rounded-[1.25rem] border border-border/75 bg-panel-muted/80 p-4">
+              <div key={model._id} className="rounded-[1.25rem] border browser-card p-4">
                 <div className="meta-kicker">{model.modelType}</div>
                 <div className="mt-2 text-base font-semibold text-ink">{model.title}</div>
                 <p className="mt-2 text-sm leading-6 text-ink-soft">{model.description}</p>
@@ -817,7 +817,7 @@ function PositionDocument({ positionDetail }: { positionDetail: any }) {
 function SourceDocument({ sourceDetail }: { sourceDetail: any }) {
   return (
     <div className="space-y-6">
-      <section className="rounded-[1.5rem] border border-border/75 bg-panel-muted/75 p-6">
+      <section className="editorial-panel rounded-[1.5rem] border p-6">
         <div className="meta-kicker">Source record</div>
         <div className="mt-4">
           <SourceBadge source={sourceDetail.source} />
@@ -849,12 +849,12 @@ function AnswerDocument({
 
   return (
     <article className="space-y-6">
-      <section className="rounded-[1.5rem] border border-border/75 bg-panel-muted/75 p-6">
+      <section className="editorial-hero rounded-[1.6rem] border p-6">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-full bg-accent-soft px-3 py-1 text-xs font-semibold text-accent">
+          <span className="rounded-full border border-accent/20 bg-accent-soft px-3 py-1 text-xs font-semibold text-accent">
             {answerState.scopeLabel}
           </span>
-          <span className="rounded-full bg-panel px-3 py-1 text-xs font-semibold text-ink-muted">
+          <span className="count-chip rounded-full px-3 py-1 text-xs font-semibold">
             {answerState.citedDataPointIds.length} citations
           </span>
         </div>
@@ -864,7 +864,7 @@ function AnswerDocument({
         </div>
       </section>
 
-      <section className="workspace-richtext rounded-[1.5rem] border border-border/75 bg-panel p-6">
+      <section className="workspace-richtext editorial-panel rounded-[1.5rem] border p-6">
         {renderAnswerDocument(answerState.answer, citationMap, onCitationClick)}
       </section>
     </article>
@@ -899,25 +899,28 @@ function EvidencePane({
 
       <div className="pane-scroll px-5 pb-5 pt-4">
         {sections.length === 0 ? (
-          <div className="rounded-[1.5rem] border border-dashed border-border bg-panel-muted/60 p-5">
+          <div className="rounded-[1.5rem] border border-dashed border-border/90 bg-panel/55 p-5">
             <div className="meta-kicker">{state.emptyTitle}</div>
             <p className="mt-3 text-sm leading-7 text-ink-soft">{state.emptyDescription}</p>
           </div>
         ) : (
           <div className="space-y-5">
             {sections.map((section) => (
-              <section key={section.key} className="space-y-3">
-                <div className="flex items-center justify-between gap-3">
+              <section
+                key={section.key}
+                className="rounded-[1.45rem] border border-border/75 bg-panel/55 p-4"
+              >
+                <div className="flex items-start justify-between gap-3 border-b border-border/70 pb-3">
                   <div>
                     <div className="meta-kicker">{section.title}</div>
                     <p className="mt-1 text-sm leading-6 text-ink-soft">{section.subtitle}</p>
                   </div>
-                  <div className="rounded-full bg-panel-muted px-3 py-1 text-xs font-semibold text-ink-muted">
+                  <div className="count-chip rounded-full px-3 py-1 text-xs font-semibold">
                     {section.items.length}
                   </div>
                 </div>
 
-                <div className="space-y-3">
+                <div className="mt-4 space-y-3">
                   {section.items.map((item, index) => (
                     <DataPointCard
                       key={item._id}
@@ -955,7 +958,7 @@ function ChatDockButton({
       type="button"
       onClick={onClick}
       className={cn(
-        "fixed bottom-5 right-5 z-30 hidden items-center gap-3 rounded-full border border-accent/20 bg-panel/95 px-4 py-3 text-left shadow-[0_22px_48px_-28px_rgba(15,23,42,0.6)] backdrop-blur lg:inline-flex",
+        "fixed bottom-5 right-5 z-30 hidden items-center gap-3 rounded-full border border-accent/20 bg-panel/95 px-4 py-3 text-left shadow-[0_22px_48px_-28px_rgba(47,36,22,0.45)] backdrop-blur lg:inline-flex",
         isOpen && "pointer-events-none translate-y-2 opacity-0",
       )}
     >
@@ -1021,7 +1024,7 @@ function ChatOverlay({
         aria-modal="true"
         aria-label="Ask with context"
         className={cn(
-          "fixed inset-y-0 right-0 z-50 flex w-full max-w-[30rem] flex-col border-l border-border/70 bg-panel/96 shadow-[-30px_0_60px_-42px_rgba(15,23,42,0.55)] backdrop-blur-lg transition-transform duration-300",
+          "fixed inset-y-0 right-0 z-50 flex w-full max-w-[30rem] flex-col border-l border-border/70 bg-panel/96 shadow-[-30px_0_60px_-42px_rgba(47,36,22,0.45)] backdrop-blur-lg transition-transform duration-300",
           isOpen ? "translate-x-0" : "translate-x-full",
         )}
       >
@@ -1037,24 +1040,24 @@ function ChatOverlay({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-full border border-border bg-panel-muted px-3 py-2 text-xs font-semibold text-ink-soft hover:border-accent/20 hover:text-accent"
+              className="shell-nav-link rounded-full border px-3 py-2 text-xs font-semibold"
             >
               Close
             </button>
           </div>
 
           <div className="mt-4 flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-accent-soft px-3 py-1 text-xs font-semibold text-accent">
+            <span className="rounded-full border border-accent/20 bg-accent-soft px-3 py-1 text-xs font-semibold text-accent">
               {scopeLabel}
             </span>
-            <span className="rounded-full bg-panel-muted px-3 py-1 text-xs font-semibold text-ink-muted">
+            <span className="count-chip rounded-full px-3 py-1 text-xs font-semibold">
               {userTurnsCount} / {USER_TURN_LIMIT} turns
             </span>
           </div>
         </div>
 
         <div className="pane-scroll px-5 pb-5 pt-4">
-          <div className="rounded-[1.5rem] border border-border/75 bg-panel-muted/75 p-4">
+          <div className="editorial-panel rounded-[1.5rem] border p-4">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <div className="meta-kicker">Suggested prompts</div>
@@ -1070,7 +1073,7 @@ function ChatOverlay({
                   key={suggestion}
                   type="button"
                   onClick={() => onUseSuggestion(suggestion)}
-                  className="flex w-full items-start justify-between gap-3 rounded-[1.15rem] border border-border bg-panel px-4 py-3 text-left text-sm leading-6 text-ink-soft hover:border-accent/25 hover:text-ink"
+                  className="browser-card flex w-full items-start justify-between gap-3 rounded-[1.15rem] border px-4 py-3 text-left text-sm leading-6 text-ink-soft"
                 >
                   <span>{suggestion}</span>
                   <ArrowRight className="mt-1 size-4 shrink-0 text-ink-muted" />
@@ -1108,7 +1111,7 @@ function ChatOverlay({
                       "rounded-[1.25rem] border px-4 py-3",
                       turn.role === "user"
                         ? "border-accent/18 bg-accent-soft/55"
-                        : "border-border bg-panel",
+                        : "border-border browser-card",
                     )}
                   >
                     <div className="meta-kicker">{turn.role === "user" ? "You" : "Assistant"}</div>
@@ -1190,15 +1193,15 @@ function ThemeCard({ theme }: { theme: any }) {
   return (
     <Link
       to={`/themes/${theme._id}`}
-      className="group rounded-[1.4rem] border border-border/75 bg-panel p-5 hover:border-accent/20 hover:shadow-[var(--shadow-float)]"
+      className="group browser-card block rounded-[1.4rem] border p-5 transition-all hover:shadow-[var(--shadow-float)]"
     >
       <div className="flex items-center justify-between">
         <div className="meta-kicker">Theme</div>
-        <div className="rounded-full bg-panel-muted px-3 py-1 text-xs font-semibold text-ink-muted">
+        <div className="count-chip rounded-full px-3 py-1 text-xs font-semibold">
           {theme.positionCount} positions
         </div>
       </div>
-      <div className="mt-3 text-lg font-semibold text-ink">{theme.title}</div>
+      <div className="mt-3 text-[1.45rem] leading-10 text-ink">{theme.title}</div>
       {theme.description && (
         <p className="mt-2 text-sm leading-7 text-ink-soft">{theme.description}</p>
       )}
@@ -1216,7 +1219,7 @@ function PositionRow({ position }: { position: any }) {
   return (
     <Link
       to={`/positions/${position._id}`}
-      className="block rounded-[1.35rem] border border-border/75 bg-panel p-4 hover:border-accent/20 hover:shadow-[var(--shadow-float)]"
+      className="browser-card block rounded-[1.35rem] border p-4 transition-all hover:shadow-[var(--shadow-float)]"
     >
       <div className="flex items-start justify-between gap-3">
         <div>
@@ -1238,7 +1241,7 @@ function NarrativeCard({
   body: string;
 }) {
   return (
-    <div className="rounded-[1.3rem] border border-border/75 bg-panel p-4">
+    <div className="browser-card rounded-[1.3rem] border p-4">
       <div className="text-sm font-semibold text-ink">{title}</div>
       <p className="mt-2 text-sm leading-7 text-ink-soft">{body}</p>
     </div>
@@ -1247,7 +1250,7 @@ function NarrativeCard({
 
 function Metric({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="rounded-[1.25rem] border border-border/75 bg-panel p-4">
+    <div className="browser-card rounded-[1.25rem] border p-4">
       <div className="meta-kicker">{label}</div>
       <div className="mt-3 text-2xl font-semibold text-ink">{value}</div>
     </div>
@@ -1264,10 +1267,10 @@ function StatusPill({
   return (
     <span
       className={cn(
-        "rounded-full px-3 py-1 text-xs font-semibold",
+        "rounded-full border px-3 py-1 text-xs font-semibold",
         tone === "accent"
-          ? "bg-accent-soft text-accent"
-          : "bg-panel text-ink-muted",
+          ? "border-accent/18 bg-accent-soft text-accent"
+          : "border-border/85 bg-panel text-ink-muted",
       )}
     >
       {label}
@@ -1278,9 +1281,9 @@ function StatusPill({
 function LoadingState() {
   return (
     <div className="space-y-4">
-      <div className="h-28 animate-pulse rounded-[1.5rem] bg-panel-muted" />
-      <div className="h-52 animate-pulse rounded-[1.5rem] bg-panel-muted" />
-      <div className="h-40 animate-pulse rounded-[1.5rem] bg-panel-muted" />
+      <div className="h-28 animate-pulse rounded-[1.5rem] bg-panel-muted/85" />
+      <div className="h-52 animate-pulse rounded-[1.5rem] bg-panel-muted/85" />
+      <div className="h-40 animate-pulse rounded-[1.5rem] bg-panel-muted/85" />
     </div>
   );
 }
