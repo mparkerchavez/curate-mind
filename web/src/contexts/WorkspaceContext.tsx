@@ -101,12 +101,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const userTurnsCount = turns.filter((t) => t.role === "user").length;
   const reachedTurnLimit = userTurnsCount >= USER_TURN_LIMIT;
 
-  const scopeArgs = useMemo(() => {
-    if (sourceRecordId) return { sourceId: sourceRecordId };
-    if (positionRecordId) return { positionId: positionRecordId };
-    if (themeRecordId) return { themeId: themeRecordId };
-    return {};
-  }, [positionRecordId, themeRecordId, sourceRecordId]);
+  // Chat always searches the full corpus — no route-based scoping
+  const scopeArgs = useMemo(() => ({}), []);
 
   async function handleAskQuestion(questionText?: string) {
     const question = (questionText ?? input).trim();

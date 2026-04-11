@@ -1,6 +1,5 @@
 import { useEffect, useRef } from "react";
 import { ArrowRight, MessageChatCircle, RefreshCcw01, SearchLg } from "@untitledui/icons";
-import { Badge, BadgeWithDot } from "@/components/base/badges/badges";
 import { Button } from "@/components/base/buttons/button";
 import { TextAreaBase } from "@/components/base/textarea/textarea";
 import { EmptyState } from "@/components/application/empty-state/empty-state";
@@ -16,25 +15,20 @@ import {
 
 export default function ChatPanel() {
   const {
-    routeKind,
-    scopeLabel,
     turns,
-    activeAnswer,
     input,
     setInput,
     pending,
     error,
     handleAskQuestion,
     resetConversation,
-    userTurnsCount,
     reachedTurnLimit,
     highlightedEvidenceId,
     handleCitationClick,
-    evidenceSections,
   } = useWorkspace();
 
   const bottomRef = useRef<HTMLDivElement>(null);
-  const suggestions = getSuggestions(routeKind);
+  const suggestions = getSuggestions("home"); // always corpus-wide suggestions
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -43,18 +37,10 @@ export default function ChatPanel() {
   return (
     <div className="flex h-full flex-col">
       {/* Panel header */}
-      <div className="shrink-0 border-b border-slate-200 px-4 py-4">
+      <div className="shrink-0 border-b border-slate-200 px-4 py-3">
         <div className="flex items-center gap-2">
           <MessageChatCircle className="size-5 text-utility-brand-600" />
-          <h2 className="text-base font-semibold text-slate-950">Grounded Chat</h2>
-        </div>
-        <div className="mt-2 flex flex-wrap gap-2">
-          <BadgeWithDot type="pill-color" size="sm" color="brand">
-            {scopeLabel}
-          </BadgeWithDot>
-          <Badge type="color" size="sm" color="gray">
-            {userTurnsCount} / {USER_TURN_LIMIT} turns
-          </Badge>
+          <h2 className="text-sm font-semibold text-slate-950">Ask the research base</h2>
         </div>
       </div>
 
