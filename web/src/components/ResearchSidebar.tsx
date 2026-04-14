@@ -73,13 +73,15 @@ function ThemeSection({ theme, currentPath }: { theme: any; currentPath: string 
       <Link
         to={`/themes/${theme._id}`}
         className={cn(
-          "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition",
+          "flex w-full items-start gap-2 rounded-lg px-3 py-2 text-sm font-medium transition",
           isThemeActive
             ? "bg-utility-brand-50 text-utility-brand-700"
             : "text-slate-700 hover:bg-slate-50",
         )}
       >
-        <span className="flex-1 truncate">{theme.title}</span>
+        <span className="flex-1 whitespace-normal break-words leading-5 line-clamp-2">
+          {theme.title}
+        </span>
         <Badge type="color" size="sm" color="gray">
           {theme.positionCount ?? 0}
         </Badge>
