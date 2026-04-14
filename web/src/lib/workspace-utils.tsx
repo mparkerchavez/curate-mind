@@ -33,6 +33,26 @@ export type EvidenceSection = {
   cited?: boolean;
 };
 
+export type SourceGroupSource = {
+  _id: string;
+  title?: string | null;
+  authorName?: string | null;
+  publisherName?: string | null;
+  publishedDate?: string | null;
+  sourceType?: string | null;
+  canonicalUrl?: string | null;
+  storageUrl?: string | null;
+  resolvedUrl?: string | null;
+  resolvedLinkKind?: "storage" | "canonical" | "internal" | null;
+  sourcePagePath?: string | null;
+};
+
+export type SourceGroup = {
+  key: string;
+  source: SourceGroupSource | null;
+  claims: any[];
+};
+
 export const USER_TURN_LIMIT = 4;
 
 /* ── Pure utilities ── */
@@ -91,6 +111,66 @@ export function summarizeText(text: string, maxLength: number) {
   const shortened = text.slice(0, maxLength);
   const lastSpace = shortened.lastIndexOf(" ");
   return `${shortened.slice(0, lastSpace > 0 ? lastSpace : maxLength).trimEnd()}...`;
+}
+
+/**
+ * Shorten an author string for display. Handles comma-separated author
+ * lists ("Sam Ransbotham, David Kiron, ...") → "Sam Ransbotham et al."
+ * Single authors/organizations pass through unchanged.
+ */
+export function formatAuthorsShort(authorName?: string | null): string | null {
+  if (!authorName) return null;
+  const trimmed = authorName.trim();
+  if (!trimmed) return null;
+  const parts = trimmed
+    .split(/,\s*|\s*&\s*|\s+and\s+/i)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (parts.length <= 1) return trimmed;
+  return `${parts[0]} et al.`;
+}
+
+/**
+ * Normalize the flattened source-* fields on a data point back into a
+ * SourceGroupSource, falling back to `dp.source` when present.
+ */
+function resolveSourceFromDp(dp: any): SourceGroupSource | null {
+  if (dp.source) return dp.source as SourceGroupSource;
+  if (!dp.sourceTitle) return null;
+  return {
+    _id: dp.sourceId ?? dp.source?._id ?? "unknown",
+    title: dp.sourceTitle ?? null,
+    authorName: dp.sourceAuthorName ?? null,
+    publisherName: dp.sourcePublisherName ?? null,
+    publishedDate: dp.sourcePublishedDate ?? null,
+    sourceType: dp.sourceType ?? null,
+    canonicalUrl: dp.sourceCanonicalUrl ?? null,
+    storageUrl: dp.sourceStorageUrl ?? null,
+    resolvedUrl: dp.sourceResolvedUrl ?? null,
+    resolvedLinkKind: dp.sourceResolvedLinkKind ?? null,
+    sourcePagePath: dp.sourcePagePath ?? null,
+  };
+}
+
+/**
+ * Group data points by their underlying source, preserving the original
+ * order of first appearance. Lets UI show "source → list of claims"
+ * instead of repeating the source metadata on every claim card.
+ */
+export function groupDataPointsBySource(dataPoints: any[]): SourceGroup[] {
+  const groups = new Map<string, SourceGroup>();
+  for (const dp of dataPoints) {
+    const source = resolveSourceFromDp(dp);
+    const key =
+      source && source._id && source._id !== "unknown"
+        ? source._id
+        : (source?.title ?? `orphan-${dp._id}`);
+    if (!groups.has(key)) {
+      groups.set(key, { key, source, claims: [] });
+    }
+    groups.get(key)!.claims.push(dp);
+  }
+  return Array.from(groups.values());
 }
 
 export function getRouteKind(pathname: string): RouteKind {

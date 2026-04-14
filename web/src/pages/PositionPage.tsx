@@ -2,8 +2,9 @@ import { useEffect } from "react";
 import { Badge } from "@/components/base/badges/badges";
 import { LoadingIndicator } from "@/components/application/loading-indicator/loading-indicator";
 import { ConfidenceBadge, StatusBadge } from "@/components/Badges";
-import DataPointCard from "@/components/DataPointCard";
+import SourceEvidenceGroup from "@/components/SourceEvidenceGroup";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { groupDataPointsBySource } from "@/lib/workspace-utils";
 
 export default function PositionPage() {
   const { positionDetail, highlightedEvidenceId, handleCitationClick, evidenceSections } =
@@ -91,32 +92,31 @@ export default function PositionPage() {
         </section>
       )}
 
-      {/* Evidence sections */}
+      {/* Evidence sections — grouped by source */}
       {evidenceSections.length > 0 && (
         <section className="mt-8">
-          {evidenceSections.map((section) => (
-            <div key={section.key} className="mt-6 first:mt-0">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-slate-950">{section.title}</h2>
-                <Badge type="color" size="sm" color="gray">{section.items.length}</Badge>
-              </div>
-              <p className="mt-1 text-sm text-slate-600">{section.subtitle}</p>
-              <ol className="mt-4 space-y-3">
-                {section.items.map((dp: any, idx: number) => (
-                  <li key={dp._id}>
-                    <DataPointCard
-                      dp={dp}
-                      variant={section.variant}
-                      isHighlighted={highlightedEvidenceId === dp._id}
-                      isCited={section.cited}
-                      onSelect={() => handleCitationClick(dp._id)}
-                      label={`${section.variant === "counter" ? "CT" : "EV"} ${String(idx + 1).padStart(2, "0")}`}
+          {evidenceSections.map((section) => {
+            const groups = groupDataPointsBySource(section.items);
+            return (
+              <div key={section.key} className="mt-6 first:mt-0">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-semibold text-slate-950">{section.title}</h2>
+                  <Badge type="color" size="sm" color="gray">{section.items.length}</Badge>
+                </div>
+                <p className="mt-1 text-sm text-slate-600">{section.subtitle}</p>
+                <div className="mt-4 space-y-3">
+                  {groups.map((group) => (
+                    <SourceEvidenceGroup
+                      key={group.key}
+                      group={group}
+                      highlightedId={highlightedEvidenceId}
+                      onClaimClick={handleCitationClick}
                     />
-                  </li>
-                ))}
-              </ol>
-            </div>
-          ))}
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </section>
       )}
     </div>

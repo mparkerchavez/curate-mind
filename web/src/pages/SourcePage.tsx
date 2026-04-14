@@ -1,8 +1,8 @@
 import { Badge } from "@/components/base/badges/badges";
 import { LoadingIndicator } from "@/components/application/loading-indicator/loading-indicator";
-import DataPointCard from "@/components/DataPointCard";
 import SourceBadge from "@/components/SourceBadge";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { cn } from "@/lib/cn";
 
 export default function SourcePage() {
   const { sourceDetail, highlightedEvidenceId, handleCitationClick, evidenceSections } =
@@ -47,7 +47,7 @@ export default function SourcePage() {
         </div>
       </div>
 
-      {/* Evidence */}
+      {/* Evidence — bare claim list (source header is already at the top of the page) */}
       {evidenceSections.length > 0 && (
         <section className="mt-8">
           {evidenceSections.map((section) => (
@@ -57,19 +57,24 @@ export default function SourcePage() {
                 <Badge type="color" size="sm" color="gray">{section.items.length}</Badge>
               </div>
               <p className="mt-1 text-sm text-slate-600">{section.subtitle}</p>
-              <ol className="mt-4 space-y-3">
-                {section.items.map((dp: any, idx: number) => (
-                  <li key={dp._id}>
-                    <DataPointCard
-                      dp={dp}
-                      variant="support"
-                      isHighlighted={highlightedEvidenceId === dp._id}
-                      onSelect={() => handleCitationClick(dp._id)}
-                      label={`DP ${String(idx + 1).padStart(2, "0")}`}
-                    />
-                  </li>
-                ))}
-              </ol>
+              <ul className="mt-4 divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+                {section.items.map((dp: any) => {
+                  const isHighlighted = highlightedEvidenceId === dp._id;
+                  return (
+                    <li
+                      key={dp._id}
+                      id={`evidence-card-${dp._id}`}
+                      onClick={() => handleCitationClick(dp._id)}
+                      className={cn(
+                        "cursor-pointer px-5 py-4 transition-colors",
+                        isHighlighted ? "bg-utility-brand-50" : "hover:bg-slate-50",
+                      )}
+                    >
+                      <p className="text-sm leading-7 text-slate-800">{dp.claimText}</p>
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
           ))}
         </section>

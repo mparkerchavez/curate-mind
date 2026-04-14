@@ -3,14 +3,13 @@ import { ArrowRight, MessageChatCircle, RefreshCcw01, SearchLg } from "@untitled
 import { Button } from "@/components/base/buttons/button";
 import { TextAreaBase } from "@/components/base/textarea/textarea";
 import { EmptyState } from "@/components/application/empty-state/empty-state";
-import DataPointCard from "@/components/DataPointCard";
+import SourceEvidenceGroup from "@/components/SourceEvidenceGroup";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { cn } from "@/lib/cn";
 import {
   getSuggestions,
+  groupDataPointsBySource,
   renderAnswerBlocks,
-  summarizeText,
-  USER_TURN_LIMIT,
 } from "@/lib/workspace-utils";
 
 export default function ChatPanel() {
@@ -110,21 +109,24 @@ export default function ChatPanel() {
                   )}
                 </div>
 
-                {/* Inline evidence after assistant turns */}
+                {/* Inline evidence after assistant turns — grouped by source */}
                 {turn.role === "assistant" && turn.answerState.retrievedDataPoints.length > 0 && (
-                  <div className="mt-3 space-y-2">
-                    <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
-                      Evidence ({turn.answerState.citedDataPointIds.length} cited)
-                    </p>
-                    {turn.answerState.retrievedDataPoints.slice(0, 4).map((dp: any, dpIdx: number) => (
-                      <DataPointCard
-                        key={dp._id}
-                        dp={dp}
-                        variant="support"
-                        isHighlighted={highlightedEvidenceId === dp._id}
-                        isCited={turn.answerState.citedDataPointIds.includes(dp._id)}
-                        onSelect={() => handleCitationClick(dp._id)}
-                        label={`DP ${String(dpIdx + 1).padStart(2, "0")}`}
+                  <div className="mt-3 space-y-3">
+                    <div className="flex items-baseline justify-between">
+                      <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
+                        Evidence
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {turn.answerState.citedDataPointIds.length} cited of {turn.answerState.retrievedDataPoints.length}
+                      </p>
+                    </div>
+                    {groupDataPointsBySource(turn.answerState.retrievedDataPoints).map((group) => (
+                      <SourceEvidenceGroup
+                        key={group.key}
+                        group={group}
+                        highlightedId={highlightedEvidenceId}
+                        citedIds={turn.answerState.citedDataPointIds}
+                        onClaimClick={handleCitationClick}
                       />
                     ))}
                   </div>
