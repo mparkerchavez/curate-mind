@@ -1,6 +1,5 @@
 import SourceBadge, { type SourceMeta } from "./SourceBadge";
 import { Badge } from "@/components/base/badges/badges";
-import { Button } from "@/components/base/buttons/button";
 import { ConfidenceBadge, EvidenceBadge, TierBadge } from "./Badges";
 import { cn } from "@/lib/cn";
 
@@ -112,14 +111,6 @@ export default function DataPointCard({
       <div className="mt-4">
         <SourceBadge source={source} compact />
       </div>
-
-      {onSelect ? (
-        <div className="mt-4 flex justify-end">
-          <Button size="xs" color={isHighlighted ? "primary" : "secondary"} onClick={onSelect}>
-            {isHighlighted ? "Focused" : "Focus card"}
-          </Button>
-        </div>
-      ) : null}
     </article>
   );
 }
