@@ -126,7 +126,6 @@ export default function ChatPanel() {
                         group={group}
                         highlightedId={highlightedEvidenceId}
                         citedIds={turn.answerState.citedDataPointIds}
-                        onClaimClick={handleCitationClick}
                       />
                     ))}
                   </div>

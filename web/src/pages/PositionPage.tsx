@@ -7,8 +7,7 @@ import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { groupDataPointsBySource } from "@/lib/workspace-utils";
 
 export default function PositionPage() {
-  const { positionDetail, highlightedEvidenceId, handleCitationClick, evidenceSections } =
-    useWorkspace();
+  const { positionDetail, highlightedEvidenceId, evidenceSections } = useWorkspace();
 
   useEffect(() => {
     if (!highlightedEvidenceId) return;
@@ -110,7 +109,6 @@ export default function PositionPage() {
                       key={group.key}
                       group={group}
                       highlightedId={highlightedEvidenceId}
-                      onClaimClick={handleCitationClick}
                     />
                   ))}
                 </div>
