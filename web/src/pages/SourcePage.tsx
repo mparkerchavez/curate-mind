@@ -57,7 +57,7 @@ export default function SourcePage() {
               </div>
               <p className="mt-1 text-sm text-slate-600">{section.subtitle}</p>
               <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
-                <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
+                <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-500">
                   Data points
                 </p>
                 <ol className="mt-3 space-y-2">
@@ -68,13 +68,13 @@ export default function SourcePage() {
                         key={dp._id}
                         id={`evidence-card-${dp._id}`}
                         className={cn(
-                          "flex items-start gap-3 rounded-lg py-1.5 transition-colors",
+                          "flex items-baseline gap-4 rounded-lg py-1.5 transition-colors",
                           isHighlighted ? "-mx-2 bg-utility-brand-50 px-2" : "",
                         )}
                       >
                         <span
                           aria-hidden="true"
-                          className="w-5 shrink-0 pt-0.5 text-xs font-semibold leading-7 text-slate-400 tabular-nums"
+                          className="w-5 shrink-0 text-sm font-semibold tabular-nums tracking-[0.02em] text-slate-300"
                         >
                           {idx + 1}
                         </span>

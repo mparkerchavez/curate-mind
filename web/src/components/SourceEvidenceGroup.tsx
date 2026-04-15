@@ -62,24 +62,27 @@ export default function SourceEvidenceGroup({
 
   return (
     <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
-      {/* Source header */}
-      <header className="flex items-start justify-between gap-4 px-5 pt-5 pb-4">
+      {/* Source header — the title block. 20/16/12 scale ladder creates
+          real contrast against the 14px claim list below. */}
+      <header className="flex items-start justify-between gap-4 px-5 pt-6 pb-5">
         <div className="min-w-0 flex-1">
-          <p className="text-base font-semibold leading-6 text-slate-900">{primary}</p>
+          <p className="text-xl font-semibold leading-7 tracking-[-0.01em] text-slate-950">
+            {primary}
+          </p>
           {secondary && (
             internalHref ? (
               <Link
                 to={internalHref}
-                className="mt-1 block text-sm leading-6 text-slate-600 hover:text-utility-brand-700"
+                className="mt-1.5 block text-base leading-6 text-slate-700 hover:text-utility-brand-700"
               >
                 {secondary}
               </Link>
             ) : (
-              <p className="mt-1 text-sm leading-6 text-slate-600">{secondary}</p>
+              <p className="mt-1.5 text-base leading-6 text-slate-700">{secondary}</p>
             )
           )}
           {tertiaryBits.length > 0 && (
-            <p className="mt-1 text-xs leading-5 text-slate-500">
+            <p className="mt-2 text-xs leading-5 text-slate-500">
               {tertiaryBits.join(" \u00b7 ")}
             </p>
           )}
@@ -100,9 +103,9 @@ export default function SourceEvidenceGroup({
         )}
       </header>
 
-      {/* Data points list */}
+      {/* Data points — small label, editorial numbered list. */}
       <div className="border-t border-slate-100 px-5 pt-4 pb-5">
-        <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
+        <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-500">
           Data points
         </p>
         <ol className="mt-3 space-y-2">
@@ -114,14 +117,14 @@ export default function SourceEvidenceGroup({
                 key={claim._id}
                 id={`evidence-card-${claim._id}`}
                 className={cn(
-                  "flex items-start gap-3 rounded-lg py-1.5 transition-colors",
+                  "flex items-baseline gap-4 rounded-lg py-1.5 transition-colors",
                   isHighlighted ? "-mx-2 bg-utility-brand-50 px-2" : "",
                 )}
               >
                 <span
                   className={cn(
-                    "w-5 shrink-0 pt-0.5 text-xs font-semibold leading-7 tabular-nums",
-                    isCited ? "text-utility-brand-600" : "text-slate-400",
+                    "w-5 shrink-0 text-sm font-semibold tabular-nums tracking-[0.02em]",
+                    isCited ? "text-utility-brand-600" : "text-slate-300",
                   )}
                   aria-hidden="true"
                 >
