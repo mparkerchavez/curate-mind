@@ -1,10 +1,9 @@
 import { useEffect } from "react";
 import { Badge } from "@/components/base/badges/badges";
 import { LoadingIndicator } from "@/components/application/loading-indicator/loading-indicator";
-import { ConfidenceBadge, StatusBadge } from "@/components/Badges";
 import SourceEvidenceGroup from "@/components/SourceEvidenceGroup";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
-import { groupDataPointsBySource } from "@/lib/workspace-utils";
+import { formatDateLabel, groupDataPointsBySource } from "@/lib/workspace-utils";
 
 export default function PositionPage() {
   const { positionDetail, highlightedEvidenceId, evidenceSections } = useWorkspace();
@@ -24,28 +23,32 @@ export default function PositionPage() {
   }
 
   const version = positionDetail.currentVersion;
+  const evidenceCount =
+    (version?.supportingEvidenceDetails?.length ?? 0) +
+    (version?.counterEvidenceDetails?.length ?? 0);
+  const metaBits = [
+    version?.versionDate ? `Updated ${formatDateLabel(version.versionDate)}` : null,
+    evidenceCount > 0
+      ? `${evidenceCount} data point${evidenceCount === 1 ? "" : "s"}`
+      : null,
+  ].filter(Boolean);
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-8">
-      {/* Position header */}
-      <section className="rounded-3xl border border-utility-brand-200 bg-utility-brand-50/50 p-6">
-        <div className="flex flex-wrap items-center gap-2">
-          {version?.status && <StatusBadge status={version.status} />}
-          {version?.confidenceLevel && <ConfidenceBadge confidence={version.confidenceLevel} />}
-          {typeof version?.versionNumber === "number" && (
-            <Badge type="color" size="sm" color="gray">
-              Version {version.versionNumber}
-            </Badge>
-          )}
-        </div>
-
-        <h1 className="mt-4 text-display-xs font-semibold tracking-[-0.02em] text-slate-950">
+      {/* Position header — open canvas, no card wrapper */}
+      <header>
+        <h1 className="text-display-xs font-semibold tracking-[-0.02em] text-slate-950">
           {positionDetail.title}
         </h1>
-        <p className="mt-4 text-base leading-8 text-slate-700">
+        {metaBits.length > 0 && (
+          <p className="mt-2 text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
+            {metaBits.join(" \u00b7 ")}
+          </p>
+        )}
+        <p className="mt-5 text-base leading-8 text-slate-700">
           {version?.currentStance ?? "No stance has been written for this position yet."}
         </p>
-      </section>
+      </header>
 
       {/* Open questions */}
       {version?.openQuestions?.length > 0 && (
