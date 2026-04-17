@@ -1,10 +1,25 @@
+import { useMemo } from "react";
 import { Badge } from "@/components/base/badges/badges";
 import { LoadingIndicator } from "@/components/application/loading-indicator/loading-indicator";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
-import { formatDateLabel } from "@/lib/workspace-utils";
+import { formatDateLabel, renderInline } from "@/lib/workspace-utils";
 
 export default function PositionPage() {
-  const { positionDetail } = useWorkspace();
+  const { positionDetail, handleCitationClick } = useWorkspace();
+
+  // All hooks must be called before any early return (React rules of hooks)
+  const version = positionDetail?.currentVersion;
+
+  const citationMap = useMemo(() => {
+    const map = new Map<string, string>();
+    (version?.supportingEvidenceDetails ?? []).forEach((dp: any, i: number) => {
+      map.set(`E${i + 1}`, dp._id);
+    });
+    (version?.counterEvidenceDetails ?? []).forEach((dp: any, i: number) => {
+      map.set(`C${i + 1}`, dp._id);
+    });
+    return map;
+  }, [version]);
 
   if (!positionDetail) {
     return (
@@ -14,7 +29,6 @@ export default function PositionPage() {
     );
   }
 
-  const version = positionDetail.currentVersion;
   const evidenceCount =
     (version?.supportingEvidenceDetails?.length ?? 0) +
     (version?.counterEvidenceDetails?.length ?? 0);
@@ -24,6 +38,9 @@ export default function PositionPage() {
       ? `${evidenceCount} data point${evidenceCount === 1 ? "" : "s"}`
       : null,
   ].filter(Boolean);
+
+  const stanceText = version?.currentStance ?? "No stance has been written for this position yet.";
+  const hasCitations = citationMap.size > 0 && /\[[EC]\d+\]/.test(stanceText);
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-8">
@@ -38,7 +55,9 @@ export default function PositionPage() {
           </p>
         )}
         <p className="mt-5 text-base leading-8 text-slate-700">
-          {version?.currentStance ?? "No stance has been written for this position yet."}
+          {hasCitations
+            ? renderInline(stanceText, citationMap, handleCitationClick, { variant: "superscript" })
+            : stanceText}
         </p>
       </header>
 

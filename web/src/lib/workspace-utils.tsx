@@ -249,12 +249,70 @@ export function renderAnswerBlocks(text: string, citationMap: Map<string, string
   return blocks;
 }
 
-export function renderInline(text: string, citationMap: Map<string, string>, onCitationClick: (dpId: string) => void): ReactNode {
-  return <>{text.split(/(\[DP\d+\]|\*\*[^*]+\*\*|`[^`]+`)/g).map((part, idx) => {
+export type CitationVariant = "pill" | "superscript";
+
+export function renderInline(
+  text: string,
+  citationMap: Map<string, string>,
+  onCitationClick: (dpId: string) => void,
+  options?: { variant?: CitationVariant },
+): ReactNode {
+  const variant = options?.variant ?? "pill";
+  return <>{text.split(/(\[E\d+\]|\[C\d+\]|\*\*[^*]+\*\*|`[^`]+`)/g).map((part, idx) => {
     if (!part) return null;
-    const label = part.replace(/[\[\]]/g, "");
-    const dpId = citationMap.get(label);
-    if (dpId) return <button key={`c-${idx}`} type="button" className="mx-1 inline-flex rounded-full border border-utility-brand-200 bg-utility-brand-50 px-2.5 py-1 text-xs font-semibold text-utility-brand-700 hover:bg-utility-brand-100 transition" onClick={() => onCitationClick(dpId)}>{part}</button>;
+
+    // Citation token — [E1], [C1], etc.
+    const citationMatch = part.match(/^\[(E|C)(\d+)\]$/);
+    if (citationMatch) {
+      const label = part.replace(/[\[\]]/g, ""); // "E1", "C2", etc.
+      const dpId = citationMap.get(label);
+      const number = citationMatch[2];
+      const isCounter = citationMatch[1] === "C";
+
+      if (!dpId) {
+        // Broken marker — token exists but no matching evidence
+        return variant === "superscript"
+          ? <sup key={`c-${idx}`} className="ml-0.5 text-[0.65em] italic text-slate-400">{number}</sup>
+          : <span key={`c-${idx}`} className="text-slate-400">{part}</span>;
+      }
+
+      if (variant === "superscript") {
+        return (
+          <sup key={`c-${idx}`} className="ml-0.5">
+            <button
+              type="button"
+              onClick={() => onCitationClick(dpId)}
+              className={cn(
+                "inline-flex min-w-[1.25rem] items-center justify-center rounded px-1 text-[0.65em] font-semibold tabular-nums transition hover:underline",
+                isCounter
+                  ? "text-amber-600 hover:text-amber-800"
+                  : "text-utility-brand-600 hover:text-utility-brand-800",
+              )}
+            >
+              {number}
+            </button>
+          </sup>
+        );
+      }
+
+      // Pill variant (chat answers)
+      return (
+        <button
+          key={`c-${idx}`}
+          type="button"
+          className={cn(
+            "mx-1 inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold transition",
+            isCounter
+              ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
+              : "border-utility-brand-200 bg-utility-brand-50 text-utility-brand-700 hover:bg-utility-brand-100",
+          )}
+          onClick={() => onCitationClick(dpId)}
+        >
+          {part}
+        </button>
+      );
+    }
+
     if (part.startsWith("**") && part.endsWith("**")) return <strong key={`b-${idx}`} className="font-semibold text-slate-950">{part.slice(2, -2)}</strong>;
     if (part.startsWith("`") && part.endsWith("`")) return <code key={`cd-${idx}`} className="rounded-md bg-slate-100 px-1.5 py-0.5 font-mono text-[0.95em] text-slate-900">{part.slice(1, -1)}</code>;
     return <span key={`t-${idx}`}>{part}</span>;

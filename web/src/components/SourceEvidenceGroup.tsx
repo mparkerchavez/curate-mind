@@ -12,37 +12,40 @@ type Props = {
   group: SourceGroup;
   highlightedId?: string | null;
   citedIds?: string[];
+  /** When provided, clicking a claim row calls this with the data point ID. */
+  onClaimClick?: (dpId: string) => void;
 };
 
 /**
- * A single source paired with the claims pulled from it.
+ * Build a deep-link URL that jumps to the exact spot in the source.
  *
- * Header hierarchy (top to bottom):
- *   1. Publisher / creator        — primary, largest. WHO says this.
- *   2. Document title              — secondary, linked to the internal source page.
- *   3. Author · date               — tertiary meta line.
- *   +  "Open original" button     — bordered secondary button, anchored top-right.
- *
- * Body = a numbered "Data points" list. Plain text. Claims are not clickable
- * by design — the reader reads, and clicks "Open original" if they want to
- * verify. Cited claims (when the answer referenced them) get a brand-colored
- * number and slightly darker text as a quiet signal, no badges.
- *
- * The bg-utility-brand-50 wash is still triggered externally by citation-chip
- * clicks in the assistant answer (via highlightedId) — transient feedback,
- * not a persistent interaction.
+ * For HTML articles: appends a text fragment (#:~:text=...) using the
+ * anchor quote, so the browser scrolls to and highlights the passage.
+ * For PDFs or when no anchor quote exists: returns the plain URL.
  */
+function buildDeepLinkUrl(baseUrl: string, anchorQuote?: string | null): string {
+  if (!anchorQuote) return baseUrl;
+  // Use the first ~10 words for matching reliability
+  const words = anchorQuote.trim().split(/\s+/).slice(0, 10).join(" ");
+  // Strip smart quotes and other problematic characters
+  const cleaned = words
+    .replace(/[\u2018\u2019\u201C\u201D]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!cleaned) return baseUrl;
+  return `${baseUrl}#:~:text=${encodeURIComponent(cleaned)}`;
+}
+
 export default function SourceEvidenceGroup({
   group,
   highlightedId,
   citedIds,
+  onClaimClick,
 }: Props) {
   const source = group.source;
   const publisher = source?.publisherName?.trim() || null;
   const documentTitle = source?.title?.trim() || null;
 
-  // Publisher is primary. If we don't have one, fall back to the document title
-  // so we never show an empty header.
   const primary = publisher ?? documentTitle ?? "Unknown source";
   const secondary = publisher ? documentTitle : null;
   const tertiaryBits = [
@@ -51,19 +54,37 @@ export default function SourceEvidenceGroup({
   ].filter(Boolean);
 
   const internalHref = source?.sourcePagePath ?? (source?._id ? `/sources/${source._id}` : null);
-  const externalHref =
+  const baseExternalHref =
     source?.resolvedUrl ?? source?.storageUrl ?? source?.canonicalUrl ?? null;
   const externalKind: "storage" | "canonical" | null =
     source?.resolvedLinkKind === "internal"
       ? null
       : (source?.resolvedLinkKind ?? (source?.storageUrl ? "storage" : source?.canonicalUrl ? "canonical" : null));
-  const externalLabel = externalKind === "storage" ? "Open file" : "Open original";
   const citedSet = new Set(citedIds ?? []);
+
+  // Find the highlighted claim in THIS group (if any)
+  const highlightedClaim = highlightedId
+    ? group.claims.find((c: any) => c._id === highlightedId)
+    : null;
+
+  // Build the "Open original" URL — deep-links to the highlighted claim's
+  // anchor quote when one is selected, otherwise opens at the top of the source.
+  const externalHref = baseExternalHref
+    ? highlightedClaim?.anchorQuote
+      ? buildDeepLinkUrl(baseExternalHref, highlightedClaim.anchorQuote)
+      : baseExternalHref
+    : null;
+
+  // Button label changes when targeting a specific claim
+  const externalLabel = highlightedClaim?.anchorQuote
+    ? "Open at source"
+    : externalKind === "storage"
+      ? "Open file"
+      : "Open original";
 
   return (
     <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
-      {/* Source header — the title block. 20/16/12 scale ladder creates
-          real contrast against the 14px claim list below. */}
+      {/* Source header */}
       <header className="flex items-start justify-between gap-4 px-5 pt-6 pb-5">
         <div className="min-w-0 flex-1">
           <p className="text-xl font-semibold leading-7 tracking-[-0.01em] text-slate-950">
@@ -103,7 +124,7 @@ export default function SourceEvidenceGroup({
         )}
       </header>
 
-      {/* Data points — small label, editorial numbered list. */}
+      {/* Data points — numbered list, clickable rows */}
       <div className="border-t border-slate-100 px-5 pt-4 pb-5">
         <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-500">
           Data points
@@ -112,6 +133,7 @@ export default function SourceEvidenceGroup({
           {group.claims.map((claim: any, idx: number) => {
             const isHighlighted = highlightedId === claim._id;
             const isCited = citedSet.has(claim._id);
+            const isClickable = !!onClaimClick;
             return (
               <li
                 key={claim._id}
@@ -119,7 +141,9 @@ export default function SourceEvidenceGroup({
                 className={cn(
                   "flex items-baseline gap-4 rounded-lg py-1.5 transition-colors",
                   isHighlighted ? "-mx-2 bg-utility-brand-50 px-2" : "",
+                  isClickable && !isHighlighted ? "cursor-pointer hover:bg-slate-50 -mx-2 px-2" : "",
                 )}
+                onClick={isClickable ? () => onClaimClick(claim._id) : undefined}
               >
                 <span
                   className={cn(

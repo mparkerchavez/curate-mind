@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Badge } from "@/components/base/badges/badges";
 import SourceEvidenceGroup from "@/components/SourceEvidenceGroup";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
@@ -12,11 +13,22 @@ import { groupDataPointsBySource } from "@/lib/workspace-utils";
  *   - Ask page → cited + retrieved evidence from the latest answer
  *   - Landing/theme pages → empty (panel hidden by AppShell)
  *
- * Evidence is grouped by source using the same SourceEvidenceGroup
- * component used everywhere else.
+ * When a citation marker is clicked (on the stance or in a chat answer),
+ * the panel scrolls to and highlights the matching data point.
  */
 export default function EvidencePanel() {
-  const { evidenceSections, highlightedEvidenceId } = useWorkspace();
+  const { evidenceSections, highlightedEvidenceId, handleCitationClick } = useWorkspace();
+
+  // Scroll to highlighted evidence card when it changes
+  useEffect(() => {
+    if (!highlightedEvidenceId) return;
+    // Small delay to let React render the highlight first
+    const timer = setTimeout(() => {
+      const el = document.getElementById(`evidence-card-${highlightedEvidenceId}`);
+      el?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [highlightedEvidenceId]);
 
   if (evidenceSections.length === 0) return null;
 
@@ -57,6 +69,7 @@ export default function EvidencePanel() {
                       group={group}
                       highlightedId={highlightedEvidenceId}
                       citedIds={section.cited ? section.items.map((dp: any) => dp._id) : undefined}
+                      onClaimClick={handleCitationClick}
                     />
                   ))}
                 </div>
