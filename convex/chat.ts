@@ -148,7 +148,7 @@ export const askGrounded = action({
             } [tier ${src.tier}]`
           : "Source: unknown";
         return [
-          `### Data Point ${i + 1} — id: ${dp._id}`,
+          `### Evidence ${i + 1} — id: ${dp._id}`,
           `Type: ${dp.evidenceType}${
             dp.confidence ? ` · confidence: ${dp.confidence}` : ""
           }`,
@@ -167,7 +167,7 @@ export const askGrounded = action({
       "",
       "Style: precise, intellectually honest, never breathless. Write like an analyst, not a marketer. When evidence is thin, say so.",
       "",
-      "When you draw on a data point, cite it inline like [DP1], [DP2], where the number matches the data point order below.",
+      "When you draw on a data point, cite it inline like [E1], [E2], where the number matches the evidence order below.",
       "If a workspace scope is provided, stay inside that scope unless the evidence explicitly says the context is too thin.",
       "",
       "At the very end of your response, on its own line after a blank line, output a single JSON code block listing the IDs (not the DPN labels) of the data points you actually used:",
@@ -232,7 +232,7 @@ export const askGrounded = action({
 
     const citedSet = new Set(normalizedCitedIds);
     const citations = retrieved.map((dp, index) => ({
-      label: `DP${index + 1}`,
+      label: `E${index + 1}`,
       dataPointId: dp._id,
       order: index + 1,
       isCited: citedSet.has(dp._id),
