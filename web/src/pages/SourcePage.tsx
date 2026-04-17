@@ -1,11 +1,9 @@
-import { Badge } from "@/components/base/badges/badges";
 import { LoadingIndicator } from "@/components/application/loading-indicator/loading-indicator";
 import SourceBadge from "@/components/SourceBadge";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
-import { cn } from "@/lib/cn";
 
 export default function SourcePage() {
-  const { sourceDetail, highlightedEvidenceId, evidenceSections } = useWorkspace();
+  const { sourceDetail } = useWorkspace();
 
   if (!sourceDetail) {
     return (
@@ -46,48 +44,7 @@ export default function SourcePage() {
         </div>
       </div>
 
-      {/* Data points — numbered list. Source header is already at the top of the page. */}
-      {evidenceSections.length > 0 && (
-        <section className="mt-8">
-          {evidenceSections.map((section) => (
-            <div key={section.key}>
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-slate-950">{section.title}</h2>
-                <Badge type="color" size="sm" color="gray">{section.items.length}</Badge>
-              </div>
-              <p className="mt-1 text-sm text-slate-600">{section.subtitle}</p>
-              <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
-                <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-500">
-                  Data points
-                </p>
-                <ol className="mt-3 space-y-2">
-                  {section.items.map((dp: any, idx: number) => {
-                    const isHighlighted = highlightedEvidenceId === dp._id;
-                    return (
-                      <li
-                        key={dp._id}
-                        id={`evidence-card-${dp._id}`}
-                        className={cn(
-                          "flex items-baseline gap-4 rounded-lg py-1.5 transition-colors",
-                          isHighlighted ? "-mx-2 bg-utility-brand-50 px-2" : "",
-                        )}
-                      >
-                        <span
-                          aria-hidden="true"
-                          className="w-5 shrink-0 text-sm font-semibold tabular-nums tracking-[0.02em] text-slate-300"
-                        >
-                          {idx + 1}
-                        </span>
-                        <p className="flex-1 text-sm leading-7 text-slate-700">{dp.claimText}</p>
-                      </li>
-                    );
-                  })}
-                </ol>
-              </div>
-            </div>
-          ))}
-        </section>
-      )}
+      {/* Evidence renders in the right-side EvidencePanel (AppShell) */}
     </div>
   );
 }

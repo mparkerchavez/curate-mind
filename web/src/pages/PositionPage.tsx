@@ -1,18 +1,10 @@
-import { useEffect } from "react";
 import { Badge } from "@/components/base/badges/badges";
 import { LoadingIndicator } from "@/components/application/loading-indicator/loading-indicator";
-import SourceEvidenceGroup from "@/components/SourceEvidenceGroup";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
-import { formatDateLabel, groupDataPointsBySource } from "@/lib/workspace-utils";
+import { formatDateLabel } from "@/lib/workspace-utils";
 
 export default function PositionPage() {
-  const { positionDetail, highlightedEvidenceId, evidenceSections } = useWorkspace();
-
-  useEffect(() => {
-    if (!highlightedEvidenceId) return;
-    const el = document.getElementById(`evidence-card-${highlightedEvidenceId}`);
-    el?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-  }, [highlightedEvidenceId]);
+  const { positionDetail } = useWorkspace();
 
   if (!positionDetail) {
     return (
@@ -94,32 +86,7 @@ export default function PositionPage() {
         </section>
       )}
 
-      {/* Evidence sections — grouped by source */}
-      {evidenceSections.length > 0 && (
-        <section className="mt-8">
-          {evidenceSections.map((section) => {
-            const groups = groupDataPointsBySource(section.items);
-            return (
-              <div key={section.key} className="mt-6 first:mt-0">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-semibold text-slate-950">{section.title}</h2>
-                  <Badge type="color" size="sm" color="gray">{section.items.length}</Badge>
-                </div>
-                <p className="mt-1 text-sm text-slate-600">{section.subtitle}</p>
-                <div className="mt-4 space-y-3">
-                  {groups.map((group) => (
-                    <SourceEvidenceGroup
-                      key={group.key}
-                      group={group}
-                      highlightedId={highlightedEvidenceId}
-                    />
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </section>
-      )}
+      {/* Evidence renders in the right-side EvidencePanel (AppShell) */}
     </div>
   );
 }

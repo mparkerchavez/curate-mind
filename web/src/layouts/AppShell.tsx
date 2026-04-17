@@ -1,6 +1,7 @@
 import { type ReactNode, useState, useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, ChevronRight, LayersThree01, SearchLg } from "@untitledui/icons";
+import EvidencePanel from "@/components/EvidencePanel";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { cn } from "@/lib/cn";
 
@@ -17,7 +18,10 @@ export default function AppShell({ children }: { children: ReactNode }) {
     handleAskQuestion,
     pending,
     reachedTurnLimit,
+    evidenceSections,
   } = useWorkspace();
+
+  const hasEvidence = evidenceSections.length > 0;
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-slate-50">
@@ -60,10 +64,19 @@ export default function AppShell({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      {/* Main content — full width, page component fills it */}
-      <main className="min-h-0 flex-1 overflow-y-auto">
-        {children}
-      </main>
+      {/* Body — main content + optional evidence panel */}
+      <div className="flex min-h-0 flex-1">
+        <main className="min-w-0 flex-1 overflow-y-auto">
+          {children}
+        </main>
+
+        {/* Evidence panel — right side, desktop only, visible when there's evidence */}
+        {hasEvidence && (
+          <aside className="hidden w-[400px] shrink-0 overflow-hidden border-l border-slate-200 bg-white lg:block">
+            <EvidencePanel />
+          </aside>
+        )}
+      </div>
     </div>
   );
 }
