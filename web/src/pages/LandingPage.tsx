@@ -1,13 +1,12 @@
 import { useMemo } from "react";
-import { ArrowRight, MessageChatCircle } from "@untitledui/icons";
+import { ArrowRight, SearchLg } from "@untitledui/icons";
 import { Badge } from "@/components/base/badges/badges";
 import { Button } from "@/components/base/buttons/button";
-import { ConfidenceBadge, StatusBadge } from "@/components/Badges";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { comparePositionsByFreshness, formatDateLabel, summarizeText } from "@/lib/workspace-utils";
 
 export default function LandingPage() {
-  const { themes, allPositions, navigate, setMobilePane } = useWorkspace();
+  const { themes, allPositions, navigate } = useWorkspace();
 
   const sortedThemes = useMemo(
     () =>
@@ -35,15 +34,15 @@ export default function LandingPage() {
         </h1>
         <p className="mt-3 max-w-2xl text-base leading-8 text-slate-600">
           Every claim traces back to its original source through structured extraction.
-          Browse the research themes below or ask a question in the chat panel.
+          Browse the research themes below or ask a question.
         </p>
 
         <div className="mt-6 flex flex-wrap gap-3">
           <Button
             size="md"
             color="primary"
-            iconLeading={MessageChatCircle}
-            onClick={() => setMobilePane("chat")}
+            iconLeading={SearchLg}
+            onClick={() => navigate("/ask")}
           >
             Ask the research base
           </Button>
@@ -66,7 +65,7 @@ export default function LandingPage() {
         <MetricCard label="Themes" value={sortedThemes.length} />
       </div>
 
-      {/* Themes grid */}
+      {/* Themes grid — typography matches evidence card 20/16/12 scale */}
       <section className="mt-8">
         <div className="flex items-end justify-between">
           <div>
@@ -88,20 +87,26 @@ export default function LandingPage() {
               key={theme._id}
               type="button"
               onClick={() => navigate(`/themes/${theme._id}`)}
-              className="group rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-[0_8px_24px_rgba(16,24,40,0.08)]"
+              className="group overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-[0_8px_24px_rgba(16,24,40,0.08)]"
             >
-              <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
-                Theme &middot; {theme.positionCount ?? 0} positions
-              </p>
-              <p className="mt-3 text-lg font-semibold tracking-[-0.02em] text-slate-950">
-                {theme.title}
-              </p>
-              <p className="mt-2 text-sm leading-7 text-slate-600">
-                {summarizeText(theme.description ?? "", 140)}
-              </p>
-              <div className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-utility-brand-700">
-                Explore
-                <ArrowRight className="size-4 transition group-hover:translate-x-1" />
+              {/* Card header — matches evidence card header hierarchy */}
+              <div className="px-5 pt-5 pb-4">
+                <p className="text-xl font-semibold leading-7 tracking-[-0.01em] text-slate-950">
+                  {theme.title}
+                </p>
+                <p className="mt-2 text-sm leading-7 text-slate-600">
+                  {summarizeText(theme.description ?? "", 140)}
+                </p>
+                <p className="mt-3 text-xs leading-5 text-slate-500">
+                  {theme.positionCount ?? 0} positions
+                </p>
+              </div>
+              {/* Card footer — quiet action link */}
+              <div className="border-t border-slate-100 px-5 py-3">
+                <span className="inline-flex items-center gap-2 text-sm font-semibold text-utility-brand-700">
+                  Explore
+                  <ArrowRight className="size-4 transition group-hover:translate-x-1" />
+                </span>
               </div>
             </button>
           ))}
@@ -141,34 +146,33 @@ function MetricCard({ label, value }: { label: string; value: string | number })
 
 function PositionRow({ position, onOpen }: { position: any; onOpen: () => void }) {
   const stance = position.currentVersion?.currentStance ?? position.currentStance;
-  const confidence = position.currentVersion?.confidenceLevel ?? position.confidenceLevel;
-  const status = position.currentVersion?.status ?? position.status;
   const versionDate = position.currentVersion?.versionDate ?? position.versionDate;
 
   return (
     <button
       type="button"
       onClick={onOpen}
-      className="group w-full rounded-2xl border border-slate-200 bg-white px-4 py-4 text-left transition hover:border-slate-300 hover:bg-slate-50"
+      className="group w-full rounded-2xl border border-slate-200 bg-white px-5 py-4 text-left transition hover:border-slate-300 hover:bg-slate-50"
     >
-      <div className="flex flex-wrap items-center gap-2">
-        <Badge type="color" size="sm" color="gray">
-          {position.themeTitle ?? "Position"}
-        </Badge>
-        {status && <StatusBadge status={status} />}
-        {confidence && <ConfidenceBadge confidence={confidence} />}
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
+            {position.themeTitle ?? "Position"}
+          </p>
+          <p className="mt-2 text-base font-semibold leading-7 text-slate-950">{position.title}</p>
+          {stance && (
+            <p className="mt-2 text-sm leading-7 text-slate-600">
+              {summarizeText(stance, 200)}
+            </p>
+          )}
+          {versionDate && (
+            <p className="mt-2 text-xs text-slate-500">
+              Updated {formatDateLabel(versionDate)}
+            </p>
+          )}
+        </div>
+        <ArrowRight className="mt-1 size-4 shrink-0 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-utility-brand-600" />
       </div>
-      <p className="mt-3 text-base font-semibold leading-7 text-slate-950">{position.title}</p>
-      {stance && (
-        <p className="mt-2 text-sm leading-7 text-slate-600">
-          {summarizeText(stance, 200)}
-        </p>
-      )}
-      {versionDate && (
-        <p className="mt-2 text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
-          Updated {formatDateLabel(versionDate)}
-        </p>
-      )}
     </button>
   );
 }

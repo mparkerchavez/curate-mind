@@ -1,0 +1,205 @@
+import { useEffect, useRef } from "react";
+import { ArrowRight, RefreshCcw01, SearchLg } from "@untitledui/icons";
+import { Button } from "@/components/base/buttons/button";
+import { TextAreaBase } from "@/components/base/textarea/textarea";
+import { EmptyState } from "@/components/application/empty-state/empty-state";
+import SourceEvidenceGroup from "@/components/SourceEvidenceGroup";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { cn } from "@/lib/cn";
+import {
+  getSuggestions,
+  groupDataPointsBySource,
+  renderAnswerBlocks,
+} from "@/lib/workspace-utils";
+
+export default function AskPage() {
+  const {
+    turns,
+    input,
+    setInput,
+    pending,
+    error,
+    handleAskQuestion,
+    resetConversation,
+    reachedTurnLimit,
+    highlightedEvidenceId,
+    handleCitationClick,
+  } = useWorkspace();
+
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const suggestions = getSuggestions("home");
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [turns.length]);
+
+  return (
+    <div className="mx-auto flex max-w-4xl flex-col px-6 py-8">
+      {turns.length === 0 ? (
+        /* Empty state — hero with suggestions */
+        <div className="space-y-6">
+          <EmptyState
+            size="sm"
+            className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 px-6 py-8"
+          >
+            <EmptyState.Header pattern="none">
+              <EmptyState.FeaturedIcon icon={SearchLg} color="gray" theme="modern" />
+            </EmptyState.Header>
+            <EmptyState.Content>
+              <EmptyState.Title>Ask about the research</EmptyState.Title>
+              <EmptyState.Description>
+                Every answer is grounded in the curated knowledge base with
+                citations you can trace back to original sources.
+              </EmptyState.Description>
+            </EmptyState.Content>
+          </EmptyState>
+
+          <div className="space-y-2">
+            <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
+              Suggested prompts
+            </p>
+            {suggestions.map((prompt) => (
+              <button
+                key={prompt}
+                type="button"
+                onClick={() => void handleAskQuestion(prompt)}
+                className="group w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-left text-sm leading-6 text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <span>{prompt}</span>
+                  <ArrowRight className="mt-0.5 size-4 shrink-0 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-utility-brand-600" />
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : (
+        /* Conversation */
+        <div className="space-y-4">
+          {turns.map((turn, idx) => (
+            <div key={idx}>
+              <div
+                className={cn(
+                  "rounded-xl border px-4 py-3",
+                  turn.role === "user"
+                    ? "border-utility-brand-200 bg-utility-brand-50"
+                    : "border-slate-200 bg-white",
+                )}
+              >
+                <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
+                  {turn.role === "user" ? "You" : "Research assistant"}
+                </p>
+                {turn.role === "assistant" ? (
+                  <div className="mt-2 space-y-3 text-sm leading-7 text-slate-700">
+                    {renderAnswerBlocks(
+                      turn.content,
+                      new Map(
+                        turn.answerState.citations.map((c) => [c.label, c.dataPointId]),
+                      ),
+                      handleCitationClick,
+                    )}
+                  </div>
+                ) : (
+                  <p className="mt-2 text-sm leading-7 text-slate-700">{turn.content}</p>
+                )}
+              </div>
+
+              {/* Inline evidence after assistant turns — grouped by source */}
+              {turn.role === "assistant" &&
+                turn.answerState.retrievedDataPoints.length > 0 && (
+                  <div className="mt-3 space-y-3">
+                    <div className="flex items-baseline justify-between">
+                      <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
+                        Evidence
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {turn.answerState.citedDataPointIds.length} cited of{" "}
+                        {turn.answerState.retrievedDataPoints.length}
+                      </p>
+                    </div>
+                    {groupDataPointsBySource(
+                      turn.answerState.retrievedDataPoints,
+                    ).map((group) => (
+                      <SourceEvidenceGroup
+                        key={group.key}
+                        group={group}
+                        highlightedId={highlightedEvidenceId}
+                        citedIds={turn.answerState.citedDataPointIds}
+                      />
+                    ))}
+                  </div>
+                )}
+            </div>
+          ))}
+
+          {pending && (
+            <div className="rounded-xl border border-utility-brand-200 bg-utility-brand-50 px-4 py-3 text-sm text-utility-brand-700">
+              Thinking through the evidence...
+            </div>
+          )}
+
+          {error && (
+            <div className="rounded-xl border border-utility-red-200 bg-utility-red-50 px-4 py-3 text-sm text-utility-red-700">
+              {error}
+            </div>
+          )}
+
+          <div ref={bottomRef} />
+        </div>
+      )}
+
+      {/* Input area — sticky at bottom */}
+      <div className="sticky bottom-0 mt-6 border-t border-slate-200 bg-slate-50 pt-4 pb-2">
+        {turns.length > 0 && (
+          <div className="mb-3 flex justify-end">
+            <Button
+              size="xs"
+              color="tertiary"
+              iconLeading={RefreshCcw01}
+              onClick={resetConversation}
+            >
+              Reset
+            </Button>
+          </div>
+        )}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void handleAskQuestion();
+          }}
+        >
+          <TextAreaBase
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                e.preventDefault();
+                void handleAskQuestion();
+              }
+            }}
+            rows={3}
+            disabled={pending || reachedTurnLimit}
+            placeholder={
+              reachedTurnLimit
+                ? "Turn limit reached. Reset to continue."
+                : "Ask about AI strategy, adoption, agentic workflows..."
+            }
+            className="min-h-[4.5rem] resize-none"
+          />
+          <div className="mt-2 flex items-center justify-between">
+            <p className="text-xs text-slate-500">{"\u2318"}/Ctrl + Enter</p>
+            <Button
+              type="submit"
+              size="sm"
+              color="primary"
+              iconTrailing={ArrowRight}
+              disabled={pending || reachedTurnLimit || !input.trim()}
+            >
+              {pending ? "Asking..." : "Ask"}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}

@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 /* ── Shared types ── */
 
-export type RouteKind = "home" | "theme" | "position" | "source";
+export type RouteKind = "home" | "theme" | "position" | "source" | "ask";
 
 export type ChatCitation = {
   label: string;
@@ -177,6 +177,7 @@ export function getRouteKind(pathname: string): RouteKind {
   if (pathname.startsWith("/themes/")) return "theme";
   if (pathname.startsWith("/positions/")) return "position";
   if (pathname.startsWith("/sources/")) return "source";
+  if (pathname === "/ask") return "ask";
   return "home";
 }
 

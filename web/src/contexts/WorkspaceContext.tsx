@@ -1,6 +1,6 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 import { useAction, useQuery } from "convex/react";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useProject } from "@/ProjectContext";
 import { api, type Id } from "@/api";
 import {
@@ -61,16 +61,12 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const nav = useNavigate();
   const { projectId, projectName, loading } = useProject();
   const location = useLocation();
-  const { themeId, positionId, sourceId } = useParams<{
-    themeId?: string;
-    positionId?: string;
-    sourceId?: string;
-  }>();
 
+  // Parse route params from pathname so WorkspaceProvider can live above <Routes>.
   const routeKind = getRouteKind(location.pathname);
-  const themeRecordId = themeId as Id<"researchThemes"> | undefined;
-  const positionRecordId = positionId as Id<"researchPositions"> | undefined;
-  const sourceRecordId = sourceId as Id<"sources"> | undefined;
+  const themeRecordId = location.pathname.match(/^\/themes\/([^/]+)/)?.[1] as Id<"researchThemes"> | undefined;
+  const positionRecordId = location.pathname.match(/^\/positions\/([^/]+)/)?.[1] as Id<"researchPositions"> | undefined;
+  const sourceRecordId = location.pathname.match(/^\/sources\/([^/]+)/)?.[1] as Id<"sources"> | undefined;
 
   /* ── Convex queries ── */
   const askGrounded = useAction(api.chat.askGrounded);
