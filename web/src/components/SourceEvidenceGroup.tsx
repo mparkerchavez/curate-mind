@@ -146,7 +146,7 @@ export default function SourceEvidenceGroup({
                 id={`evidence-card-${claim._id}`}
                 className={cn(
                   "flex items-baseline gap-4 rounded-lg py-1.5 transition-colors",
-                  isHighlighted ? "-mx-2 bg-utility-brand-50 px-2" : "",
+                  isHighlighted ? (isCounter ? "-mx-2 bg-amber-100 px-2" : "-mx-2 bg-emerald-100 px-2") : "",
                   isClickable && !isHighlighted ? "cursor-pointer hover:bg-slate-50 -mx-2 px-2" : "",
                 )}
                 onClick={isClickable ? () => onClaimClick(claim._id) : undefined}
@@ -157,9 +157,11 @@ export default function SourceEvidenceGroup({
                     label ? "w-7" : "w-5",
                     isCounter
                       ? "text-amber-700"
-                      : isCited
-                        ? "text-utility-brand-600"
-                        : "text-slate-300",
+                      : label
+                        ? "text-emerald-700"
+                        : isCited
+                          ? "text-emerald-600"
+                          : "text-slate-300",
                   )}
                   aria-hidden="true"
                 >

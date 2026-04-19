@@ -5,6 +5,8 @@ import EvidencePanel from "@/components/EvidencePanel";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { cn } from "@/lib/cn";
 
+const EVIDENCE_PANEL_WIDTH = 440;
+
 export default function AppShell({ children }: { children: ReactNode }) {
   const {
     themes,
@@ -70,9 +72,13 @@ export default function AppShell({ children }: { children: ReactNode }) {
           {children}
         </main>
 
-        {/* Evidence panel — right side, desktop only, visible when there's evidence */}
+        {/* Evidence panel — right side, desktop only, visible when there's evidence.
+            Fixed pixel width via CSS custom property, matching UUI's sidebar pattern. */}
         {hasEvidence && (
-          <aside className="hidden w-[400px] shrink-0 overflow-hidden border-l border-slate-200 bg-white lg:block">
+          <aside
+            style={{ "--width": `${EVIDENCE_PANEL_WIDTH}px` } as React.CSSProperties}
+            className="hidden shrink-0 overflow-hidden border-l border-slate-200 bg-white lg:block lg:w-(--width)"
+          >
             <EvidencePanel />
           </aside>
         )}
