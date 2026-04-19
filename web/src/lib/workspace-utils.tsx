@@ -204,7 +204,7 @@ export function renderAnswerBlocks(
   text: string,
   citationMap: Map<string, string>,
   onCitationClick: (dpId: string) => void,
-  options?: { variant?: CitationVariant },
+  options?: { variant?: CitationVariant; highlightedDpId?: string | null },
 ): ReactNode[] {
   const lines = text.split("\n");
   const blocks: ReactNode[] = [];
@@ -263,9 +263,10 @@ export function renderInline(
   text: string,
   citationMap: Map<string, string>,
   onCitationClick: (dpId: string) => void,
-  options?: { variant?: CitationVariant },
+  options?: { variant?: CitationVariant; highlightedDpId?: string | null },
 ): ReactNode {
   const variant = options?.variant ?? "pill";
+  const highlightedDpId = options?.highlightedDpId ?? null;
 
   type Tok =
     | { kind: "text"; value: string }
@@ -365,12 +366,18 @@ export function renderInline(
       output.push(citationNode);
       return;
     }
+    const isHighlighted = highlightedDpId === dpId;
     const tintClass = isCounter
-      ? "rounded px-0.5 transition-colors group-hover/claim:bg-amber-100"
-      : "rounded px-0.5 transition-colors group-hover/claim:bg-emerald-100";
+      ? isHighlighted
+        ? "rounded px-0.5 bg-amber-100"
+        : "rounded px-0.5 transition-colors group-hover/claim:bg-amber-100"
+      : isHighlighted
+        ? "rounded px-0.5 bg-emerald-100"
+        : "rounded px-0.5 transition-colors group-hover/claim:bg-emerald-100";
     output.push(
       <span
         key={k()}
+        data-dp-id={dpId}
         className="group/claim cursor-pointer"
         onClick={() => onCitationClick(dpId)}
       >

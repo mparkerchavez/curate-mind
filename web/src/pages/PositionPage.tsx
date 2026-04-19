@@ -1,11 +1,23 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Badge } from "@/components/base/badges/badges";
 import { LoadingIndicator } from "@/components/application/loading-indicator/loading-indicator";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { formatDateLabel, renderAnswerBlocks } from "@/lib/workspace-utils";
 
 export default function PositionPage() {
-  const { positionDetail, handleCitationClick } = useWorkspace();
+  const { positionDetail, handleCitationClick, highlightedEvidenceId } = useWorkspace();
+  const stanceRef = useRef<HTMLDivElement | null>(null);
+
+  // When the highlighted evidence changes, scroll the matching claim in the body into view.
+  useEffect(() => {
+    if (!highlightedEvidenceId || !stanceRef.current) return;
+    const target = stanceRef.current.querySelector<HTMLElement>(
+      `[data-dp-id="${highlightedEvidenceId}"]`,
+    );
+    if (target) {
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [highlightedEvidenceId]);
 
   // All hooks must be called before any early return (React rules of hooks)
   const version = positionDetail?.currentVersion;
@@ -45,7 +57,7 @@ export default function PositionPage() {
     <div className="mx-auto max-w-4xl px-6 py-8">
       {/* Position header — open canvas, no card wrapper */}
       <header>
-        <h1 className="text-display-xs font-semibold tracking-[-0.02em] text-slate-950">
+        <h1 className="text-display-md font-semibold tracking-[-0.02em] text-slate-950">
           {positionDetail.title}
         </h1>
         {metaBits.length > 0 && (
@@ -53,8 +65,8 @@ export default function PositionPage() {
             {metaBits.join(" \u00b7 ")}
           </p>
         )}
-        <div className="mt-5 space-y-5">
-          {renderAnswerBlocks(stanceText, citationMap, handleCitationClick)}
+        <div ref={stanceRef} className="mt-5 space-y-5">
+          {renderAnswerBlocks(stanceText, citationMap, handleCitationClick, { highlightedDpId: highlightedEvidenceId })}
         </div>
       </header>
 
