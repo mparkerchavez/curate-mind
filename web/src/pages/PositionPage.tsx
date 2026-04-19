@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Badge } from "@/components/base/badges/badges";
 import { LoadingIndicator } from "@/components/application/loading-indicator/loading-indicator";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
-import { formatDateLabel, renderInline } from "@/lib/workspace-utils";
+import { formatDateLabel, renderAnswerBlocks } from "@/lib/workspace-utils";
 
 export default function PositionPage() {
   const { positionDetail, handleCitationClick } = useWorkspace();
@@ -40,7 +40,6 @@ export default function PositionPage() {
   ].filter(Boolean);
 
   const stanceText = version?.currentStance ?? "No stance has been written for this position yet.";
-  const hasCitations = citationMap.size > 0 && /\[[EC]\d+\]/.test(stanceText);
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-8">
@@ -54,11 +53,9 @@ export default function PositionPage() {
             {metaBits.join(" \u00b7 ")}
           </p>
         )}
-        <p className="mt-5 text-base leading-8 text-slate-700">
-          {hasCitations
-            ? renderInline(stanceText, citationMap, handleCitationClick, { variant: "superscript" })
-            : stanceText}
-        </p>
+        <div className="mt-5 space-y-5">
+          {renderAnswerBlocks(stanceText, citationMap, handleCitationClick)}
+        </div>
       </header>
 
       {/* Open questions */}

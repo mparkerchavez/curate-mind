@@ -51,13 +51,26 @@ export default function EvidencePanel() {
         <div className="space-y-6">
           {evidenceSections.map((section) => {
             const groups = groupDataPointsBySource(section.items);
+            const isCounter = section.variant === "counter";
             return (
               <div key={section.key}>
                 <div className="flex items-center justify-between">
-                  <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
+                  <p
+                    className={
+                      isCounter
+                        ? "text-xs font-medium uppercase tracking-[0.14em] text-amber-700"
+                        : "text-xs font-medium uppercase tracking-[0.14em] text-slate-500"
+                    }
+                  >
                     {section.title}
                   </p>
-                  <span className="text-xs tabular-nums text-slate-400">
+                  <span
+                    className={
+                      isCounter
+                        ? "rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold tabular-nums text-amber-700"
+                        : "text-xs tabular-nums text-slate-400"
+                    }
+                  >
                     {section.items.length}
                   </span>
                 </div>
@@ -69,6 +82,7 @@ export default function EvidencePanel() {
                       group={group}
                       highlightedId={highlightedEvidenceId}
                       citedIds={section.cited ? section.items.map((dp: any) => dp._id) : undefined}
+                      labelByDpId={section.labelByDpId}
                       onClaimClick={handleCitationClick}
                     />
                   ))}

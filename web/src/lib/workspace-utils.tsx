@@ -32,6 +32,8 @@ export type EvidenceSection = {
   items: any[];
   variant?: "support" | "counter";
   cited?: boolean;
+  /** Map from data point id → citation label ("E2", "C1") used as the evidence-card marker. */
+  labelByDpId?: Record<string, string>;
 };
 
 export type SourceGroupSource = {
@@ -198,7 +200,12 @@ export function getSuggestions(routeKind: RouteKind) {
 
 /* ── Rich text rendering (JSX) ── */
 
-export function renderAnswerBlocks(text: string, citationMap: Map<string, string>, onCitationClick: (dpId: string) => void): ReactNode[] {
+export function renderAnswerBlocks(
+  text: string,
+  citationMap: Map<string, string>,
+  onCitationClick: (dpId: string) => void,
+  options?: { variant?: CitationVariant },
+): ReactNode[] {
   const lines = text.split("\n");
   const blocks: ReactNode[] = [];
   let i = 0;
@@ -211,7 +218,7 @@ export function renderAnswerBlocks(text: string, citationMap: Map<string, string
 
     const hm = cur.match(/^(#{1,3})\s+(.*)$/);
     if (hm) {
-      const content = renderInline(hm[2], citationMap, onCitationClick);
+      const content = renderInline(hm[2], citationMap, onCitationClick, options);
       if (hm[1].length === 1) blocks.push(<h1 key={`h-${i}`} className="text-display-xs font-semibold tracking-[-0.02em] text-slate-950">{content}</h1>);
       else if (hm[1].length === 2) blocks.push(<h2 key={`h-${i}`} className="text-2xl font-semibold tracking-[-0.02em] text-slate-950">{content}</h2>);
       else blocks.push(<h3 key={`h-${i}`} className="text-xl font-semibold text-slate-950">{content}</h3>);
@@ -221,21 +228,21 @@ export function renderAnswerBlocks(text: string, citationMap: Map<string, string
     if (cur.startsWith("> ")) {
       const ql: string[] = [];
       while (i < lines.length && lines[i].trim().startsWith("> ")) { ql.push(lines[i].trim().replace(/^>\s?/, "")); i++; }
-      blocks.push(<blockquote key={`q-${i}`} className="rounded-2xl border border-utility-brand-200 bg-utility-brand-50 px-4 py-3 text-sm leading-7 text-slate-700">{renderInline(ql.join(" "), citationMap, onCitationClick)}</blockquote>);
+      blocks.push(<blockquote key={`q-${i}`} className="rounded-2xl border border-utility-brand-200 bg-utility-brand-50 px-4 py-3 text-sm leading-7 text-slate-700">{renderInline(ql.join(" "), citationMap, onCitationClick, options)}</blockquote>);
       continue;
     }
 
     if (/^[-*]\s+/.test(cur)) {
       const items: string[] = [];
       while (i < lines.length && /^[-*]\s+/.test(lines[i].trim())) { items.push(lines[i].trim().replace(/^[-*]\s+/, "")); i++; }
-      blocks.push(<ul key={`ul-${i}`} className="space-y-3">{items.map((it, j) => <li key={j} className="flex items-start gap-3"><span className="mt-3 size-1.5 rounded-full bg-utility-brand-500" /><span>{renderInline(it, citationMap, onCitationClick)}</span></li>)}</ul>);
+      blocks.push(<ul key={`ul-${i}`} className="space-y-3">{items.map((it, j) => <li key={j} className="flex items-start gap-3"><span className="mt-3 size-1.5 rounded-full bg-utility-brand-500" /><span>{renderInline(it, citationMap, onCitationClick, options)}</span></li>)}</ul>);
       continue;
     }
 
     if (/^\d+\.\s+/.test(cur)) {
       const items: string[] = [];
       while (i < lines.length && /^\d+\.\s+/.test(lines[i].trim())) { items.push(lines[i].trim().replace(/^\d+\.\s+/, "")); i++; }
-      blocks.push(<ol key={`ol-${i}`} className="list-decimal space-y-3 pl-5">{items.map((it, j) => <li key={j}>{renderInline(it, citationMap, onCitationClick)}</li>)}</ol>);
+      blocks.push(<ol key={`ol-${i}`} className="list-decimal space-y-3 pl-5">{items.map((it, j) => <li key={j}>{renderInline(it, citationMap, onCitationClick, options)}</li>)}</ol>);
       continue;
     }
 
@@ -245,7 +252,7 @@ export function renderAnswerBlocks(text: string, citationMap: Map<string, string
       if (!c || /^(-{3,}|\*{3,})$/.test(c) || /^#{1,3}\s/.test(c) || /^>\s/.test(c) || /^[-*]\s+/.test(c) || /^\d+\.\s+/.test(c)) break;
       pl.push(c); i++;
     }
-    blocks.push(<p key={`p-${i}`} className="text-base leading-8 text-slate-700">{renderInline(pl.join(" "), citationMap, onCitationClick)}</p>);
+    blocks.push(<p key={`p-${i}`} className="text-base leading-8 text-slate-700">{renderInline(pl.join(" "), citationMap, onCitationClick, options)}</p>);
   }
   return blocks;
 }
@@ -259,63 +266,139 @@ export function renderInline(
   options?: { variant?: CitationVariant },
 ): ReactNode {
   const variant = options?.variant ?? "pill";
-  return <>{text.split(/(\[E\d+\]|\[C\d+\]|\*\*[^*]+\*\*|`[^`]+`)/g).map((part, idx) => {
-    if (!part) return null;
 
-    // Citation token — [E1], [C1], etc.
-    const citationMatch = part.match(/^\[(E|C)(\d+)\]$/);
-    if (citationMatch) {
-      const label = part.replace(/[\[\]]/g, ""); // "E1", "C2", etc.
-      const dpId = citationMap.get(label);
-      const number = citationMatch[2];
-      const isCounter = citationMatch[1] === "C";
+  type Tok =
+    | { kind: "text"; value: string }
+    | { kind: "terminator"; value: string }
+    | { kind: "bold"; value: string }
+    | { kind: "code"; value: string }
+    | { kind: "citation"; label: string; dpId?: string; number: string; isCounter: boolean };
 
-      if (!dpId) {
-        // Broken marker — token exists but no matching evidence
-        return variant === "superscript"
-          ? <sup key={`c-${idx}`} className="ml-0.5 text-[0.65em] italic text-slate-400">{number}</sup>
-          : <span key={`c-${idx}`} className="text-slate-400">{part}</span>;
-      }
+  const tokens: Tok[] = [];
+  const parts = text.split(/(\[E\d+\]|\[C\d+\]|\*\*[^*]+\*\*|`[^`]+`)/g);
+  for (const part of parts) {
+    if (!part) continue;
+    const cm = part.match(/^\[(E|C)(\d+)\]$/);
+    if (cm) {
+      const label = `${cm[1]}${cm[2]}`;
+      tokens.push({ kind: "citation", label, dpId: citationMap.get(label), number: cm[2], isCounter: cm[1] === "C" });
+      continue;
+    }
+    if (part.startsWith("**") && part.endsWith("**")) {
+      tokens.push({ kind: "bold", value: part.slice(2, -2) });
+      continue;
+    }
+    if (part.startsWith("`") && part.endsWith("`")) {
+      tokens.push({ kind: "code", value: part.slice(1, -1) });
+      continue;
+    }
+    // Split plain text on sentence terminators (period/semicolon/em-dash/exclaim/question followed by whitespace).
+    // Decimal numbers like "-3.5%" are safe — the period there isn't followed by whitespace.
+    const segs = part.split(/([.?!;—]\s+)/);
+    for (const s of segs) {
+      if (!s) continue;
+      if (/^[.?!;—]\s+$/.test(s)) tokens.push({ kind: "terminator", value: s });
+      else tokens.push({ kind: "text", value: s });
+    }
+  }
 
-      if (variant === "superscript") {
-        return (
-          <sup key={`c-${idx}`} className="ml-0.5">
-            <button
-              type="button"
-              onClick={() => onCitationClick(dpId)}
-              className={cn(
-                "inline-flex min-w-[1.25rem] items-center justify-center rounded px-1 text-[0.65em] font-semibold tabular-nums transition hover:underline",
-                isCounter
-                  ? "text-amber-600 hover:text-amber-800"
-                  : "text-utility-brand-600 hover:text-utility-brand-800",
-              )}
-            >
-              {number}
-            </button>
-          </sup>
-        );
-      }
+  const output: ReactNode[] = [];
+  let claim: ReactNode[] = [];
+  let key = 0;
+  const k = () => `r-${key++}`;
 
-      // Pill variant (chat answers)
+  const renderNonCitation = (t: Tok): ReactNode => {
+    if (t.kind === "text" || t.kind === "terminator") return <span key={k()}>{t.value}</span>;
+    if (t.kind === "bold") return <strong key={k()} className="font-semibold text-slate-950">{t.value}</strong>;
+    if (t.kind === "code") return <code key={k()} className="rounded-md bg-slate-100 px-1.5 py-0.5 font-mono text-[0.95em] text-slate-900">{t.value}</code>;
+    return null;
+  };
+
+  const renderCitationNode = (t: Extract<Tok, { kind: "citation" }>): ReactNode => {
+    if (!t.dpId) {
+      return variant === "superscript"
+        ? <sup key={k()} className="ml-0.5 text-[0.65em] italic text-slate-400">{t.number}</sup>
+        : <span key={k()} className="text-slate-400">[{t.label}]</span>;
+    }
+    if (variant === "superscript") {
       return (
-        <button
-          key={`c-${idx}`}
-          type="button"
-          className={cn(
-            "mx-1 inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold transition",
-            isCounter
-              ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
-              : "border-utility-brand-200 bg-utility-brand-50 text-utility-brand-700 hover:bg-utility-brand-100",
-          )}
-          onClick={() => onCitationClick(dpId)}
-        >
-          {part}
-        </button>
+        <sup key={k()} className="ml-0.5">
+          <button
+            type="button"
+            onClick={() => onCitationClick(t.dpId!)}
+            className={cn(
+              "inline-flex min-w-[1.25rem] items-center justify-center rounded px-1 text-[0.65em] font-semibold tabular-nums transition hover:underline",
+              t.isCounter
+                ? "text-amber-600 hover:text-amber-800"
+                : "text-utility-brand-600 hover:text-utility-brand-800",
+            )}
+          >
+            {t.number}
+          </button>
+        </sup>
       );
     }
+    return (
+      <button
+        key={k()}
+        type="button"
+        className={cn(
+          "mx-0.5 inline-flex items-center rounded-full border px-2 py-0 text-[0.7rem] font-semibold leading-5 transition",
+          t.isCounter
+            ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
+            : "border-utility-brand-200 bg-utility-brand-50 text-utility-brand-700 hover:bg-utility-brand-100",
+        )}
+        onClick={() => onCitationClick(t.dpId!)}
+      >
+        {t.label}
+      </button>
+    );
+  };
 
-    if (part.startsWith("**") && part.endsWith("**")) return <strong key={`b-${idx}`} className="font-semibold text-slate-950">{part.slice(2, -2)}</strong>;
-    if (part.startsWith("`") && part.endsWith("`")) return <code key={`cd-${idx}`} className="rounded-md bg-slate-100 px-1.5 py-0.5 font-mono text-[0.95em] text-slate-900">{part.slice(1, -1)}</code>;
-    return <span key={`t-${idx}`}>{part}</span>;
-  })}</>;
+  const flushPlain = () => {
+    for (const node of claim) output.push(node);
+    claim = [];
+  };
+
+  const flushClaim = (citationNode: ReactNode, isCounter: boolean, dpId: string) => {
+    if (claim.length === 0) {
+      output.push(citationNode);
+      return;
+    }
+    const tintClass = isCounter
+      ? "rounded px-0.5 transition-colors group-hover/claim:bg-amber-50"
+      : "rounded px-0.5 transition-colors group-hover/claim:bg-utility-brand-50";
+    output.push(
+      <span
+        key={k()}
+        className="group/claim cursor-pointer"
+        onClick={() => onCitationClick(dpId)}
+      >
+        <span className={tintClass}>{claim}</span>{citationNode}
+      </span>,
+    );
+    claim = [];
+  };
+
+  for (const t of tokens) {
+    if (t.kind === "citation") {
+      const node = renderCitationNode(t);
+      // Superscript variant keeps the old inline behavior — no claim-span grouping.
+      if (variant === "superscript" || !t.dpId) {
+        claim.push(node);
+      } else {
+        flushClaim(node, t.isCounter, t.dpId!);
+      }
+      continue;
+    }
+    if (t.kind === "terminator") {
+      claim.push(renderNonCitation(t));
+      flushPlain();
+      continue;
+    }
+    claim.push(renderNonCitation(t));
+  }
+  flushPlain();
+
+  return <>{output}</>;
 }

@@ -12,6 +12,8 @@ type Props = {
   group: SourceGroup;
   highlightedId?: string | null;
   citedIds?: string[];
+  /** Map from data point id → citation label ("E2", "C1"). When present, used as the list marker instead of the per-source index. */
+  labelByDpId?: Record<string, string>;
   /** When provided, clicking a claim row calls this with the data point ID. */
   onClaimClick?: (dpId: string) => void;
 };
@@ -40,6 +42,7 @@ export default function SourceEvidenceGroup({
   group,
   highlightedId,
   citedIds,
+  labelByDpId,
   onClaimClick,
 }: Props) {
   const source = group.source;
@@ -134,6 +137,9 @@ export default function SourceEvidenceGroup({
             const isHighlighted = highlightedId === claim._id;
             const isCited = citedSet.has(claim._id);
             const isClickable = !!onClaimClick;
+            const label = labelByDpId?.[claim._id];
+            const isCounter = label?.startsWith("C") ?? false;
+            const markerText = label ?? String(idx + 1);
             return (
               <li
                 key={claim._id}
@@ -147,12 +153,17 @@ export default function SourceEvidenceGroup({
               >
                 <span
                   className={cn(
-                    "w-5 shrink-0 text-sm font-semibold tabular-nums tracking-[0.02em]",
-                    isCited ? "text-utility-brand-600" : "text-slate-300",
+                    "shrink-0 text-sm font-semibold tabular-nums tracking-[0.02em]",
+                    label ? "w-7" : "w-5",
+                    isCounter
+                      ? "text-amber-700"
+                      : isCited
+                        ? "text-utility-brand-600"
+                        : "text-slate-300",
                   )}
                   aria-hidden="true"
                 >
-                  {idx + 1}
+                  {markerText}
                 </span>
                 <p
                   className={cn(

@@ -159,15 +159,27 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       const citedSet = new Set(activeAnswer.citedDataPointIds);
       const cited = activeAnswer.retrievedDataPoints.filter((dp: any) => citedSet.has(dp._id));
       const retrieved = activeAnswer.retrievedDataPoints.filter((dp: any) => !citedSet.has(dp._id));
+      const citedLabelByDpId: Record<string, string> = {};
+      for (const c of activeAnswer.citations ?? []) {
+        if (c.dataPointId && c.label) citedLabelByDpId[c.dataPointId] = c.label;
+      }
       return [
-        { key: "cited", title: "Cited in the answer", subtitle: "Directly cited in the current response.", items: cited, cited: true },
+        { key: "cited", title: "Cited in the answer", subtitle: "Directly cited in the current response.", items: cited, cited: true, labelByDpId: citedLabelByDpId },
         { key: "retrieved", title: "Retrieved for context", subtitle: "Adjacent evidence used to ground the answer.", items: retrieved },
       ].filter((s) => s.items.length > 0);
     }
     if (positionDetail?.currentVersion) {
+      const supportLabels: Record<string, string> = {};
+      (positionDetail.currentVersion.supportingEvidenceDetails ?? []).forEach((dp: any, i: number) => {
+        if (dp?._id) supportLabels[dp._id] = `E${i + 1}`;
+      });
+      const counterLabels: Record<string, string> = {};
+      (positionDetail.currentVersion.counterEvidenceDetails ?? []).forEach((dp: any, i: number) => {
+        if (dp?._id) counterLabels[dp._id] = `C${i + 1}`;
+      });
       return [
-        { key: "support", title: "Supporting evidence", subtitle: "Evidence attached to this position version.", items: positionDetail.currentVersion.supportingEvidenceDetails ?? [] },
-        { key: "counter", title: "Counter evidence", subtitle: "Signals that narrow, qualify, or challenge the current stance.", items: positionDetail.currentVersion.counterEvidenceDetails ?? [], variant: "counter" as const },
+        { key: "support", title: "Supporting evidence", subtitle: "Evidence attached to this position version.", items: positionDetail.currentVersion.supportingEvidenceDetails ?? [], labelByDpId: supportLabels },
+        { key: "counter", title: "Counter evidence", subtitle: "Signals that narrow, qualify, or challenge the current stance.", items: positionDetail.currentVersion.counterEvidenceDetails ?? [], variant: "counter" as const, labelByDpId: counterLabels },
       ].filter((s) => s.items.length > 0);
     }
     if (sourceDetail) {
