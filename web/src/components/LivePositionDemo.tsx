@@ -1,31 +1,39 @@
 import { useState } from "react";
 import { useQuery } from "convex/react";
 import { ArrowRight } from "@untitledui/icons";
+import { Badge } from "@/components/base/badges/badges";
 import { Button } from "@/components/base/buttons/button";
-import DataPointCard from "./DataPointCard";
+import SourceEvidenceGroup from "./SourceEvidenceGroup";
 import { api, type Id } from "@/api";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
-import { formatDateLabel, renderAnswerBlocks } from "@/lib/workspace-utils";
+import {
+  formatDateLabel,
+  groupDataPointsBySource,
+  renderAnswerBlocks,
+} from "@/lib/workspace-utils";
 
 /**
- * LivePositionDemo — a self-contained, interactive showcase of one
- * Research Position and its supporting evidence, rendered on the home page.
+ * LivePositionDemo — a self-contained "mini app" on the home page that
+ * showcases how claims, evidence, and sources connect in Curate Mind.
  *
- * Purpose: teach the interaction pattern (citation ↔ evidence ↔ source)
- * without requiring the visitor to click through first. Uses real Convex data.
+ * Reuses the exact same components the rest of the app uses:
+ *   - renderAnswerBlocks for stance text + citation pills
+ *   - SourceEvidenceGroup for evidence rendered by source
+ *   - groupDataPointsBySource for grouping logic
+ * So any change to the research "viewer" propagates here automatically.
  *
- * Design: reuses the existing DataPointCard so evidence looks identical to
- * how it appears elsewhere in the app. The citation rendering pipeline is
- * shared with PositionPage via renderAnswerBlocks.
+ * Layout: a bordered card container with a fixed height. The position
+ * column and the evidence column scroll independently inside it. A
+ * footer bar with "Open full position →" stays pinned and visible.
  *
- * Scope for v1:
- *  - Citation click highlights and scrolls to the matching evidence card
- *  - Evidence card click highlights the card (no reverse scroll yet, since
- *    citation markers do not currently expose DOM anchors)
- *  - Counter-evidence is not shown inline; link routes to the full Position
+ * Interactions (same grammar as Position/Ask pages):
+ *   - Click a citation pill in the stance: matching claim row in the
+ *     evidence column highlights and scrolls into view.
+ *   - Click a claim row: the claim highlights; its citation pill in the
+ *     stance also visually highlights via the shared activeId.
  */
 
-const INITIAL_VISIBLE_CARDS = 3;
+const CONTAINER_HEIGHT = 640; // px
 
 type LivePositionDemoProps = {
   positionId: Id<"researchPositions"> | string | undefined;
@@ -39,9 +47,7 @@ export function LivePositionDemo({ positionId }: LivePositionDemoProps) {
   );
 
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState(false);
 
-  // Don't render anything until we have a position to show.
   if (!positionId) return null;
   if (!detail) return <LoadingSkeleton />;
 
@@ -50,7 +56,8 @@ export function LivePositionDemo({ positionId }: LivePositionDemoProps) {
   const stance: string = currentVersion?.currentStance ?? "";
   const supportingEvidence: any[] = currentVersion?.supportingEvidenceDetails ?? [];
 
-  // Build the citation label map that renderAnswerBlocks expects.
+  // Build citation label maps expected by renderAnswerBlocks and
+  // SourceEvidenceGroup (same E1, E2, ... scheme used on Position page).
   const citationMap = new Map<string, string>();
   const labelByDpId: Record<string, string> = {};
   supportingEvidence.forEach((dp: any, i: number) => {
@@ -61,14 +68,10 @@ export function LivePositionDemo({ positionId }: LivePositionDemoProps) {
     }
   });
 
-  const visibleCards = expanded
-    ? supportingEvidence
-    : supportingEvidence.slice(0, INITIAL_VISIBLE_CARDS);
+  const sourceGroups = groupDataPointsBySource(supportingEvidence);
 
   function handleCitationClick(dpId: string) {
     setActiveId(dpId);
-    // Wait one frame for the card to render its highlighted state
-    // before scrolling it into view.
     requestAnimationFrame(() => {
       document
         .getElementById(`evidence-card-${dpId}`)
@@ -84,105 +87,102 @@ export function LivePositionDemo({ positionId }: LivePositionDemoProps) {
         Ask anything, and your answer traces back the same way.
       </p>
 
-      {/* Two-column: position (left) + evidence (right) */}
-      <div className="mt-10 grid gap-10 lg:grid-cols-[3fr_2fr]">
-        {/* Position column */}
-        <div>
-          {theme?.title ? (
-            <button
-              type="button"
-              onClick={() => navigate(`/themes/${theme._id}`)}
-              className="text-xs font-medium uppercase tracking-[0.14em] text-utility-brand-700 transition hover:text-utility-brand-800"
-            >
-              {theme.title}
-            </button>
-          ) : null}
+      {/* Mini-app container — fixed total height, flex column so the
+          footer bar always stays pinned at the bottom. */}
+      <div
+        className="mt-8 flex flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)]"
+        style={{ height: CONTAINER_HEIGHT }}
+      >
+        {/* Content area: two independently scrolling columns */}
+        <div className="grid min-h-0 flex-1 lg:grid-cols-[3fr_2fr]">
+          {/* Position column */}
+          <div className="overflow-y-auto px-8 py-7">
+            {theme?.title ? (
+              <button
+                type="button"
+                onClick={() => navigate(`/themes/${theme._id}`)}
+                className="group inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-[0.14em] text-utility-brand-700 transition hover:text-utility-brand-800"
+              >
+                <span className="text-slate-400 group-hover:text-slate-500">
+                  Theme
+                </span>
+                <span aria-hidden="true" className="text-slate-300">
+                  &middot;
+                </span>
+                <span>{theme.title}</span>
+                <ArrowRight className="size-3.5 transition group-hover:translate-x-0.5" />
+              </button>
+            ) : null}
 
-          <h2 className="mt-3 text-2xl font-semibold tracking-[-0.01em] text-slate-950">
-            {detail.title}
-          </h2>
+            <h2 className="mt-3 text-2xl font-semibold tracking-[-0.01em] text-slate-950">
+              {detail.title}
+            </h2>
 
-          <p className="mt-2 text-sm text-slate-500">
-            Last updated {formatDateLabel(currentVersion?.versionDate ?? "")}
-            {" · "}
-            built from {supportingEvidence.length} data point
-            {supportingEvidence.length === 1 ? "" : "s"}
-          </p>
+            <p className="mt-2 text-sm text-slate-500">
+              Last updated {formatDateLabel(currentVersion?.versionDate ?? "")}
+              {" · "}
+              built from {supportingEvidence.length} data point
+              {supportingEvidence.length === 1 ? "" : "s"}
+            </p>
 
-          <div className="mt-6 space-y-4">
-            {renderAnswerBlocks(stance, citationMap, handleCitationClick, {
-              variant: "pill",
-              highlightedDpId: activeId,
-            })}
+            <div className="mt-6 space-y-4">
+              {renderAnswerBlocks(stance, citationMap, handleCitationClick, {
+                variant: "pill",
+                highlightedDpId: activeId,
+              })}
+            </div>
           </div>
 
-          {/* Section footer actions */}
-          <div className="mt-8 flex flex-wrap items-center gap-5">
-            <Button
-              size="sm"
-              color="primary"
-              iconTrailing={ArrowRight}
-              onClick={() => navigate(`/positions/${detail._id}`)}
-            >
-              Open full position
-            </Button>
-            <button
-              type="button"
-              onClick={() => navigate(`/positions/${detail._id}`)}
-              className="text-sm text-slate-500 transition hover:text-slate-700"
-            >
-              See counter-evidence
-            </button>
-          </div>
+          {/* Evidence column */}
+          <aside
+            aria-label="Supporting evidence"
+            className="flex min-h-0 flex-col border-slate-200 bg-slate-50/60 lg:border-l"
+          >
+            {/* Evidence header (sticky-feeling via shrink-0) */}
+            <div className="flex shrink-0 items-center justify-between border-b border-slate-200 bg-white px-5 py-3">
+              <p className="text-sm font-semibold text-slate-950">Evidence</p>
+              <Badge type="color" size="sm" color="gray">
+                {supportingEvidence.length}
+              </Badge>
+            </div>
+
+            {/* Evidence list, scrollable */}
+            <div className="flex-1 overflow-y-auto px-4 py-4">
+              {sourceGroups.length === 0 ? (
+                <p className="text-sm text-slate-500">
+                  No supporting evidence attached to this position yet.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {sourceGroups.map((group) => (
+                    <SourceEvidenceGroup
+                      key={group.key}
+                      group={group}
+                      highlightedId={activeId}
+                      labelByDpId={labelByDpId}
+                      onClaimClick={setActiveId}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </aside>
         </div>
 
-        {/* Evidence column */}
-        <aside aria-label="Supporting evidence">
-          <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-600">
-            Evidence
+        {/* Footer bar: pinned, always visible */}
+        <div className="flex shrink-0 items-center justify-between border-t border-slate-200 bg-white px-6 py-4">
+          <p className="text-xs text-slate-500">
+            Same interaction you get in answers and full positions.
           </p>
-
-          <div className="mt-4 space-y-4">
-            {visibleCards.map((dp: any) => (
-              <div
-                key={dp._id}
-                role="button"
-                tabIndex={0}
-                onClick={() => setActiveId(dp._id)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    setActiveId(dp._id);
-                  }
-                }}
-                className="cursor-pointer outline-none"
-              >
-                <DataPointCard
-                  dp={dp}
-                  isHighlighted={activeId === dp._id}
-                  label={labelByDpId[dp._id]}
-                />
-              </div>
-            ))}
-          </div>
-
-          {!expanded && supportingEvidence.length > INITIAL_VISIBLE_CARDS ? (
-            <button
-              type="button"
-              onClick={() => setExpanded(true)}
-              className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-utility-brand-700 transition hover:text-utility-brand-800"
-            >
-              Show all {supportingEvidence.length} supporting points
-              <ArrowRight className="size-4" />
-            </button>
-          ) : null}
-
-          {supportingEvidence.length === 0 ? (
-            <p className="mt-2 text-sm text-slate-500">
-              No supporting evidence attached to this position yet.
-            </p>
-          ) : null}
-        </aside>
+          <Button
+            size="sm"
+            color="primary"
+            iconTrailing={ArrowRight}
+            onClick={() => navigate(`/positions/${detail._id}`)}
+          >
+            Open full position
+          </Button>
+        </div>
       </div>
     </section>
   );
@@ -192,19 +192,28 @@ export function LivePositionDemo({ positionId }: LivePositionDemoProps) {
 
 function LoadingSkeleton() {
   return (
-    <section aria-hidden="true" className="animate-pulse">
-      <div className="mx-auto h-5 max-w-xl rounded bg-slate-100" />
-      <div className="mt-10 grid gap-10 lg:grid-cols-[3fr_2fr]">
-        <div className="space-y-4">
-          <div className="h-4 w-24 rounded bg-slate-100" />
-          <div className="h-8 w-3/4 rounded bg-slate-100" />
-          <div className="h-4 w-1/2 rounded bg-slate-100" />
-          <div className="mt-4 h-40 rounded-2xl bg-slate-50" />
+    <section aria-hidden="true">
+      <div className="mx-auto h-5 max-w-xl animate-pulse rounded bg-slate-100" />
+      <div
+        className="mt-8 flex animate-pulse flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)]"
+        style={{ height: CONTAINER_HEIGHT }}
+      >
+        <div className="grid min-h-0 flex-1 lg:grid-cols-[3fr_2fr]">
+          <div className="space-y-4 px-8 py-7">
+            <div className="h-4 w-32 rounded bg-slate-100" />
+            <div className="h-8 w-3/4 rounded bg-slate-100" />
+            <div className="h-4 w-1/2 rounded bg-slate-100" />
+            <div className="mt-4 h-40 rounded-2xl bg-slate-50" />
+          </div>
+          <div className="space-y-3 border-slate-200 bg-slate-50/60 p-4 lg:border-l">
+            <div className="h-8 rounded bg-white" />
+            <div className="h-40 rounded-2xl bg-white" />
+            <div className="h-40 rounded-2xl bg-white" />
+          </div>
         </div>
-        <div className="space-y-4">
-          <div className="h-4 w-24 rounded bg-slate-100" />
-          <div className="h-36 rounded-3xl bg-slate-50" />
-          <div className="h-36 rounded-3xl bg-slate-50" />
+        <div className="flex shrink-0 items-center justify-between border-t border-slate-200 bg-white px-6 py-4">
+          <div className="h-3 w-48 rounded bg-slate-100" />
+          <div className="h-8 w-36 rounded bg-slate-100" />
         </div>
       </div>
     </section>
