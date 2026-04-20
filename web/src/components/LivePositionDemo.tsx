@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useQuery } from "convex/react";
 import { ArrowRight } from "@untitledui/icons";
 import { Badge } from "@/components/base/badges/badges";
@@ -47,6 +47,9 @@ export function LivePositionDemo({ positionId }: LivePositionDemoProps) {
   );
 
   const [activeId, setActiveId] = useState<string | null>(null);
+  // Ref scopes "scroll the citation into view" to the position column only,
+  // so clicking an evidence card doesn't end up scrolling the whole page.
+  const positionColRef = useRef<HTMLDivElement>(null);
 
   if (!positionId) return null;
   if (!detail) return <LoadingSkeleton />;
@@ -70,12 +73,28 @@ export function LivePositionDemo({ positionId }: LivePositionDemoProps) {
 
   const sourceGroups = groupDataPointsBySource(supportingEvidence);
 
+  // Citation → card: scroll the evidence card into view within the evidence
+  // column. Relies on SourceEvidenceGroup's id={`evidence-card-${dp._id}`}.
   function handleCitationClick(dpId: string) {
     setActiveId(dpId);
     requestAnimationFrame(() => {
       document
         .getElementById(`evidence-card-${dpId}`)
         ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+  }
+
+  // Card → citation: scroll the matching claim span into view within the
+  // position column. renderInline tags claim spans with data-dp-id={dpId}
+  // (see workspace-utils.tsx: flushClaim), so we can query for it directly.
+  // Scoping to positionColRef keeps the scroll inside the demo container.
+  function handleCardClick(dpId: string) {
+    setActiveId(dpId);
+    requestAnimationFrame(() => {
+      const el = positionColRef.current?.querySelector<HTMLElement>(
+        `[data-dp-id="${dpId}"]`,
+      );
+      el?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     });
   }
 
@@ -96,7 +115,7 @@ export function LivePositionDemo({ positionId }: LivePositionDemoProps) {
         {/* Content area: two independently scrolling columns */}
         <div className="grid min-h-0 flex-1 lg:grid-cols-[3fr_2fr]">
           {/* Position column */}
-          <div className="overflow-y-auto px-8 py-7">
+          <div ref={positionColRef} className="overflow-y-auto px-8 py-7">
             {theme?.title ? (
               <button
                 type="button"
@@ -160,7 +179,7 @@ export function LivePositionDemo({ positionId }: LivePositionDemoProps) {
                       group={group}
                       highlightedId={activeId}
                       labelByDpId={labelByDpId}
-                      onClaimClick={setActiveId}
+                      onClaimClick={handleCardClick}
                     />
                   ))}
                 </div>
