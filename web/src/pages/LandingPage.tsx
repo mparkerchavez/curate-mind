@@ -1,7 +1,6 @@
 import { useMemo } from "react";
-import { ArrowRight, SearchLg } from "@untitledui/icons";
+import { ArrowRight } from "@untitledui/icons";
 import { Badge } from "@/components/base/badges/badges";
-import { Button } from "@/components/base/buttons/button";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { comparePositionsByFreshness, formatDateLabel, summarizeText } from "@/lib/workspace-utils";
 
@@ -24,37 +23,19 @@ export default function LandingPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-8">
-      {/* Hero */}
-      <section className="rounded-3xl border border-slate-200 bg-gradient-to-br from-utility-brand-50 to-white p-6 lg:p-8">
-        <p className="text-xs font-medium uppercase tracking-[0.14em] text-utility-brand-600">
-          Curate Mind &middot; February 2026 Research
+      {/* Hero — Phase 1 wires in overline, headline, subhead.
+          Ask input, chips, and proof line arrive in Phase 2. */}
+      <section className="py-12 text-center lg:py-16">
+        <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
+          Curate Mind &middot; Feb 2026 &middot; Research ongoing
         </p>
-        <h1 className="mt-3 text-display-sm font-semibold tracking-[-0.02em] text-slate-950">
-          A queryable knowledge base built from 178 AI strategy sources
+        <h1 className="mx-auto mt-5 max-w-3xl text-display-md font-semibold tracking-[-0.02em] text-slate-950">
+          A curated research base on AI strategy. Ask anything. Trace every claim.
         </h1>
-        <p className="mt-3 max-w-2xl text-base leading-8 text-slate-600">
-          Every claim traces back to its original source through structured extraction.
-          Browse the research themes below or ask a question.
+        <p className="mx-auto mt-5 max-w-2xl text-base leading-8 text-slate-600">
+          178 sources chosen and distilled into data points, positions, and themes.
+          A researcher's point of view, not a search result.
         </p>
-
-        <div className="mt-6 flex flex-wrap gap-3">
-          <Button
-            size="md"
-            color="primary"
-            iconLeading={SearchLg}
-            onClick={() => navigate("/ask")}
-          >
-            Ask the research base
-          </Button>
-          <Button
-            size="md"
-            color="secondary"
-            iconTrailing={ArrowRight}
-            onClick={() => sortedThemes[0] && navigate(`/themes/${sortedThemes[0]._id}`)}
-          >
-            Start browsing
-          </Button>
-        </div>
       </section>
 
       {/* Metrics */}
