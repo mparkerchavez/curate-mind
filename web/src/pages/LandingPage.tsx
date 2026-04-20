@@ -1,11 +1,46 @@
-import { useMemo } from "react";
+import { useMemo, useRef, useState } from "react";
 import { ArrowRight } from "@untitledui/icons";
 import { Badge } from "@/components/base/badges/badges";
+import { ExamplePromptChips } from "@/components/ExamplePromptChips";
+import { HeroAskInput } from "@/components/HeroAskInput";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { comparePositionsByFreshness, formatDateLabel, summarizeText } from "@/lib/workspace-utils";
 
+// Phase 2 placeholder prompts. Phase 8 swaps these for real questions
+// workshopped against the corpus.
+const PLACEHOLDER_PROMPTS = [
+  "How is AI changing software development?",
+  "What does the evidence say about enterprise AI adoption?",
+  "Is augmentation or automation winning in practice?",
+  "Where do agentic workflows break down?",
+];
+
 export default function LandingPage() {
-  const { themes, allPositions, navigate } = useWorkspace();
+  const { themes, allPositions, navigate, handleAskQuestion, pending } = useWorkspace();
+
+  const [heroInput, setHeroInput] = useState("");
+  const heroInputRef = useRef<HTMLTextAreaElement>(null);
+
+  function handleHeroSubmit() {
+    const question = heroInput.trim();
+    if (!question) return;
+    // Kick off the async query first so the AskPage renders the in-flight
+    // conversation immediately on mount. React batches both state updates.
+    void handleAskQuestion(question);
+    navigate("/ask");
+    setHeroInput("");
+  }
+
+  function handleChipSelect(prompt: string) {
+    setHeroInput(prompt);
+    // Focus the input and move the cursor to the end after state flushes.
+    requestAnimationFrame(() => {
+      const el = heroInputRef.current;
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(el.value.length, el.value.length);
+    });
+  }
 
   const sortedThemes = useMemo(
     () =>
@@ -23,8 +58,7 @@ export default function LandingPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-8">
-      {/* Hero — Phase 1 wires in overline, headline, subhead.
-          Ask input, chips, and proof line arrive in Phase 2. */}
+      {/* Hero */}
       <section className="py-12 text-center lg:py-16">
         <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
           Curate Mind &middot; Feb 2026 &middot; Research ongoing
@@ -36,15 +70,35 @@ export default function LandingPage() {
           178 sources chosen and distilled into data points, positions, and themes.
           A researcher's point of view, not a search result.
         </p>
-      </section>
 
-      {/* Metrics */}
-      <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <MetricCard label="Sources" value={178} />
-        <MetricCard label="Data points" value="1,561+" />
-        <MetricCard label="Positions" value={allPositions?.length ?? 28} />
-        <MetricCard label="Themes" value={sortedThemes.length} />
-      </div>
+        {/* Ask input */}
+        <div className="mt-8">
+          <HeroAskInput
+            value={heroInput}
+            onChange={setHeroInput}
+            onSubmit={handleHeroSubmit}
+            disabled={pending}
+            inputRef={heroInputRef}
+          />
+        </div>
+        <p className="mx-auto mt-3 max-w-xl text-sm text-slate-500">
+          Answers are grounded in a curated set of sources.
+          Every claim can be traced back to its original quote.
+        </p>
+
+        {/* Example chips */}
+        <ExamplePromptChips
+          prompts={PLACEHOLDER_PROMPTS}
+          onSelect={handleChipSelect}
+          disabled={pending}
+        />
+
+        {/* Proof line — replaces the former 4-stat card grid */}
+        <p className="mt-8 text-sm text-slate-500">
+          Drawing from 178 sources &middot; 1,561 data points &middot;{" "}
+          {allPositions?.length ?? 28} positions across {sortedThemes.length || 11} themes
+        </p>
+      </section>
 
       {/* Themes grid — typography matches evidence card 20/16/12 scale */}
       <section className="mt-8">
@@ -112,15 +166,6 @@ export default function LandingPage() {
           ))}
         </div>
       </section>
-    </div>
-  );
-}
-
-function MetricCard({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4">
-      <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">{label}</p>
-      <p className="mt-3 text-2xl font-semibold text-slate-950">{value}</p>
     </div>
   );
 }
