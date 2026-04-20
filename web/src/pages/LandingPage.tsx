@@ -1,11 +1,14 @@
 import { useMemo, useRef, useState } from "react";
-import { ArrowRight } from "@untitledui/icons";
+import { Link } from "react-router-dom";
 import { Badge } from "@/components/base/badges/badges";
 import { ExamplePromptChips } from "@/components/ExamplePromptChips";
 import { HeroAskInput } from "@/components/HeroAskInput";
 import { LivePositionDemo } from "@/components/LivePositionDemo";
+import { MethodologyTeaser } from "@/components/MethodologyTeaser";
+import { OpenSourceSection } from "@/components/OpenSourceSection";
+import { ThemeCard } from "@/components/ThemeCard";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
-import { comparePositionsByFreshness, formatDateLabel, summarizeText } from "@/lib/workspace-utils";
+import { comparePositionsByFreshness } from "@/lib/workspace-utils";
 
 // Phase 2 placeholder prompts. Phase 8 swaps these for real questions
 // workshopped against the corpus.
@@ -20,6 +23,8 @@ const PLACEHOLDER_PROMPTS = [
 // recently updated position so the demo renders real data during development.
 // Phase 8 swaps this for a hand-picked flagship ID.
 const FLAGSHIP_POSITION_ID: string | null = null;
+
+const GITHUB_URL = "https://github.com/mparkerchavez/curate-mind";
 
 export default function LandingPage() {
   const { themes, allPositions, navigate, handleAskQuestion, pending } = useWorkspace();
@@ -57,19 +62,34 @@ export default function LandingPage() {
     [themes],
   );
 
-  const featuredPositions = useMemo(
-    () => [...(allPositions ?? [])].sort(comparePositionsByFreshness).slice(0, 5),
+  // Derive "most recently updated position date" per theme so theme cards
+  // can show a freshness line without any backend changes.
+  const lastUpdatedByTheme = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const p of allPositions ?? []) {
+      const themeId = String(p.themeId ?? "");
+      const date: string | undefined = p.currentVersion?.versionDate ?? p.versionDate;
+      if (!themeId || !date) continue;
+      const existing = map[themeId];
+      if (!existing || Date.parse(date) > Date.parse(existing)) {
+        map[themeId] = date;
+      }
+    }
+    return map;
+  }, [allPositions]);
+
+  // Flagship position for the live demo. Falls back to the most recently
+  // updated position during development; Phase 8 swaps to a hand-picked ID.
+  const mostRecentPositionId = useMemo(
+    () => [...(allPositions ?? [])].sort(comparePositionsByFreshness)[0]?._id,
     [allPositions],
   );
-
-  // Phase 3: flagship position for the live demo.
-  // Falls back to the most recently updated position during development.
-  const flagshipId = FLAGSHIP_POSITION_ID ?? featuredPositions[0]?._id;
+  const flagshipId = FLAGSHIP_POSITION_ID ?? mostRecentPositionId;
 
   return (
-    <div className="px-6 py-8">
+    <div className="pt-8">
       {/* Hero */}
-      <section className="mx-auto max-w-4xl py-12 text-center lg:py-16">
+      <section className="mx-auto max-w-4xl px-6 py-12 text-center lg:py-16">
         <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
           Curate Mind &middot; Feb 2026 &middot; Research ongoing
         </p>
@@ -111,12 +131,17 @@ export default function LandingPage() {
       </section>
 
       {/* Live Position demo */}
-      <div className="mx-auto mt-8 max-w-6xl">
+      <div className="mx-auto mt-8 max-w-6xl px-6">
         <LivePositionDemo positionId={flagshipId} />
       </div>
 
-      {/* Themes grid — typography matches evidence card 20/16/12 scale */}
-      <section className="mx-auto mt-16 max-w-4xl">
+      {/* Methodology teaser */}
+      <div className="mx-auto mt-12 max-w-2xl px-6">
+        <MethodologyTeaser />
+      </div>
+
+      {/* Themes grid */}
+      <section className="mx-auto mt-12 max-w-4xl px-6">
         <div className="flex items-end justify-between">
           <div>
             <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
@@ -133,87 +158,46 @@ export default function LandingPage() {
 
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           {sortedThemes.map((theme: any) => (
-            <button
+            <ThemeCard
               key={theme._id}
-              type="button"
-              onClick={() => navigate(`/themes/${theme._id}`)}
-              className="group overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-[0_8px_24px_rgba(16,24,40,0.08)]"
-            >
-              {/* Card header — matches evidence card header hierarchy */}
-              <div className="px-5 pt-5 pb-4">
-                <p className="text-xl font-semibold leading-7 tracking-[-0.01em] text-slate-950">
-                  {theme.title}
-                </p>
-                <p className="mt-2 text-sm leading-7 text-slate-600">
-                  {summarizeText(theme.description ?? "", 140)}
-                </p>
-                <p className="mt-3 text-xs leading-5 text-slate-500">
-                  {theme.positionCount ?? 0} positions
-                </p>
-              </div>
-              {/* Card footer — quiet action link */}
-              <div className="border-t border-slate-100 px-5 py-3">
-                <span className="inline-flex items-center gap-2 text-sm font-semibold text-utility-brand-700">
-                  Explore
-                  <ArrowRight className="size-4 transition group-hover:translate-x-1" />
-                </span>
-              </div>
-            </button>
-          ))}
-        </div>
-      </section>
-
-      {/* Recently active positions */}
-      <section className="mx-auto mt-8 max-w-4xl">
-        <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
-          Recently active positions
-        </p>
-        <h2 className="mt-2 text-xl font-semibold text-slate-950">
-          Latest movement
-        </h2>
-        <div className="mt-4 space-y-3">
-          {featuredPositions.map((position: any) => (
-            <PositionRow
-              key={position._id}
-              position={position}
-              onOpen={() => navigate(`/positions/${position._id}`)}
+              theme={theme}
+              lastUpdatedDate={lastUpdatedByTheme[String(theme._id)]}
+              onOpen={() => navigate(`/themes/${theme._id}`)}
             />
           ))}
         </div>
       </section>
-    </div>
-  );
-}
 
-function PositionRow({ position, onOpen }: { position: any; onOpen: () => void }) {
-  const stance = position.currentVersion?.currentStance ?? position.currentStance;
-  const versionDate = position.currentVersion?.versionDate ?? position.versionDate;
-
-  return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className="group w-full rounded-2xl border border-slate-200 bg-white px-5 py-4 text-left transition hover:border-slate-300 hover:bg-slate-50"
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
-            {position.themeTitle ?? "Position"}
-          </p>
-          <p className="mt-2 text-base font-semibold leading-7 text-slate-950">{position.title}</p>
-          {stance && (
-            <p className="mt-2 text-sm leading-7 text-slate-600">
-              {summarizeText(stance, 200)}
-            </p>
-          )}
-          {versionDate && (
-            <p className="mt-2 text-xs text-slate-500">
-              Updated {formatDateLabel(versionDate)}
-            </p>
-          )}
-        </div>
-        <ArrowRight className="mt-1 size-4 shrink-0 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-utility-brand-600" />
+      {/* Open source coda — full-bleed, subtle gray background */}
+      <div className="mt-16">
+        <OpenSourceSection />
       </div>
-    </button>
+
+      {/* Footer */}
+      <footer className="border-t border-slate-200 bg-white">
+        <div className="mx-auto flex max-w-4xl flex-col items-center gap-2 px-6 py-8 text-center text-sm text-slate-500 sm:flex-row sm:justify-between sm:text-left">
+          <p>
+            Curate Mind &middot; built by Maicol Parker-Chavez &middot;{" "}
+            {new Date().getFullYear()}
+          </p>
+          <div className="flex items-center gap-5">
+            <Link
+              to="/methodology"
+              className="transition hover:text-slate-900"
+            >
+              How it works
+            </Link>
+            <a
+              href={GITHUB_URL}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="transition hover:text-slate-900"
+            >
+              GitHub
+            </a>
+          </div>
+        </div>
+      </footer>
+    </div>
   );
 }
