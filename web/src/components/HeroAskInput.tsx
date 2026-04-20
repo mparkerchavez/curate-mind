@@ -70,7 +70,7 @@ export function HeroAskInput({
         className={cn(
           "absolute right-3 bottom-3 flex size-10 items-center justify-center rounded-full transition",
           canSubmit
-            ? "bg-utility-brand-600 text-white shadow-sm hover:bg-utility-brand-700"
+            ? "bg-brand-solid text-white shadow-sm hover:opacity-90"
             : "bg-slate-100 text-slate-400",
         )}
       >

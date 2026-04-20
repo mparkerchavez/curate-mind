@@ -56,7 +56,7 @@ export type SourceGroup = {
   claims: any[];
 };
 
-export const USER_TURN_LIMIT = 4;
+export const USER_TURN_LIMIT = 3;
 
 /* ── Pure utilities ── */
 

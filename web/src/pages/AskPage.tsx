@@ -1,5 +1,16 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowRight, RefreshCcw01, SearchLg } from "@untitledui/icons";
+
+// Cycling status messages shown while the AI is processing.
+// Each step advances every PENDING_INTERVAL_MS until the last one,
+// which stays put until the answer returns.
+const PENDING_MESSAGES = [
+  "Searching the research base...",
+  "Retrieving relevant data points...",
+  "Weighing the evidence...",
+  "Composing your answer...",
+];
+const PENDING_INTERVAL_MS = 2500;
 import { Button } from "@/components/base/buttons/button";
 import { TextAreaBase } from "@/components/base/textarea/textarea";
 import { EmptyState } from "@/components/application/empty-state/empty-state";
@@ -26,6 +37,19 @@ export default function AskPage() {
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const suggestions = getSuggestions("home");
+
+  // Cycle the pending status message while the query is in flight.
+  const [pendingIdx, setPendingIdx] = useState(0);
+  useEffect(() => {
+    if (!pending) {
+      setPendingIdx(0);
+      return;
+    }
+    const id = setInterval(() => {
+      setPendingIdx((i) => Math.min(i + 1, PENDING_MESSAGES.length - 1));
+    }, PENDING_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [pending]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -108,7 +132,13 @@ export default function AskPage() {
 
           {pending && (
             <div className="rounded-xl border border-utility-brand-200 bg-utility-brand-50 px-4 py-3 text-sm text-utility-brand-700">
-              Thinking through the evidence...
+              <span className="inline-flex items-center gap-2">
+                <span
+                  aria-hidden="true"
+                  className="size-2 shrink-0 animate-pulse rounded-full bg-utility-brand-500"
+                />
+                {PENDING_MESSAGES[pendingIdx]}
+              </span>
             </div>
           )}
 
