@@ -3,6 +3,7 @@ import { ArrowRight } from "@untitledui/icons";
 import { Badge } from "@/components/base/badges/badges";
 import { ExamplePromptChips } from "@/components/ExamplePromptChips";
 import { HeroAskInput } from "@/components/HeroAskInput";
+import { LivePositionDemo } from "@/components/LivePositionDemo";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { comparePositionsByFreshness, formatDateLabel, summarizeText } from "@/lib/workspace-utils";
 
@@ -14,6 +15,11 @@ const PLACEHOLDER_PROMPTS = [
   "Is augmentation or automation winning in practice?",
   "Where do agentic workflows break down?",
 ];
+
+// Phase 3 placeholder flagship position. null falls back to the most
+// recently updated position so the demo renders real data during development.
+// Phase 8 swaps this for a hand-picked flagship ID.
+const FLAGSHIP_POSITION_ID: string | null = null;
 
 export default function LandingPage() {
   const { themes, allPositions, navigate, handleAskQuestion, pending } = useWorkspace();
@@ -56,10 +62,14 @@ export default function LandingPage() {
     [allPositions],
   );
 
+  // Phase 3: flagship position for the live demo.
+  // Falls back to the most recently updated position during development.
+  const flagshipId = FLAGSHIP_POSITION_ID ?? featuredPositions[0]?._id;
+
   return (
-    <div className="mx-auto max-w-4xl px-6 py-8">
+    <div className="px-6 py-8">
       {/* Hero */}
-      <section className="py-12 text-center lg:py-16">
+      <section className="mx-auto max-w-4xl py-12 text-center lg:py-16">
         <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
           Curate Mind &middot; Feb 2026 &middot; Research ongoing
         </p>
@@ -100,8 +110,13 @@ export default function LandingPage() {
         </p>
       </section>
 
+      {/* Live Position demo */}
+      <div className="mx-auto mt-8 max-w-6xl">
+        <LivePositionDemo positionId={flagshipId} />
+      </div>
+
       {/* Themes grid — typography matches evidence card 20/16/12 scale */}
-      <section className="mt-8">
+      <section className="mx-auto mt-16 max-w-4xl">
         <div className="flex items-end justify-between">
           <div>
             <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
@@ -149,7 +164,7 @@ export default function LandingPage() {
       </section>
 
       {/* Recently active positions */}
-      <section className="mt-8">
+      <section className="mx-auto mt-8 max-w-4xl">
         <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
           Recently active positions
         </p>
