@@ -73,7 +73,7 @@ export default function LandingPage() {
   const flagshipId = FLAGSHIP_POSITION_ID;
 
   return (
-    <div className="pt-8">
+    <div className="bg-white pt-8">
       {/* Hero */}
       <section className="mx-auto max-w-4xl px-6 py-12 text-center lg:py-16">
         <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
@@ -143,33 +143,37 @@ export default function LandingPage() {
         <MethodologyTeaser />
       </div>
 
-      {/* Themes grid */}
-      <section className="mx-auto mt-12 max-w-4xl px-6">
-        <div className="flex items-end justify-between">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
-              Research themes
-            </p>
-            <h2 className="mt-2 text-xl font-semibold text-slate-950">
-              Explore by thread
-            </h2>
+      {/* Themes grid on a tinted band — the theme cards stay white
+          and pop against the slate-50 backdrop, mirroring how the
+          live demo's mini-app container sits on its own band. */}
+      <div className="mt-12 bg-slate-50 py-14 lg:py-16">
+        <section className="mx-auto max-w-4xl px-6">
+          <div className="flex items-end justify-between">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
+                Research themes
+              </p>
+              <h2 className="mt-2 text-xl font-semibold text-slate-950">
+                Explore by thread
+              </h2>
+            </div>
+            <Badge type="color" size="sm" color="gray">
+              {sortedThemes.length} total
+            </Badge>
           </div>
-          <Badge type="color" size="sm" color="gray">
-            {sortedThemes.length} total
-          </Badge>
-        </div>
 
-        <div className="mt-4 grid gap-4 md:grid-cols-2">
-          {sortedThemes.map((theme: any) => (
-            <ThemeCard
-              key={theme._id}
-              theme={theme}
-              lastUpdatedDate={lastUpdatedByTheme[String(theme._id)]}
-              onOpen={() => navigate(`/themes/${theme._id}`)}
-            />
-          ))}
-        </div>
-      </section>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            {sortedThemes.map((theme: any) => (
+              <ThemeCard
+                key={theme._id}
+                theme={theme}
+                lastUpdatedDate={lastUpdatedByTheme[String(theme._id)]}
+                onOpen={() => navigate(`/themes/${theme._id}`)}
+              />
+            ))}
+          </div>
+        </section>
+      </div>
 
       {/* Open source coda — full-bleed, subtle gray background */}
       <div className="mt-16">
