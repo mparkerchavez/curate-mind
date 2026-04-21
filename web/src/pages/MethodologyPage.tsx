@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
-import { ArrowUpRight } from "@untitledui/icons";
+import { ArrowRight, ArrowUpRight } from "@untitledui/icons";
 import { Badge } from "@/components/base/badges/badges";
 import { Button } from "@/components/base/buttons/button";
 import { GitHubIcon } from "@/components/GitHubIcon";
@@ -10,17 +10,12 @@ import { comparePositionsByFreshness } from "@/lib/workspace-utils";
 
 /**
  * MethodologyPage — explains how the research method works, walked
- * through with a real article from the corpus (the HBR piece
- * "AI Doesn't Reduce Work — It Intensifies It").
+ * through with a real article from the corpus. Structure:
  *
- * Structure is the linear walk-through we agreed on in Phase 5 planning:
- *   1. Curate sources (signal through noise)
- *   2. Extract claims as data points with anchors
- *   3. Connect to research positions
- *   4. Version over time
- * Followed by an embedded live Position demo (reused from the home page),
- * a short note on layered disclosure, and a closing section on the MCP
- * that implements the method.
+ *   Hero → Workflow visual → Steps 01-04 (how research is made)
+ *   → Depth on your terms (how you read it, with the live demo inline)
+ *   → What using it actually looks like (MCP section, user-experience framing)
+ *   → Footer
  */
 
 const GITHUB_URL = "https://github.com/mparkerchavez/curate-mind";
@@ -30,8 +25,8 @@ const HBR_URL =
 export default function MethodologyPage() {
   const { allPositions } = useWorkspace();
 
-  // Reuse the same flagship logic as the home page so the embedded
-  // demo shows a real, current position.
+  // Reuse the home page's flagship fallback so the embedded demo shows
+  // a real, current position.
   const flagshipId = useMemo(
     () => [...(allPositions ?? [])].sort(comparePositionsByFreshness)[0]?._id,
     [allPositions],
@@ -42,53 +37,76 @@ export default function MethodologyPage() {
       {/* Hero */}
       <section className="mx-auto max-w-3xl px-6 py-12 text-center lg:py-16">
         <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
-          Methodology &middot; How this works
+          Methodology
         </p>
         <h1 className="mx-auto mt-5 max-w-2xl text-display-md font-semibold tracking-[-0.02em] text-slate-950">
-          How a single article becomes a traceable claim.
+          How the research gets made.
         </h1>
         <p className="mx-auto mt-5 max-w-2xl text-base leading-8 text-slate-600">
-          The research method behind Curate Mind, walked through with a real
-          article from the corpus. Four steps, one source, one position, no
-          shortcuts.
+          The method behind Curate Mind, walked through with a real article
+          from the corpus.
         </p>
       </section>
 
+      {/* Workflow visual — four pill cards connected by arrows */}
+      <div className="mx-auto max-w-4xl px-6">
+        <div className="flex items-stretch justify-between gap-2">
+          <FlowCard step="01" title="Curate" body="Choose what makes it in" />
+          <FlowArrow />
+          <FlowCard step="02" title="Extract" body="Claims with anchor quotes" />
+          <FlowArrow />
+          <FlowCard step="03" title="Connect" body="Evidence to positions" />
+          <FlowArrow />
+          <FlowCard step="04" title="Version" body="Append-only over time" />
+        </div>
+      </div>
+
       {/* Body */}
-      <div className="mx-auto max-w-3xl px-6">
+      <div className="mx-auto mt-4 max-w-3xl px-6">
         {/* Step 1 */}
         <Step
           number="01"
           title="Curate sources"
-          tagline="The first act of research is deciding which sources make it in."
+          tagline="The first act of research is deciding which sources are worth keeping."
         >
           <p>
-            Every week I scan between twenty and sixty new sources: articles,
-            reports, podcasts, research papers, blog posts, videos. Most of
-            them do not make it into the corpus. Curation is editorial, not
-            exhaustive. The question is not <em>is this interesting?</em>. The
-            question is <em>does this carry signal that the corpus does not
-            already have?</em>
+            Every week I scan between twenty and sixty sources: articles,
+            reports, podcasts, research papers, blog posts, videos. What gets
+            kept is an opinionated cut.
           </p>
           <p>
-            A curator's job is to filter against the grain of the attention
-            economy. Hot takes and restatements of consensus get cut. What
-            stays is a source that challenges an existing position, adds a
-            new data point the corpus was missing, or reframes a theme in a
-            way worth tracking.
+            Credibility comes first. The source has to be worth spending time
+            on. After that, I'm watching for two patterns. One, a topic or
+            finding that shows up across multiple sources, which tells me a
+            real signal is forming in the field. Two, a genuinely novel angle
+            that nothing else in the corpus is tracking yet.
+          </p>
+          <p>
+            Sometimes I pull a source in simply because the thinker is
+            credible, then let a weekly pass through Claude surface the
+            patterns that connect it to the rest of what I've gathered.
+            Analysis shapes curation in both directions.
+          </p>
+          <p>
+            The corpus is biased on purpose. My background is in Product
+            Design and Human-Centered Design, so sources that speak to how
+            AI is reshaping design, or how it is meaningfully changing
+            people's lives, weigh heavier. A different curator would keep a
+            different set. That is the point. A curated research base is a
+            point of view made queryable.
           </p>
           <ExampleCallout
-            label="This week's scan surfaced"
+            label="Example source"
             title="AI Doesn't Reduce Work — It Intensifies It"
             meta="Harvard Business Review · Aruna Ranganathan and Xingqi Maggie Ye · Feb 2026 · 1,736 words · Tier 2"
             url={HBR_URL}
           >
             <p>
               An eight-month study of a 200-person tech company found that
-              generative AI tools did not reduce workload. Workers voluntarily
-              took on more tasks, blurred the boundary between work and
-              non-work, and juggled more threads in parallel. Counter-narrative
-              to the dominant "AI saves time" story. High signal.
+              generative AI tools did not reduce workload. Workers
+              voluntarily took on more tasks, blurred the boundary between
+              work and non-work, and juggled more threads in parallel.
+              Counter-narrative to the dominant "AI saves time" story.
             </p>
           </ExampleCallout>
         </Step>
@@ -102,14 +120,14 @@ export default function MethodologyPage() {
           <p>
             Once a source is in, it gets read carefully and broken down into{" "}
             <strong>data points</strong>. A data point is one claim from the
-            source, paired with the exact words used to support it (the{" "}
+            source, paired with the exact words that support it (the{" "}
             <em>anchor quote</em>), a confidence level, the type of evidence,
             and a few tags that help it surface later.
           </p>
           <p>
-            The anchor quote is the crucial part. It means every claim can be
-            checked against the original article word for word. Claims that
-            cannot be anchored do not get saved.
+            The anchor quote matters most. It means every claim can be
+            checked against the source word for word. Claims that cannot be
+            anchored do not get saved.
           </p>
 
           <div className="mt-6 space-y-4">
@@ -117,7 +135,7 @@ export default function MethodologyPage() {
               label="E1"
               evidenceType="Observation"
               confidence="Strong"
-              claim="AI tools consistently intensified work rather than reducing it — workers voluntarily took on more, worked faster, and extended work into more hours of the day."
+              claim="AI tools consistently intensified work rather than reducing it. Workers voluntarily took on more, worked faster, and extended work into more hours of the day."
               anchorQuote="we discovered that AI tools didn't reduce work, they consistently intensified it"
               tags={["work-intensification", "ai-adoption-patterns", "productivity-paradox"]}
             />
@@ -125,7 +143,7 @@ export default function MethodologyPage() {
               label="E2"
               evidenceType="Framework"
               confidence="Strong"
-              claim="Task expansion: because AI fills in gaps in knowledge, workers step into responsibilities that previously belonged to others — PMs write code, researchers do engineering."
+              claim="Task expansion: because AI fills in gaps in knowledge, workers step into responsibilities that previously belonged to others. PMs write code, researchers do engineering."
               anchorQuote="Product managers and designers began writing code; researchers took on engineering tasks"
               tags={["task-expansion", "role-blurring", "ai-productivity"]}
             />
@@ -133,15 +151,15 @@ export default function MethodologyPage() {
               label="E3"
               evidenceType="Framework"
               confidence="Moderate"
-              claim="A self-reinforcing cycle emerges: AI acceleration raises speed expectations, which increases reliance on AI, which widens the scope of what workers attempt."
+              claim="A self-reinforcing cycle emerges. AI acceleration raises speed expectations, which increases reliance on AI, which widens the scope of what workers attempt."
               anchorQuote="AI accelerated certain tasks, which raised expectations for speed; higher speed made workers more reliant on AI"
               tags={["productivity-paradox", "cognitive-load", "ai-practice"]}
             />
           </div>
 
           <p className="mt-6">
-            This one article produced roughly a dozen data points in total.
-            A report can produce fifty. Each one is a small unit of evidence
+            This one article produced roughly a dozen data points. A longer
+            report can produce fifty. Each one is a small unit of evidence
             that can later be combined with claims from other sources.
           </p>
         </Step>
@@ -162,11 +180,9 @@ export default function MethodologyPage() {
           </p>
           <p>
             The HBR data points above support a position in the{" "}
-            <em>AI Productivity &amp; Workforce Impact</em> theme — specifically,
-            a position on whether AI reduces or intensifies workload at the
-            employee level. They sit alongside data points from other sources
-            (MIT Sloan, Anthropic's own studies, Harvard Business Review
-            pieces on related topics) to build the full picture.
+            <em>AI Productivity &amp; Workforce Impact</em> theme on whether
+            AI reduces or intensifies workload at the employee level. They
+            sit alongside data points from other sources across the theme.
           </p>
         </Step>
 
@@ -180,99 +196,113 @@ export default function MethodologyPage() {
             Research does not stand still. A new source can reinforce,
             qualify, or contradict an existing position. When that happens,
             the position gets a new version, and the old version stays in
-            the history. You can watch a stance evolve from week to week,
+            the history. A stance can be watched evolving from week to week,
             month to month, quarter to quarter.
           </p>
           <p>
-            This matters because research is a practice, not a one-time
-            deliverable. Being able to ask <em>"how did you get here?"</em>{" "}
-            and trace the lineage back through versions is part of what
-            makes this different from a static report.
+            Research is a practice, not a one-time deliverable. Being able
+            to trace a stance back through its versions is part of what a
+            research base is for.
           </p>
-        </Step>
-
-        {/* Layered disclosure */}
-        <Step
-          number="—"
-          title="Depth stays accessible through four layers"
-          tagline="Readers get what they need at each level, without being forced to drink from a firehose."
-        >
-          <ul className="mt-2 space-y-3 text-slate-700">
-            <LayerRow
-              layer="Layer 1"
-              title="Themes & Positions"
-              description="The summary level. Most questions can be answered here."
-            />
-            <LayerRow
-              layer="Layer 2"
-              title="Evidence"
-              description="Data points, curator observations, mental models."
-            />
-            <LayerRow
-              layer="Layer 3"
-              title="Verbatim quotes"
-              description="The exact language used in the source. Analyst only."
-            />
-            <LayerRow
-              layer="Layer 4"
-              title="Full source"
-              description="The original article, report, or transcript. Analyst only."
-            />
-          </ul>
         </Step>
       </div>
 
-      {/* Embedded live demo: "see it all connected" */}
-      <section className="mx-auto mt-12 max-w-6xl px-6">
-        <div className="mx-auto max-w-3xl text-center">
-          <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
-            See it connected
-          </p>
-          <h2 className="mt-3 text-2xl font-semibold tracking-[-0.01em] text-slate-950">
-            A real position, with real evidence.
-          </h2>
-          <p className="mt-3 text-base leading-7 text-slate-600">
-            The same Position viewer you saw on the home page. Now that you
-            know how each of those claims got there, try clicking a citation
-            and watching it trace back to its source.
-          </p>
+      {/* Depth on your terms — Layers + embedded live demo */}
+      <section className="mx-auto mt-4 max-w-6xl px-6">
+        <div className="mx-auto max-w-3xl">
+          <div className="border-t border-slate-200 pt-12">
+            <h2 className="text-2xl font-semibold tracking-[-0.01em] text-slate-950">
+              Depth on your terms
+            </h2>
+            <p className="mt-3 text-base leading-7 text-slate-600">
+              Not every claim needs the same depth. Curate Mind exposes four
+              layers between a theme and the words in the original source.
+              You do not have to read every article to trust the research,
+              but if a claim matters enough to check, the path all the way
+              down is always open.
+            </p>
+
+            <ul className="mt-6 space-y-3 text-slate-700">
+              <LayerRow
+                layer="Layer 1"
+                title="Themes & Positions"
+                description="Summaries. Most questions are answered here."
+              />
+              <LayerRow
+                layer="Layer 2"
+                title="Evidence"
+                description="Data points, curator observations, mental models."
+              />
+              <LayerRow
+                layer="Layer 3"
+                title="Verbatim quotes"
+                description="The exact language used in the source, for when the wording matters."
+              />
+              <LayerRow
+                layer="Layer 4"
+                title="Full source"
+                description="The original article or report, for when you want to read it end to end."
+              />
+            </ul>
+
+            <p className="mt-6 text-sm text-slate-500">
+              Try it. Click a citation in the stance below to see the data
+              point behind the claim. Click a data point to find its
+              citation in the stance.
+            </p>
+          </div>
         </div>
+
         <div className="mt-8">
           <LivePositionDemo positionId={flagshipId} />
         </div>
       </section>
 
-      {/* How this actually runs (MCP) */}
+      {/* What using it actually looks like (MCP) */}
       <section className="mx-auto mt-16 max-w-3xl px-6">
         <div className="border-t border-slate-200 pt-12">
-          <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
-            How this actually runs
-          </p>
-          <h2 className="mt-3 text-2xl font-semibold tracking-[-0.01em] text-slate-950">
-            The method is a set of tool calls, not manual work.
+          <h2 className="text-2xl font-semibold tracking-[-0.01em] text-slate-950">
+            What using it actually looks like
           </h2>
+
           <div className="mt-5 space-y-4 text-base leading-7 text-slate-700">
             <p>
-              Curate Mind is operated inside Claude or the Codex desktop app.
-              The four steps above are not performed by hand. They happen as
-              tool calls to a Model Context Protocol (MCP) server that writes
-              directly to the same Convex backend this front end reads from.
+              Curate Mind is not maintained through this front end. The
+              curation, extraction, position updates, and question answering
+              all happen on the other side, inside Claude or the Codex
+              desktop app.
             </p>
             <p>
-              A sample of the tools, in plain language:
+              A typical session: I open a conversation, hand it a URL, and
+              the four steps above run as tool calls to a Model Context
+              Protocol server that writes directly to the same Convex
+              backend this front end reads from. An article becomes a
+              source. A pass through it produces data points with anchor
+              quotes. Those data points get attached to a position, which
+              writes a new version. Asking a question routes back through
+              the same corpus, with an answer that carries its sources
+              inline.
+            </p>
+            <p>
+              The front end you are reading is the verification layer. It
+              shows what has been captured and how the pieces connect, but
+              the capturing itself happens elsewhere.
+            </p>
+            <p>
+              A few representative tools, named in plain language:
             </p>
             <ul className="space-y-2">
               <ToolRow
                 name="cm_add_source_from_url"
-                description="Ingest a source from a URL. Step 1."
+                description="Ingest a source from a URL. Step 01."
               />
               <ToolRow
                 name="cm_save_data_points"
-                description="Save extracted claims with their anchor quotes and tags. Step 2."
+                description="Save extracted claims with their anchor quotes and tags. Step 02."
               />
               <ToolRow
                 name="cm_update_position"
-                description="Append a new version of a research position. Steps 3 and 4."
+                description="Append a new version of a research position. Steps 03 and 04."
               />
               <ToolRow
                 name="cm_enrich_data_point"
@@ -280,10 +310,8 @@ export default function MethodologyPage() {
               />
             </ul>
             <p>
-              About a dozen more tools handle themes, mental models, curator
-              observations, and retrieval. The full tool reference, the
-              extraction-pipeline design, and instructions for running the
-              server yourself live in the GitHub repository.
+              The full tool reference, installation steps, and extraction
+              pipeline design all live in the GitHub repository.
             </p>
           </div>
           <div className="mt-6">
@@ -330,6 +358,37 @@ export default function MethodologyPage() {
 
 /* ── Supporting components ── */
 
+function FlowCard({
+  step,
+  title,
+  body,
+}: {
+  step: string;
+  title: string;
+  body: string;
+}) {
+  return (
+    <div className="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-3 text-center shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+        Step {step}
+      </p>
+      <p className="mt-1.5 text-sm font-semibold text-slate-950">{title}</p>
+      <p className="mt-1 text-xs leading-5 text-slate-500">{body}</p>
+    </div>
+  );
+}
+
+function FlowArrow() {
+  return (
+    <div
+      className="flex shrink-0 items-center text-slate-300"
+      aria-hidden="true"
+    >
+      <ArrowRight className="size-4" />
+    </div>
+  );
+}
+
 function Step({
   number,
   title,
@@ -342,7 +401,7 @@ function Step({
   children: React.ReactNode;
 }) {
   return (
-    <section className="border-t border-slate-200 py-12 first:border-t-0 first:pt-0">
+    <section className="border-t border-slate-200 py-12 first:border-t-0 first:pt-8">
       <div className="flex items-baseline gap-3 text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
         <span className="font-mono text-slate-400">{number}</span>
         <span>Step</span>
