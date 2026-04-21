@@ -73,9 +73,26 @@ export default function LandingPage() {
   const flagshipId = FLAGSHIP_POSITION_ID;
 
   return (
-    <div className="bg-white pt-8">
-      {/* Hero */}
-      <section className="mx-auto max-w-4xl px-6 py-12 text-center lg:py-16">
+    <div className="bg-white">
+      {/* Hero — white base with three large blurred gradient blobs for
+          modern, Stripe-inspired depth. Content stays on the white
+          layer so readability is untouched. */}
+      <section className="relative overflow-hidden pt-8">
+        {/* Decorative gradient blobs */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -top-32 -right-20 size-[520px] rounded-full bg-blue-200 opacity-50 blur-3xl"
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute top-10 -left-32 size-[420px] rounded-full bg-purple-200 opacity-40 blur-3xl"
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute bottom-0 left-1/3 size-[460px] rounded-full bg-rose-200 opacity-35 blur-3xl"
+        />
+
+        <div className="relative mx-auto max-w-4xl px-6 py-12 text-center lg:py-16">
         <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
           Curate Mind &middot; Feb 2026 &middot; Research ongoing
         </p>
@@ -114,12 +131,13 @@ export default function LandingPage() {
           Drawing from 178 sources &middot; 1,561 data points &middot;{" "}
           {allPositions?.length ?? 28} positions across {sortedThemes.length || 11} themes
         </p>
+        </div>
       </section>
 
-      {/* Live Position demo on a tinted band for visual separation.
-          The mini-app container stays white and gets a stronger shadow,
-          so it reads as elevated against the slate-50 backdrop. */}
-      <div className="mt-8 bg-slate-50 py-14 lg:py-16">
+      {/* Example position + methodology teaser on one tinted band.
+          The teaser sits at the bottom of the band so it reads as a
+          follow-up to the demo, not its own orphaned section. */}
+      <div className="bg-slate-50 py-14 lg:py-16">
         <div className="mx-auto max-w-6xl px-6">
           <div className="mx-auto max-w-3xl text-center">
             <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
@@ -136,17 +154,18 @@ export default function LandingPage() {
             <LivePositionDemo positionId={flagshipId} />
           </div>
         </div>
+
+        {/* Methodology teaser, inside the same tinted band */}
+        <div className="mx-auto mt-10 max-w-2xl px-6">
+          <MethodologyTeaser />
+        </div>
       </div>
 
-      {/* Methodology teaser */}
-      <div className="mx-auto mt-12 max-w-2xl px-6">
-        <MethodologyTeaser />
-      </div>
-
-      {/* Themes grid on a tinted band — the theme cards stay white
-          and pop against the slate-50 backdrop, mirroring how the
-          live demo's mini-app container sits on its own band. */}
-      <div className="mt-12 bg-slate-50 py-14 lg:py-16">
+      {/* Themes grid on its own tinted band — using indigo-50 rather
+          than slate-50 so it visually separates from the Example
+          Position band above, and picks up a hue from the hero's
+          gradient palette. */}
+      <div className="bg-indigo-50 py-14 lg:py-16">
         <section className="mx-auto max-w-4xl px-6">
           <div className="flex items-end justify-between">
             <div>
@@ -175,10 +194,10 @@ export default function LandingPage() {
         </section>
       </div>
 
-      {/* Open source coda — full-bleed, subtle gray background */}
-      <div className="mt-16">
-        <OpenSourceSection />
-      </div>
+      {/* Open source coda — directly adjacent to the themes band.
+          Color change from indigo-50 to slate-900 is the section seam;
+          no whitespace gap needed. */}
+      <OpenSourceSection />
 
       {/* Footer — dark band, pairs visually with the Open Source
           section above it to form a single bottom zone. */}
