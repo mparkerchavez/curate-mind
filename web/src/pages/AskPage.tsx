@@ -62,7 +62,7 @@ export default function AskPage() {
         <div className="space-y-6">
           <EmptyState
             size="sm"
-            className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 px-6 py-8"
+            className="rounded-2xl border border-dashed border-secondary bg-secondary_subtle px-6 py-8"
           >
             <EmptyState.Header pattern="none">
               <EmptyState.FeaturedIcon icon={SearchLg} color="gray" theme="modern" />
@@ -77,7 +77,7 @@ export default function AskPage() {
           </EmptyState>
 
           <div className="space-y-2">
-            <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
+            <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
               Suggested prompts
             </p>
             {suggestions.map((prompt) => (
@@ -85,11 +85,11 @@ export default function AskPage() {
                 key={prompt}
                 type="button"
                 onClick={() => void handleAskQuestion(prompt)}
-                className="group w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-left text-sm leading-6 text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                className="group w-full rounded-xl border border-secondary bg-primary px-4 py-3 text-left text-sm leading-6 text-secondary transition hover:border-brand hover:bg-secondary"
               >
                 <div className="flex items-start justify-between gap-2">
                   <span>{prompt}</span>
-                  <ArrowRight className="mt-0.5 size-4 shrink-0 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-utility-brand-600" />
+                  <ArrowRight className="mt-0.5 size-4 shrink-0 text-quaternary transition group-hover:translate-x-0.5 group-hover:text-brand-secondary" />
                 </div>
               </button>
             ))}
@@ -104,15 +104,15 @@ export default function AskPage() {
                 className={cn(
                   "rounded-xl border px-4 py-3",
                   turn.role === "user"
-                    ? "border-utility-brand-200 bg-utility-brand-50"
-                    : "border-slate-200 bg-white",
+                    ? "border-brand bg-brand-primary"
+                    : "border-secondary bg-primary",
                 )}
               >
-                <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
+                <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
                   {turn.role === "user" ? "You" : "Research assistant"}
                 </p>
                 {turn.role === "assistant" ? (
-                  <div className="mt-2 space-y-3 text-sm leading-7 text-slate-700">
+                  <div className="mt-2 space-y-3 text-sm leading-7 text-secondary">
                     {renderAnswerBlocks(
                       turn.content,
                       new Map(
@@ -122,7 +122,7 @@ export default function AskPage() {
                     )}
                   </div>
                 ) : (
-                  <p className="mt-2 text-sm leading-7 text-slate-700">{turn.content}</p>
+                  <p className="mt-2 text-sm leading-7 text-secondary">{turn.content}</p>
                 )}
               </div>
 
@@ -131,11 +131,11 @@ export default function AskPage() {
           ))}
 
           {pending && (
-            <div className="rounded-xl border border-utility-brand-200 bg-utility-brand-50 px-4 py-3 text-sm text-utility-brand-700">
+            <div className="rounded-xl border border-brand bg-brand-primary px-4 py-3 text-sm text-brand-secondary">
               <span className="inline-flex items-center gap-2">
                 <span
                   aria-hidden="true"
-                  className="size-2 shrink-0 animate-pulse rounded-full bg-utility-brand-500"
+                  className="size-2 shrink-0 animate-pulse rounded-full bg-brand-solid"
                 />
                 {PENDING_MESSAGES[pendingIdx]}
               </span>
@@ -143,7 +143,7 @@ export default function AskPage() {
           )}
 
           {error && (
-            <div className="rounded-xl border border-utility-red-200 bg-utility-red-50 px-4 py-3 text-sm text-utility-red-700">
+            <div className="rounded-xl border border-error bg-error-primary px-4 py-3 text-sm text-error-primary">
               {error}
             </div>
           )}
@@ -153,7 +153,7 @@ export default function AskPage() {
       )}
 
       {/* Input area — sticky at bottom */}
-      <div className="sticky bottom-0 mt-6 border-t border-slate-200 bg-slate-50 pt-4 pb-2">
+      <div className="sticky bottom-0 mt-6 border-t border-secondary bg-secondary pt-4 pb-2">
         {turns.length > 0 && (
           <div className="mb-3 flex justify-end">
             <Button
@@ -195,7 +195,7 @@ export default function AskPage() {
             className="min-h-[4.5rem] resize-none"
           />
           <div className="mt-2 flex items-center justify-between">
-            <p className="text-xs text-slate-500">{"\u2318"}/Ctrl + Enter</p>
+            <p className="text-xs text-tertiary">{"\u2318"}/Ctrl + Enter</p>
             <Button
               type="submit"
               size="sm"

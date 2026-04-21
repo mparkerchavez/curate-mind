@@ -67,10 +67,10 @@ export default function DataPointCard({
     <article
       id={`evidence-card-${dp._id}`}
       className={cn(
-        "rounded-3xl border bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition-all",
-        variant === "counter" ? "border-utility-yellow-200 bg-utility-yellow-50/40" : "border-slate-200",
-        isHighlighted && "border-utility-brand-200 ring-2 ring-utility-brand-100",
-        isCited && "border-utility-brand-200 bg-utility-brand-50/50",
+        "rounded-3xl border bg-primary p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition-all",
+        variant === "counter" ? "border-utility-yellow-200 bg-warning-primary" : "border-secondary",
+        isHighlighted && "border-brand ring-2 ring-brand",
+        isCited && "border-brand bg-brand-primary",
       )}
     >
       <div className="flex flex-wrap items-center gap-2">
@@ -93,18 +93,18 @@ export default function DataPointCard({
       </div>
 
       <div className="mt-4">
-        <h3 className="text-base font-semibold leading-7 text-slate-900">{dp.claimText}</h3>
-        <blockquote className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-7 text-slate-700">
+        <h3 className="text-base font-semibold leading-7 text-primary">{dp.claimText}</h3>
+        <blockquote className="mt-3 rounded-2xl border border-secondary bg-secondary px-4 py-3 text-sm leading-7 text-secondary">
           “{dp.anchorQuote}”
         </blockquote>
       </div>
 
       {dp.extractionNote ? (
-        <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3">
-          <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
+        <div className="mt-4 rounded-2xl border border-secondary bg-secondary_subtle px-4 py-3">
+          <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
             Curator note
           </p>
-          <p className="mt-2 text-sm leading-6 text-slate-700">{dp.extractionNote}</p>
+          <p className="mt-2 text-sm leading-6 text-secondary">{dp.extractionNote}</p>
         </div>
       ) : null}
 

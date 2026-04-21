@@ -30,14 +30,14 @@ export default function ThemePage() {
   return (
     <div className="mx-auto max-w-4xl px-6 py-8">
       {/* Theme header */}
-      <section className="rounded-3xl border border-slate-200 bg-slate-50/70 p-6">
-        <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
+      <section className="rounded-3xl border border-secondary bg-secondary_subtle p-6">
+        <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
           Theme overview
         </p>
-        <h1 className="mt-3 text-display-xs font-semibold tracking-[-0.02em] text-slate-950">
+        <h1 className="mt-3 text-display-xs font-semibold tracking-[-0.02em] text-primary">
           {activeTheme.title}
         </h1>
-        <p className="mt-3 max-w-3xl text-base leading-8 text-slate-600">
+        <p className="mt-3 max-w-3xl text-base leading-8 text-tertiary">
           {activeTheme.description ?? "Open a position to see the current stance and evidence chain."}
         </p>
 
@@ -57,12 +57,12 @@ export default function ThemePage() {
       {/* Posture cards */}
       <div className="mt-6 grid gap-3 md:grid-cols-3">
         {posture.cards.map((card) => (
-          <div key={card.label} className="rounded-2xl border border-slate-200 bg-white p-4">
-            <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
+          <div key={card.label} className="rounded-2xl border border-secondary bg-primary p-4">
+            <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
               {card.label}
             </p>
-            <p className="mt-2 text-base font-semibold text-slate-950">{card.value}</p>
-            <p className="mt-2 text-sm leading-6 text-slate-600">{card.description}</p>
+            <p className="mt-2 text-base font-semibold text-primary">{card.value}</p>
+            <p className="mt-2 text-sm leading-6 text-tertiary">{card.description}</p>
           </div>
         ))}
       </div>
@@ -70,7 +70,7 @@ export default function ThemePage() {
       {/* Positions list */}
       <section className="mt-8">
         <div className="flex items-end justify-between">
-          <h2 className="text-xl font-semibold text-slate-950">Positions</h2>
+          <h2 className="text-xl font-semibold text-primary">Positions</h2>
           <Badge type="color" size="sm" color="gray">
             {sortedPositions.length} total
           </Badge>
@@ -88,7 +88,7 @@ export default function ThemePage() {
                 key={position._id}
                 type="button"
                 onClick={() => navigate(`/positions/${position._id}`)}
-                className="group w-full rounded-2xl border border-slate-200 bg-white px-5 py-4 text-left transition hover:border-slate-300 hover:bg-slate-50"
+                className="group w-full rounded-2xl border border-secondary bg-primary px-5 py-4 text-left transition hover:border-brand hover:bg-secondary_subtle"
               >
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                   <div className="min-w-0">
@@ -96,19 +96,19 @@ export default function ThemePage() {
                       {status && <StatusBadge status={status} />}
                       {confidence && <ConfidenceBadge confidence={confidence} />}
                     </div>
-                    <p className="mt-3 text-base font-semibold leading-7 text-slate-950">{position.title}</p>
+                    <p className="mt-3 text-base font-semibold leading-7 text-primary">{position.title}</p>
                     {stance && (
-                      <p className="mt-2 text-sm leading-7 text-slate-600">
+                      <p className="mt-2 text-sm leading-7 text-tertiary">
                         {summarizeText(stance, 220)}
                       </p>
                     )}
                     {versionDate && (
-                      <p className="mt-2 text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
+                      <p className="mt-2 text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
                         Updated {formatDateLabel(versionDate)}
                       </p>
                     )}
                   </div>
-                  <div className="inline-flex shrink-0 items-center gap-2 text-sm font-semibold text-utility-brand-700">
+                  <div className="inline-flex shrink-0 items-center gap-2 text-sm font-semibold text-brand-secondary">
                     Open
                     <ArrowRight className="size-4 transition group-hover:translate-x-1" />
                   </div>

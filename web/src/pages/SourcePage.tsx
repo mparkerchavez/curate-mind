@@ -16,31 +16,31 @@ export default function SourcePage() {
   return (
     <div className="mx-auto max-w-4xl px-6 py-8">
       {/* Source header */}
-      <section className="rounded-3xl border border-slate-200 bg-slate-50/70 p-6">
-        <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
+      <section className="rounded-3xl border border-secondary bg-secondary_subtle p-6">
+        <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
           Source record
         </p>
         <div className="mt-4">
           <SourceBadge source={sourceDetail.source} />
         </div>
         {sourceDetail.sourceSynthesis && (
-          <p className="mt-4 text-sm leading-7 text-slate-600">{sourceDetail.sourceSynthesis}</p>
+          <p className="mt-4 text-sm leading-7 text-tertiary">{sourceDetail.sourceSynthesis}</p>
         )}
       </section>
 
       {/* Metrics */}
       <div className="mt-6 grid gap-3 md:grid-cols-3">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-          <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">Linked data points</p>
-          <p className="mt-3 text-2xl font-semibold text-slate-950">{sourceDetail.dataPointCount}</p>
+        <div className="rounded-2xl border border-secondary bg-primary p-4">
+          <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">Linked data points</p>
+          <p className="mt-3 text-2xl font-semibold text-primary">{sourceDetail.dataPointCount}</p>
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-          <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">Accessibility</p>
-          <p className="mt-3 text-2xl font-semibold text-slate-950">{sourceDetail.urlAccessibility}</p>
+        <div className="rounded-2xl border border-secondary bg-primary p-4">
+          <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">Accessibility</p>
+          <p className="mt-3 text-2xl font-semibold text-primary">{sourceDetail.urlAccessibility}</p>
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-          <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">Status</p>
-          <p className="mt-3 text-2xl font-semibold text-slate-950">{sourceDetail.status}</p>
+        <div className="rounded-2xl border border-secondary bg-primary p-4">
+          <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">Status</p>
+          <p className="mt-3 text-2xl font-semibold text-primary">{sourceDetail.status}</p>
         </div>
       </div>
 

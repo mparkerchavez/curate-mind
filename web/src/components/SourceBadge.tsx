@@ -80,7 +80,7 @@ export default function SourceBadge({
   compact?: boolean;
 }) {
   if (!source) {
-    return <p className="text-sm text-slate-500">Source unavailable</p>;
+    return <p className="text-sm text-quaternary">Source unavailable</p>;
   }
 
   const sourcePagePath = source.sourcePagePath ?? `/sources/${source._id}`;
@@ -101,17 +101,17 @@ export default function SourceBadge({
 
   if (compact) {
     return (
-      <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+      <div className="rounded-2xl border border-secondary bg-secondary_subtle p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
+            <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
               Source
             </p>
             {renderLinked({
               href,
               linkKind,
               className:
-                "mt-1 block text-sm font-semibold leading-6 text-slate-900 hover:text-utility-brand-700",
+                "mt-1 block text-sm font-semibold leading-6 text-primary hover:text-brand-secondary",
               children: title,
             })}
           </div>
@@ -134,29 +134,29 @@ export default function SourceBadge({
         </div>
 
         {sourceBits.length > 0 && (
-          <p className="mt-2 text-sm leading-6 text-slate-600">{sourceBits.join(" · ")}</p>
+          <p className="mt-2 text-sm leading-6 text-tertiary">{sourceBits.join(" · ")}</p>
         )}
       </div>
     );
   }
 
   return (
-    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+    <div className="rounded-3xl border border-secondary bg-primary p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
-          <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
+          <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
             Source
           </p>
           {renderLinked({
             href,
             linkKind,
             className:
-              "mt-1 block text-base font-semibold leading-7 text-slate-900 hover:text-utility-brand-700",
+              "mt-1 block text-base font-semibold leading-7 text-primary hover:text-brand-secondary",
             children: title,
           })}
 
           {sourceBits.length > 0 && (
-            <p className="mt-2 text-sm leading-6 text-slate-600">
+            <p className="mt-2 text-sm leading-6 text-tertiary">
               {sourceBits.join(" · ")}
             </p>
           )}

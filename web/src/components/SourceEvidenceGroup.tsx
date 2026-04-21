@@ -86,27 +86,27 @@ export default function SourceEvidenceGroup({
       : "Open original";
 
   return (
-    <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+    <article className="overflow-hidden rounded-2xl border border-secondary bg-primary shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
       {/* Source header */}
       <header className="flex items-start justify-between gap-4 px-5 pt-6 pb-5">
         <div className="min-w-0 flex-1">
-          <p className="text-xl font-semibold leading-7 tracking-[-0.01em] text-slate-950">
+          <p className="text-xl font-semibold leading-7 tracking-[-0.01em] text-primary">
             {primary}
           </p>
           {secondary && (
             internalHref ? (
               <Link
                 to={internalHref}
-                className="mt-1.5 block text-base leading-6 text-slate-700 hover:text-utility-brand-700"
+                className="mt-1.5 block text-base leading-6 text-secondary hover:text-brand-secondary"
               >
                 {secondary}
               </Link>
             ) : (
-              <p className="mt-1.5 text-base leading-6 text-slate-700">{secondary}</p>
+              <p className="mt-1.5 text-base leading-6 text-secondary">{secondary}</p>
             )
           )}
           {tertiaryBits.length > 0 && (
-            <p className="mt-2 text-xs leading-5 text-slate-500">
+            <p className="mt-2 text-xs leading-5 text-tertiary">
               {tertiaryBits.join(" \u00b7 ")}
             </p>
           )}
@@ -128,8 +128,8 @@ export default function SourceEvidenceGroup({
       </header>
 
       {/* Data points — numbered list, clickable rows */}
-      <div className="border-t border-slate-100 px-5 pt-4 pb-5">
-        <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-500">
+      <div className="border-t border-tertiary px-5 pt-4 pb-5">
+        <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-quaternary">
           Data points
         </p>
         <ol className="mt-3 space-y-2">
@@ -146,8 +146,8 @@ export default function SourceEvidenceGroup({
                 id={`evidence-card-${claim._id}`}
                 className={cn(
                   "flex items-baseline gap-4 rounded-lg py-1.5 transition-colors",
-                  isHighlighted ? (isCounter ? "-mx-2 bg-amber-100 px-2" : "-mx-2 bg-emerald-100 px-2") : "",
-                  isClickable && !isHighlighted ? "cursor-pointer hover:bg-slate-50 -mx-2 px-2" : "",
+                  isHighlighted ? (isCounter ? "-mx-2 bg-warning-primary px-2" : "-mx-2 bg-success-primary px-2") : "",
+                  isClickable && !isHighlighted ? "cursor-pointer hover:bg-secondary -mx-2 px-2" : "",
                 )}
                 onClick={isClickable ? () => onClaimClick(claim._id) : undefined}
               >
@@ -156,12 +156,12 @@ export default function SourceEvidenceGroup({
                     "shrink-0 text-sm font-semibold tabular-nums tracking-[0.02em]",
                     label ? "w-7" : "w-5",
                     isCounter
-                      ? "text-amber-700"
+                      ? "text-warning-primary"
                       : label
-                        ? "text-emerald-700"
+                        ? "text-success-primary"
                         : isCited
-                          ? "text-emerald-600"
-                          : "text-slate-300",
+                          ? "text-success-primary"
+                          : "text-quaternary",
                   )}
                   aria-hidden="true"
                 >
@@ -170,7 +170,7 @@ export default function SourceEvidenceGroup({
                 <p
                   className={cn(
                     "flex-1 text-sm leading-7",
-                    isCited ? "text-slate-900" : "text-slate-700",
+                    isCited ? "text-primary" : "text-secondary",
                   )}
                 >
                   {claim.claimText}

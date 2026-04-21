@@ -57,11 +57,11 @@ export default function PositionPage() {
     <div className="mx-auto max-w-4xl px-6 py-8">
       {/* Position header — open canvas, no card wrapper */}
       <header>
-        <h1 className="text-display-md font-semibold tracking-[-0.02em] text-slate-950">
+        <h1 className="text-display-md font-semibold tracking-[-0.02em] text-primary">
           {positionDetail.title}
         </h1>
         {metaBits.length > 0 && (
-          <p className="mt-2 text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
+          <p className="mt-2 text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
             {metaBits.join(" \u00b7 ")}
           </p>
         )}
@@ -73,10 +73,10 @@ export default function PositionPage() {
       {/* Open questions */}
       {version?.openQuestions?.length > 0 && (
         <section className="mt-6">
-          <h2 className="text-lg font-semibold text-slate-950">Open questions</h2>
+          <h2 className="text-lg font-semibold text-primary">Open questions</h2>
           <ul className="mt-3 space-y-2">
             {version.openQuestions.map((q: string) => (
-              <li key={q} className="rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-sm leading-7 text-slate-700">
+              <li key={q} className="rounded-xl border border-secondary bg-secondary_subtle px-4 py-3 text-sm leading-7 text-secondary">
                 {q}
               </li>
             ))}
@@ -87,10 +87,10 @@ export default function PositionPage() {
       {/* Curator observations */}
       {version?.observationDetails?.length > 0 && (
         <section className="mt-6">
-          <h2 className="text-lg font-semibold text-slate-950">Curator observations</h2>
+          <h2 className="text-lg font-semibold text-primary">Curator observations</h2>
           <div className="mt-3 space-y-2">
             {version.observationDetails.map((obs: any) => (
-              <div key={obs._id} className="rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-4 text-sm leading-7 text-slate-700">
+              <div key={obs._id} className="rounded-xl border border-secondary bg-secondary_subtle px-4 py-4 text-sm leading-7 text-secondary">
                 {obs.observationText}
               </div>
             ))}
@@ -101,13 +101,13 @@ export default function PositionPage() {
       {/* Mental models */}
       {version?.mentalModelDetails?.length > 0 && (
         <section className="mt-6">
-          <h2 className="text-lg font-semibold text-slate-950">Mental models</h2>
+          <h2 className="text-lg font-semibold text-primary">Mental models</h2>
           <div className="mt-3 grid gap-3 md:grid-cols-2">
             {version.mentalModelDetails.map((m: any) => (
-              <div key={m._id} className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+              <div key={m._id} className="rounded-xl border border-secondary bg-secondary_subtle p-4">
                 <Badge type="color" size="sm" color="gray">{m.modelType}</Badge>
-                <p className="mt-3 text-base font-semibold text-slate-950">{m.title}</p>
-                <p className="mt-2 text-sm leading-6 text-slate-600">{m.description}</p>
+                <p className="mt-3 text-base font-semibold text-primary">{m.title}</p>
+                <p className="mt-2 text-sm leading-6 text-tertiary">{m.description}</p>
               </div>
             ))}
           </div>

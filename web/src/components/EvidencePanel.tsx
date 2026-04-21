@@ -37,9 +37,9 @@ export default function EvidencePanel() {
   return (
     <div className="flex h-full flex-col">
       {/* Panel header */}
-      <div className="shrink-0 border-b border-slate-200 px-4 py-3">
+      <div className="shrink-0 border-b border-secondary px-4 py-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-slate-950">Evidence</h2>
+          <h2 className="text-sm font-semibold text-primary">Evidence</h2>
           <Badge type="color" size="sm" color="gray">
             {totalItems}
           </Badge>
@@ -58,8 +58,8 @@ export default function EvidencePanel() {
                   <p
                     className={
                       isCounter
-                        ? "text-xs font-medium uppercase tracking-[0.14em] text-amber-700"
-                        : "text-xs font-medium uppercase tracking-[0.14em] text-slate-500"
+                        ? "text-xs font-medium uppercase tracking-[0.14em] text-warning-primary"
+                        : "text-xs font-medium uppercase tracking-[0.14em] text-quaternary"
                     }
                   >
                     {section.title}
@@ -67,14 +67,14 @@ export default function EvidencePanel() {
                   <span
                     className={
                       isCounter
-                        ? "rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold tabular-nums text-amber-700"
-                        : "text-xs tabular-nums text-slate-400"
+                        ? "rounded-full bg-warning-primary px-2 py-0.5 text-xs font-semibold tabular-nums text-warning-primary"
+                        : "text-xs tabular-nums text-quaternary"
                     }
                   >
                     {section.items.length}
                   </span>
                 </div>
-                <p className="mt-1 text-xs text-slate-500">{section.subtitle}</p>
+                <p className="mt-1 text-xs text-tertiary">{section.subtitle}</p>
                 <div className="mt-3 space-y-3">
                   {groups.map((group) => (
                     <SourceEvidenceGroup
