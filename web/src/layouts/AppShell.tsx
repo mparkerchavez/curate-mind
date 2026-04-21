@@ -37,16 +37,16 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const hasEvidence = isEvidenceRoute && evidenceSections.length > 0;
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-slate-50">
+    <div className="flex h-screen flex-col overflow-hidden bg-secondary">
       {/* Header — logo, breadcrumb, theme switcher, ask input */}
-      <header className="shrink-0 border-b border-slate-200 bg-white px-4 py-2.5 lg:px-5">
+      <header className="shrink-0 border-b border-secondary bg-primary px-4 py-2.5 lg:px-5">
         <div className="flex items-center gap-3">
           {/* Logo + home link */}
           <Link to="/" className="flex shrink-0 items-center gap-2.5">
-            <div className="flex size-8 items-center justify-center rounded-lg bg-brand-solid text-white shadow-xs-skeuomorphic">
+            <div className="flex size-8 items-center justify-center rounded-lg bg-brand-solid text-primary_on-brand shadow-xs-skeuomorphic">
               <LayersThree01 className="size-4" />
             </div>
-            <span className="text-base font-semibold tracking-[-0.02em] text-slate-950">
+            <span className="text-base font-semibold tracking-[-0.02em] text-primary">
               Curate Mind
             </span>
           </Link>
@@ -71,7 +71,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
             <nav className="flex items-center gap-7">
               <Link
                 to="/methodology"
-                className="text-sm font-medium text-slate-600 transition hover:text-slate-900"
+                className="text-sm font-medium text-secondary transition hover:text-primary"
               >
                 Methodology
               </Link>
@@ -79,7 +79,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
                 href={GITHUB_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 transition hover:text-slate-900"
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-secondary transition hover:text-primary"
               >
                 <GitHubIcon className="size-4" />
                 GitHub
@@ -110,7 +110,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
         {hasEvidence && (
           <aside
             style={{ "--width": `${EVIDENCE_PANEL_WIDTH}px` } as React.CSSProperties}
-            className="hidden shrink-0 overflow-hidden border-l border-slate-200 bg-white lg:block lg:w-(--width)"
+            className="hidden shrink-0 overflow-hidden border-l border-secondary bg-primary lg:block lg:w-(--width)"
           >
             <EvidencePanel />
           </aside>

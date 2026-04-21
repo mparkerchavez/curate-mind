@@ -24,23 +24,25 @@ export default function MethodologyPage() {
   const flagshipId = FLAGSHIP_POSITION_ID;
 
   return (
-    <div className="pt-8">
-      {/* Hero */}
-      <section className="mx-auto max-w-3xl px-6 py-12 text-center lg:py-16">
-        <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
-          Methodology
-        </p>
-        <h1 className="mx-auto mt-5 max-w-2xl text-display-md font-semibold tracking-[-0.02em] text-slate-950">
-          How the research gets made.
-        </h1>
-        <p className="mx-auto mt-5 max-w-2xl text-base leading-8 text-slate-600">
-          The method behind Curate Mind, walked through with a real article
-          from the corpus.
-        </p>
+    <div className="bg-primary">
+      {/* Hero on brand-tinted band, matching home page treatment */}
+      <section className="bg-brand-section_subtle">
+        <div className="mx-auto max-w-3xl px-6 pt-8 pb-12 text-center lg:pb-16">
+          <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
+            Methodology
+          </p>
+          <h1 className="mx-auto mt-5 max-w-2xl text-display-md font-semibold tracking-[-0.02em] text-primary">
+            How the research gets made.
+          </h1>
+          <p className="mx-auto mt-5 max-w-2xl text-base leading-8 text-tertiary">
+            The method behind Curate Mind, walked through with a real article
+            from the corpus.
+          </p>
+        </div>
       </section>
 
       {/* Workflow visual — four pill cards connected by arrows */}
-      <div className="mx-auto max-w-4xl px-6">
+      <div className="mx-auto max-w-4xl px-6 pt-12">
         <div className="flex items-stretch justify-between gap-2">
           <FlowCard step="01" title="Curate" body="Choose what makes it in" />
           <FlowArrow />
@@ -198,15 +200,14 @@ export default function MethodologyPage() {
         </Step>
       </div>
 
-      {/* Depth on your terms — Layers explanation + embedded live demo,
-          both on a tinted band so the demo feels cohesive with the
-          home page treatment. */}
-      <section className="mt-4 bg-slate-50 py-14 lg:py-16">
+      {/* Depth on your terms — Layers explanation + embedded live demo
+          on an off-white band (bg-secondary). */}
+      <section className="mt-4 bg-secondary py-14 lg:py-16">
         <div className="mx-auto max-w-3xl px-6">
-          <h2 className="text-2xl font-semibold tracking-[-0.01em] text-slate-950">
+          <h2 className="text-2xl font-semibold tracking-[-0.01em] text-primary">
             Depth on your terms
           </h2>
-          <p className="mt-3 text-base leading-7 text-slate-600">
+          <p className="mt-3 text-base leading-7 text-tertiary">
             Not every claim needs the same depth. Curate Mind exposes four
             layers between a theme and the words in the original source.
             You do not have to read every article to trust the research,
@@ -214,7 +215,7 @@ export default function MethodologyPage() {
             down is always open.
           </p>
 
-          <ul className="mt-6 space-y-3 text-slate-700">
+          <ul className="mt-6 space-y-3 text-secondary">
             <LayerRow
               layer="Layer 1"
               title="Themes & Positions"
@@ -237,7 +238,7 @@ export default function MethodologyPage() {
             />
           </ul>
 
-          <p className="mt-6 text-sm text-slate-500">
+          <p className="mt-6 text-sm text-tertiary">
             Try it. Click a citation in the stance below to see the data
             point behind the claim. Click a data point to find its
             citation in the stance.
@@ -251,12 +252,12 @@ export default function MethodologyPage() {
 
       {/* What using it actually looks like (MCP) */}
       <section className="mx-auto mt-16 max-w-3xl px-6">
-        <div className="border-t border-slate-200 pt-12">
-          <h2 className="text-2xl font-semibold tracking-[-0.01em] text-slate-950">
+        <div className="border-t border-secondary pt-12">
+          <h2 className="text-2xl font-semibold tracking-[-0.01em] text-primary">
             What using it actually looks like
           </h2>
 
-          <div className="mt-5 space-y-4 text-base leading-7 text-slate-700">
+          <div className="mt-5 space-y-4 text-base leading-7 text-secondary">
             <p>
               Curate Mind is not maintained through this front end. The
               curation, extraction, position updates, and question answering
@@ -321,22 +322,22 @@ export default function MethodologyPage() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="mt-16 bg-slate-950">
-        <div className="mx-auto flex max-w-4xl flex-col items-center gap-2 px-6 py-8 text-center text-sm text-slate-400 sm:flex-row sm:justify-between sm:text-left">
+      {/* Footer — same deep brand as open source section on home page */}
+      <footer className="mt-16 bg-brand-section">
+        <div className="mx-auto flex max-w-4xl flex-col items-center gap-2 border-t border-white/10 px-6 py-8 text-center text-sm text-tertiary_on-brand sm:flex-row sm:justify-between sm:text-left">
           <p>
             Curate Mind &middot; built by Maicol Parker-Chavez &middot;{" "}
             {new Date().getFullYear()}
           </p>
           <div className="flex items-center gap-5">
-            <Link to="/" className="transition hover:text-white">
+            <Link to="/" className="transition hover:text-primary_on-brand">
               Home
             </Link>
             <a
               href={GITHUB_URL}
               target="_blank"
               rel="noreferrer noopener"
-              className="transition hover:text-white"
+              className="transition hover:text-primary_on-brand"
             >
               GitHub
             </a>
@@ -359,12 +360,12 @@ function FlowCard({
   body: string;
 }) {
   return (
-    <div className="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-3 text-center shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+    <div className="flex-1 rounded-xl border border-secondary bg-primary px-3 py-3 text-center shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-quaternary">
         Step {step}
       </p>
-      <p className="mt-1.5 text-sm font-semibold text-slate-950">{title}</p>
-      <p className="mt-1 text-xs leading-5 text-slate-500">{body}</p>
+      <p className="mt-1.5 text-sm font-semibold text-primary">{title}</p>
+      <p className="mt-1 text-xs leading-5 text-tertiary">{body}</p>
     </div>
   );
 }
@@ -372,7 +373,7 @@ function FlowCard({
 function FlowArrow() {
   return (
     <div
-      className="flex shrink-0 items-center text-slate-300"
+      className="flex shrink-0 items-center text-quaternary"
       aria-hidden="true"
     >
       <ArrowRight className="size-4" />
@@ -392,16 +393,16 @@ function Step({
   children: React.ReactNode;
 }) {
   return (
-    <section className="border-t border-slate-200 py-12 first:border-t-0 first:pt-8">
-      <div className="flex items-baseline gap-3 text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
-        <span className="font-mono text-slate-400">{number}</span>
+    <section className="border-t border-secondary py-12 first:border-t-0 first:pt-8">
+      <div className="flex items-baseline gap-3 text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
+        <span className="font-mono text-quaternary">{number}</span>
         <span>Step</span>
       </div>
-      <h2 className="mt-3 text-2xl font-semibold tracking-[-0.01em] text-slate-950">
+      <h2 className="mt-3 text-2xl font-semibold tracking-[-0.01em] text-primary">
         {title}
       </h2>
-      <p className="mt-2 text-base leading-7 text-slate-600">{tagline}</p>
-      <div className="mt-6 space-y-4 text-base leading-7 text-slate-700">
+      <p className="mt-2 text-base leading-7 text-tertiary">{tagline}</p>
+      <div className="mt-6 space-y-4 text-base leading-7 text-secondary">
         {children}
       </div>
     </section>
@@ -422,26 +423,26 @@ function ExampleCallout({
   children: React.ReactNode;
 }) {
   return (
-    <aside className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-5">
-      <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
+    <aside className="mt-6 rounded-2xl border border-secondary bg-secondary p-5">
+      <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
         {label}
       </p>
       <div className="mt-2 flex items-start justify-between gap-4">
-        <h3 className="text-lg font-semibold leading-7 text-slate-950">
+        <h3 className="text-lg font-semibold leading-7 text-primary">
           {title}
         </h3>
         <a
           href={url}
           target="_blank"
           rel="noreferrer noopener"
-          className="shrink-0 text-slate-500 transition hover:text-slate-800"
+          className="shrink-0 text-tertiary transition hover:text-primary"
           aria-label="Open source"
         >
           <ArrowUpRight className="size-4" />
         </a>
       </div>
-      <p className="mt-1 text-xs text-slate-500">{meta}</p>
-      <div className="mt-3 text-sm leading-6 text-slate-700">{children}</div>
+      <p className="mt-1 text-xs text-tertiary">{meta}</p>
+      <div className="mt-3 text-sm leading-6 text-secondary">{children}</div>
     </aside>
   );
 }
@@ -462,7 +463,7 @@ function DataPointExample({
   tags: string[];
 }) {
   return (
-    <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+    <article className="overflow-hidden rounded-2xl border border-secondary bg-primary p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
       <div className="flex flex-wrap items-center gap-2">
         <Badge type="color" size="sm" color="gray">
           {label}
@@ -470,25 +471,25 @@ function DataPointExample({
         <Badge type="color" size="sm" color="brand">
           {evidenceType}
         </Badge>
-        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
+        <span className="inline-flex items-center gap-1 rounded-full bg-success-primary px-2 py-0.5 text-xs font-medium text-success-primary">
           <span
-            className="size-1.5 rounded-full bg-emerald-500"
+            className="size-1.5 rounded-full bg-success-solid"
             aria-hidden="true"
           />
           {confidence}
         </span>
       </div>
-      <h4 className="mt-3 text-base font-semibold leading-7 text-slate-900">
+      <h4 className="mt-3 text-base font-semibold leading-7 text-primary">
         {claim}
       </h4>
-      <blockquote className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-700">
+      <blockquote className="mt-3 rounded-xl border border-secondary bg-secondary px-4 py-3 text-sm leading-6 text-secondary">
         &ldquo;{anchorQuote}&rdquo;
       </blockquote>
       <div className="mt-3 flex flex-wrap gap-1.5">
         {tags.map((tag) => (
           <span
             key={tag}
-            className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs text-slate-500"
+            className="rounded-full border border-secondary bg-primary px-2 py-0.5 text-xs text-tertiary"
           >
             #{tag}
           </span>
@@ -509,12 +510,12 @@ function LayerRow({
 }) {
   return (
     <li className="flex items-baseline gap-4">
-      <span className="w-16 shrink-0 text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
+      <span className="w-16 shrink-0 text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
         {layer}
       </span>
       <div className="flex-1">
-        <p className="text-sm font-semibold text-slate-900">{title}</p>
-        <p className="text-sm text-slate-600">{description}</p>
+        <p className="text-sm font-semibold text-primary">{title}</p>
+        <p className="text-sm text-tertiary">{description}</p>
       </div>
     </li>
   );
@@ -529,10 +530,10 @@ function ToolRow({
 }) {
   return (
     <li className="flex flex-wrap items-baseline gap-3">
-      <code className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-sm text-slate-900">
+      <code className="rounded-md bg-tertiary px-2 py-0.5 font-mono text-sm text-primary">
         {name}
       </code>
-      <span className="text-sm text-slate-600">{description}</span>
+      <span className="text-sm text-tertiary">{description}</span>
     </li>
   );
 }

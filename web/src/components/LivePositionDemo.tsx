@@ -134,7 +134,7 @@ export function LivePositionDemo({ positionId }: LivePositionDemoProps) {
           makes the container pop against the tinted section backdrop
           the parent supplies. */}
       <div
-        className="flex flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_8px_24px_rgba(16,24,40,0.08)]"
+        className="flex flex-col overflow-hidden rounded-3xl border border-secondary bg-primary shadow-[0_8px_24px_rgba(16,24,40,0.08)]"
         style={{ height: CONTAINER_HEIGHT }}
       >
         {/* Content area: two independently scrolling columns */}
@@ -145,12 +145,12 @@ export function LivePositionDemo({ positionId }: LivePositionDemoProps) {
               <button
                 type="button"
                 onClick={() => navigate(`/themes/${theme._id}`)}
-                className="group inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-[0.14em] text-utility-brand-700 transition hover:text-utility-brand-800"
+                className="group inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-[0.14em] text-brand-secondary transition hover:text-brand-primary"
               >
-                <span className="text-slate-400 group-hover:text-slate-500">
+                <span className="text-quaternary group-hover:text-tertiary">
                   Theme
                 </span>
-                <span aria-hidden="true" className="text-slate-300">
+                <span aria-hidden="true" className="text-quaternary">
                   &middot;
                 </span>
                 <span>{theme.title}</span>
@@ -158,11 +158,11 @@ export function LivePositionDemo({ positionId }: LivePositionDemoProps) {
               </button>
             ) : null}
 
-            <h2 className="mt-3 text-2xl font-semibold tracking-[-0.01em] text-slate-950">
+            <h2 className="mt-3 text-2xl font-semibold tracking-[-0.01em] text-primary">
               {detail.title}
             </h2>
 
-            <p className="mt-2 text-sm text-slate-500">
+            <p className="mt-2 text-sm text-tertiary">
               Last updated {formatDateLabel(currentVersion?.versionDate ?? "")}
               {" · "}
               built from {totalEvidenceCount} data point
@@ -180,11 +180,11 @@ export function LivePositionDemo({ positionId }: LivePositionDemoProps) {
           {/* Evidence column */}
           <aside
             aria-label="Evidence"
-            className="flex min-h-0 flex-col border-slate-200 bg-slate-50/60 lg:border-l"
+            className="flex min-h-0 flex-col border-secondary bg-secondary_subtle lg:border-l"
           >
             {/* Evidence header (sticky-feeling via shrink-0) */}
-            <div className="flex shrink-0 items-center justify-between border-b border-slate-200 bg-white px-5 py-3">
-              <p className="text-sm font-semibold text-slate-950">Evidence</p>
+            <div className="flex shrink-0 items-center justify-between border-b border-secondary bg-primary px-5 py-3">
+              <p className="text-sm font-semibold text-primary">Evidence</p>
               <Badge type="color" size="sm" color="gray">
                 {totalEvidenceCount}
               </Badge>
@@ -194,7 +194,7 @@ export function LivePositionDemo({ positionId }: LivePositionDemoProps) {
                 (supporting / counter), matching EvidencePanel. */}
             <div className="flex-1 overflow-y-auto px-4 py-4">
               {evidenceSections.length === 0 ? (
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-tertiary">
                   No evidence attached to this position yet.
                 </p>
               ) : (
@@ -207,8 +207,8 @@ export function LivePositionDemo({ positionId }: LivePositionDemoProps) {
                           <p
                             className={
                               section.isCounter
-                                ? "text-xs font-medium uppercase tracking-[0.14em] text-amber-700"
-                                : "text-xs font-medium uppercase tracking-[0.14em] text-slate-500"
+                                ? "text-xs font-medium uppercase tracking-[0.14em] text-warning-primary"
+                                : "text-xs font-medium uppercase tracking-[0.14em] text-quaternary"
                             }
                           >
                             {section.title}
@@ -216,14 +216,14 @@ export function LivePositionDemo({ positionId }: LivePositionDemoProps) {
                           <span
                             className={
                               section.isCounter
-                                ? "rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold tabular-nums text-amber-700"
-                                : "text-xs tabular-nums text-slate-400"
+                                ? "rounded-full bg-warning-primary px-2 py-0.5 text-xs font-semibold tabular-nums text-warning-primary"
+                                : "text-xs tabular-nums text-quaternary"
                             }
                           >
                             {section.items.length}
                           </span>
                         </div>
-                        <p className="mt-1 text-xs text-slate-500">
+                        <p className="mt-1 text-xs text-tertiary">
                           {section.subtitle}
                         </p>
                         <div className="mt-3 space-y-3">
@@ -247,8 +247,8 @@ export function LivePositionDemo({ positionId }: LivePositionDemoProps) {
         </div>
 
         {/* Footer bar: pinned, always visible */}
-        <div className="flex shrink-0 items-center justify-between border-t border-slate-200 bg-white px-6 py-4">
-          <p className="text-xs text-slate-500">
+        <div className="flex shrink-0 items-center justify-between border-t border-secondary bg-primary px-6 py-4">
+          <p className="text-xs text-tertiary">
             Same interaction you get in answers and full positions.
           </p>
           <Button
@@ -271,25 +271,25 @@ function LoadingSkeleton() {
   return (
     <section aria-hidden="true">
       <div
-        className="flex animate-pulse flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_8px_24px_rgba(16,24,40,0.08)]"
+        className="flex animate-pulse flex-col overflow-hidden rounded-3xl border border-secondary bg-primary shadow-[0_8px_24px_rgba(16,24,40,0.08)]"
         style={{ height: CONTAINER_HEIGHT }}
       >
         <div className="grid min-h-0 flex-1 lg:grid-cols-[3fr_2fr]">
           <div className="space-y-4 px-8 py-7">
-            <div className="h-4 w-32 rounded bg-slate-100" />
-            <div className="h-8 w-3/4 rounded bg-slate-100" />
-            <div className="h-4 w-1/2 rounded bg-slate-100" />
-            <div className="mt-4 h-40 rounded-2xl bg-slate-50" />
+            <div className="h-4 w-32 rounded bg-tertiary" />
+            <div className="h-8 w-3/4 rounded bg-tertiary" />
+            <div className="h-4 w-1/2 rounded bg-tertiary" />
+            <div className="mt-4 h-40 rounded-2xl bg-secondary" />
           </div>
-          <div className="space-y-3 border-slate-200 bg-slate-50/60 p-4 lg:border-l">
-            <div className="h-8 rounded bg-white" />
-            <div className="h-40 rounded-2xl bg-white" />
-            <div className="h-40 rounded-2xl bg-white" />
+          <div className="space-y-3 border-secondary bg-secondary_subtle p-4 lg:border-l">
+            <div className="h-8 rounded bg-primary" />
+            <div className="h-40 rounded-2xl bg-primary" />
+            <div className="h-40 rounded-2xl bg-primary" />
           </div>
         </div>
-        <div className="flex shrink-0 items-center justify-between border-t border-slate-200 bg-white px-6 py-4">
-          <div className="h-3 w-48 rounded bg-slate-100" />
-          <div className="h-8 w-36 rounded bg-slate-100" />
+        <div className="flex shrink-0 items-center justify-between border-t border-secondary bg-primary px-6 py-4">
+          <div className="h-3 w-48 rounded bg-tertiary" />
+          <div className="h-8 w-36 rounded bg-tertiary" />
         </div>
       </div>
     </section>

@@ -18,12 +18,12 @@ export function MethodologyTeaser() {
       aria-label="Methodology teaser"
       className="py-4 text-center"
     >
-      <p className="text-sm text-slate-600">
+      <p className="text-sm text-tertiary">
         Wondering how positions, evidence, and lineage fit together?
       </p>
       <Link
         to="/methodology"
-        className="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold text-utility-brand-700 transition hover:text-utility-brand-800"
+        className="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-secondary transition hover:text-brand-primary"
       >
         Read the methodology
         <ArrowRight className="size-4 transition group-hover:translate-x-0.5" />

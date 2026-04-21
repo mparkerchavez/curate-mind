@@ -73,63 +73,64 @@ export default function LandingPage() {
   const flagshipId = FLAGSHIP_POSITION_ID;
 
   return (
-    <div className="bg-white">
-      {/* Hero — clean white base, pending UUI MCP connection for a
-          design-system-driven treatment. */}
-      <section className="mx-auto max-w-4xl px-6 py-12 pt-8 text-center lg:py-16">
-        <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
-          Curate Mind &middot; Feb 2026 &middot; Research ongoing
-        </p>
-        <h1 className="mx-auto mt-5 max-w-3xl text-display-md font-semibold tracking-[-0.02em] text-slate-950">
-          A curated research base on AI strategy. Ask anything. Trace every claim.
-        </h1>
-        <p className="mx-auto mt-5 max-w-2xl text-base leading-8 text-slate-600">
-          178 sources chosen and distilled into data points, positions, and themes.
-          A researcher's point of view, not a search result.
-        </p>
+    <div className="bg-primary">
+      {/* Hero — subtle brand tint band (bg-brand-section_subtle) for the
+          "colorful but readable" opening beat UUI prescribes. */}
+      <section className="bg-brand-section_subtle">
+        <div className="mx-auto max-w-4xl px-6 pt-8 pb-12 text-center lg:pb-16">
+          <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
+            Curate Mind &middot; Feb 2026 &middot; Research ongoing
+          </p>
+          <h1 className="mx-auto mt-5 max-w-3xl text-display-md font-semibold tracking-[-0.02em] text-primary">
+            A curated research base on AI strategy. Ask anything. Trace every claim.
+          </h1>
+          <p className="mx-auto mt-5 max-w-2xl text-base leading-8 text-tertiary">
+            178 sources chosen and distilled into data points, positions, and themes.
+            A researcher's point of view, not a search result.
+          </p>
 
-        {/* Ask input */}
-        <div className="mt-8">
-          <HeroAskInput
-            value={heroInput}
-            onChange={setHeroInput}
-            onSubmit={handleHeroSubmit}
+          {/* Ask input */}
+          <div className="mt-8">
+            <HeroAskInput
+              value={heroInput}
+              onChange={setHeroInput}
+              onSubmit={handleHeroSubmit}
+              disabled={pending}
+              inputRef={heroInputRef}
+            />
+          </div>
+          <p className="mx-auto mt-3 max-w-xl text-sm text-tertiary">
+            Answers are grounded in a curated set of sources.
+            Every claim can be traced back to its original quote.
+          </p>
+
+          {/* Example chips */}
+          <ExamplePromptChips
+            prompts={EXAMPLE_PROMPTS}
+            onSelect={handleChipSelect}
             disabled={pending}
-            inputRef={heroInputRef}
           />
+
+          {/* Proof line — compact stat string under the chips */}
+          <p className="mt-8 text-sm text-tertiary">
+            Drawing from 178 sources &middot; 1,561 data points &middot;{" "}
+            {allPositions?.length ?? 28} positions across {sortedThemes.length || 11} themes
+          </p>
         </div>
-        <p className="mx-auto mt-3 max-w-xl text-sm text-slate-500">
-          Answers are grounded in a curated set of sources.
-          Every claim can be traced back to its original quote.
-        </p>
-
-        {/* Example chips */}
-        <ExamplePromptChips
-          prompts={EXAMPLE_PROMPTS}
-          onSelect={handleChipSelect}
-          disabled={pending}
-        />
-
-        {/* Proof line — replaces the former 4-stat card grid */}
-        <p className="mt-8 text-sm text-slate-500">
-          Drawing from 178 sources &middot; 1,561 data points &middot;{" "}
-          {allPositions?.length ?? 28} positions across {sortedThemes.length || 11} themes
-        </p>
       </section>
 
-      {/* Example position + methodology teaser on one tinted band.
-          The teaser sits at the bottom of the band so it reads as a
-          follow-up to the demo, not its own orphaned section. */}
-      <div className="bg-slate-50 py-14 lg:py-16">
+      {/* Example position + methodology teaser on one off-white band
+          (bg-secondary). UUI's prescribed section-alternation color. */}
+      <div className="bg-secondary py-14 lg:py-16">
         <div className="mx-auto max-w-6xl px-6">
           <div className="mx-auto max-w-3xl text-center">
-            <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
+            <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
               Example position
             </p>
-            <h2 className="mt-3 text-2xl font-semibold tracking-[-0.01em] text-slate-950">
+            <h2 className="mt-3 text-2xl font-semibold tracking-[-0.01em] text-primary">
               How claims, evidence, and sources connect.
             </h2>
-            <p className="mt-3 text-base leading-7 text-slate-600">
+            <p className="mt-3 text-base leading-7 text-tertiary">
               Ask anything, and your answer traces back the same way.
             </p>
           </div>
@@ -144,18 +145,17 @@ export default function LandingPage() {
         </div>
       </div>
 
-      {/* Themes grid on its own tinted band — using indigo-50 rather
-          than slate-50 so it visually separates from the Example
-          Position band above, and picks up a hue from the hero's
-          gradient palette. */}
-      <div className="bg-indigo-50 py-14 lg:py-16">
+      {/* Themes grid on clean white (bg-primary) — gives the page a
+          breathing section after the tinted demo band and before the
+          dark brand coda. */}
+      <div className="bg-primary py-14 lg:py-16">
         <section className="mx-auto max-w-4xl px-6">
           <div className="flex items-end justify-between">
             <div>
-              <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
+              <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
                 Research themes
               </p>
-              <h2 className="mt-2 text-xl font-semibold text-slate-950">
+              <h2 className="mt-2 text-xl font-semibold text-primary">
                 Explore by thread
               </h2>
             </div>
@@ -177,15 +177,13 @@ export default function LandingPage() {
         </section>
       </div>
 
-      {/* Open source coda — directly adjacent to the themes band.
-          Color change from indigo-50 to slate-900 is the section seam;
-          no whitespace gap needed. */}
+      {/* Open source coda — renders its own bg-brand-section dark band */}
       <OpenSourceSection />
 
-      {/* Footer — dark band, pairs visually with the Open Source
-          section above it to form a single bottom zone. */}
-      <footer className="bg-slate-950">
-        <div className="mx-auto flex max-w-4xl flex-col items-center gap-2 px-6 py-8 text-center text-sm text-slate-400 sm:flex-row sm:justify-between sm:text-left">
+      {/* Footer — same deep brand as the open source section, with a
+          hair-thin light divider inside so the seam is still readable. */}
+      <footer className="bg-brand-section">
+        <div className="mx-auto flex max-w-4xl flex-col items-center gap-2 border-t border-white/10 px-6 py-8 text-center text-sm text-tertiary_on-brand sm:flex-row sm:justify-between sm:text-left">
           <p>
             Curate Mind &middot; built by Maicol Parker-Chavez &middot;{" "}
             {new Date().getFullYear()}
@@ -193,7 +191,7 @@ export default function LandingPage() {
           <div className="flex items-center gap-5">
             <Link
               to="/methodology"
-              className="transition hover:text-white"
+              className="transition hover:text-primary_on-brand"
             >
               Methodology
             </Link>
@@ -201,7 +199,7 @@ export default function LandingPage() {
               href={GITHUB_URL}
               target="_blank"
               rel="noreferrer noopener"
-              className="transition hover:text-white"
+              className="transition hover:text-primary_on-brand"
             >
               GitHub
             </a>

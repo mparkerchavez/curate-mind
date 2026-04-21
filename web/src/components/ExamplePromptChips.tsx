@@ -17,7 +17,7 @@ export function ExamplePromptChips({ prompts, onSelect, disabled }: ExamplePromp
 
   return (
     <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-      <span className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
+      <span className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
         Try one:
       </span>
       {prompts.map((prompt) => (
@@ -26,7 +26,7 @@ export function ExamplePromptChips({ prompts, onSelect, disabled }: ExamplePromp
           type="button"
           onClick={() => onSelect(prompt)}
           disabled={disabled}
-          className="rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-sm text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:opacity-50"
+          className="rounded-full border border-secondary bg-primary px-3.5 py-1.5 text-sm text-secondary transition hover:border-brand hover:bg-brand-primary disabled:opacity-50"
         >
           {prompt}
         </button>

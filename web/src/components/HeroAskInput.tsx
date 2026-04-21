@@ -67,7 +67,7 @@ export function HeroAskInput({
         rows={2}
         disabled={disabled}
         placeholder={placeholder ?? "What's your question about AI strategy?"}
-        className="block w-full resize-none overflow-y-auto rounded-2xl border border-slate-300 bg-white px-5 py-4 pr-16 text-lg leading-8 text-slate-900 shadow-[0_2px_4px_rgba(16,24,40,0.04)] outline-none transition placeholder:text-slate-400 focus:border-utility-brand-500 focus:ring-2 focus:ring-utility-brand-100 disabled:bg-slate-50 disabled:text-slate-400"
+        className="block w-full resize-none overflow-y-auto rounded-2xl border border-secondary bg-primary px-5 py-4 pr-16 text-lg leading-8 text-primary shadow-[0_2px_4px_rgba(16,24,40,0.04)] outline-none transition placeholder:text-placeholder focus:border-brand focus:ring-2 focus:ring-brand disabled:opacity-50"
       />
       <button
         type="submit"
@@ -76,8 +76,8 @@ export function HeroAskInput({
         className={cn(
           "absolute right-3 bottom-3 flex size-10 items-center justify-center rounded-full transition",
           canSubmit
-            ? "bg-brand-solid text-white shadow-sm hover:opacity-90"
-            : "bg-slate-100 text-slate-400",
+            ? "bg-brand-solid text-primary_on-brand shadow-sm hover:bg-brand-solid_hover"
+            : "bg-tertiary text-quaternary",
         )}
       >
         <ArrowRight className="size-5" />
