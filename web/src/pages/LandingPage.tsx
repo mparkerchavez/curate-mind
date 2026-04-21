@@ -74,25 +74,9 @@ export default function LandingPage() {
 
   return (
     <div className="bg-white">
-      {/* Hero — white base with three large blurred gradient blobs for
-          modern, Stripe-inspired depth. Content stays on the white
-          layer so readability is untouched. */}
-      <section className="relative overflow-hidden pt-8">
-        {/* Decorative gradient blobs */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -top-32 -right-20 size-[520px] rounded-full bg-blue-200 opacity-50 blur-3xl"
-        />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute top-10 -left-32 size-[420px] rounded-full bg-purple-200 opacity-40 blur-3xl"
-        />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute bottom-0 left-1/3 size-[460px] rounded-full bg-rose-200 opacity-35 blur-3xl"
-        />
-
-        <div className="relative mx-auto max-w-4xl px-6 py-12 text-center lg:py-16">
+      {/* Hero — clean white base, pending UUI MCP connection for a
+          design-system-driven treatment. */}
+      <section className="mx-auto max-w-4xl px-6 py-12 pt-8 text-center lg:py-16">
         <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
           Curate Mind &middot; Feb 2026 &middot; Research ongoing
         </p>
@@ -131,7 +115,6 @@ export default function LandingPage() {
           Drawing from 178 sources &middot; 1,561 data points &middot;{" "}
           {allPositions?.length ?? 28} positions across {sortedThemes.length || 11} themes
         </p>
-        </div>
       </section>
 
       {/* Example position + methodology teaser on one tinted band.
