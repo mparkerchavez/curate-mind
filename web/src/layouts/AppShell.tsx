@@ -24,7 +24,16 @@ export default function AppShell({ children }: { children: ReactNode }) {
     evidenceSections,
   } = useWorkspace();
 
-  const hasEvidence = evidenceSections.length > 0;
+  // The evidence panel only belongs on routes that inherently have
+  // evidence to show: the conversation (ask), a research position, or
+  // a source page. On home, methodology, and theme index routes,
+  // suppress the panel even if activeAnswer or another state has
+  // leaked in from a previous navigation.
+  const isEvidenceRoute =
+    routeKind === "ask" ||
+    routeKind === "position" ||
+    routeKind === "source";
+  const hasEvidence = isEvidenceRoute && evidenceSections.length > 0;
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-slate-50">
