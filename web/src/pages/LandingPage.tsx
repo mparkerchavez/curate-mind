@@ -9,6 +9,7 @@ import { OpenSourceSection } from "@/components/OpenSourceSection";
 import { ThemeCard } from "@/components/ThemeCard";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { comparePositionsByFreshness } from "@/lib/workspace-utils";
+import { navigateWithTransition } from "@/utils/navigateWithTransition";
 
 // Phase 2 placeholder prompts. Phase 8 swaps these for real questions
 // workshopped against the corpus.
@@ -38,7 +39,9 @@ export default function LandingPage() {
     // Kick off the async query first so the AskPage renders the in-flight
     // conversation immediately on mount. React batches both state updates.
     void handleAskQuestion(question);
-    navigate("/ask");
+    // Wrap the route change in a View Transition so the hero input
+    // morphs into the Ask page input (see navigateWithTransition).
+    navigateWithTransition(() => navigate("/ask"));
     setHeroInput("");
   }
 

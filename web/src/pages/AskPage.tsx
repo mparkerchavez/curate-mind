@@ -171,6 +171,10 @@ export default function AskPage() {
             e.preventDefault();
             void handleAskQuestion();
           }}
+          // Shared-element target for the View Transitions morph from
+          // the home page's hero input. Must match HeroAskInput's form
+          // view-transition-name.
+          style={{ viewTransitionName: "curate-ask-input" }}
         >
           <TextAreaBase
             value={input}

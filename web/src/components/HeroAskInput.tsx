@@ -47,7 +47,13 @@ export function HeroAskInput({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="relative mx-auto w-full max-w-2xl">
+    <form
+      onSubmit={handleSubmit}
+      className="relative mx-auto w-full max-w-2xl"
+      // Shared-element target for the View Transitions morph into
+      // AskPage. Must match AskPage's form view-transition-name.
+      style={{ viewTransitionName: "curate-ask-input" }}
+    >
       <textarea
         ref={inputRef}
         value={value}
