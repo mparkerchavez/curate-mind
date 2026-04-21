@@ -65,25 +65,24 @@ export default function AppShell({ children }: { children: ReactNode }) {
           <div className="flex-1" />
 
           {/* Right side of header:
-              - On home: How-it-works link + GitHub icon
+              - On home: Methodology link + GitHub link (both text)
               - On every other route: compact Ask input */}
           {routeKind === "home" ? (
-            <nav className="flex items-center gap-5">
+            <nav className="flex items-center gap-7">
               <Link
                 to="/methodology"
                 className="text-sm font-medium text-slate-600 transition hover:text-slate-900"
               >
-                How it works
+                Methodology
               </Link>
               <a
                 href={GITHUB_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                title="Fork on GitHub"
-                aria-label="Fork on GitHub"
-                className="flex items-center text-slate-600 transition hover:text-slate-900"
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 transition hover:text-slate-900"
               >
-                <GitHubIcon className="size-5" />
+                <GitHubIcon className="size-4" />
+                GitHub
               </a>
             </nav>
           ) : (

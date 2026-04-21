@@ -129,16 +129,12 @@ export function LivePositionDemo({ positionId }: LivePositionDemoProps) {
 
   return (
     <section aria-label="Live position demo">
-      {/* Section lead-in */}
-      <p className="mx-auto max-w-3xl text-center text-base leading-7 text-slate-700">
-        Here's how claims, evidence, and sources connect.
-        Ask anything, and your answer traces back the same way.
-      </p>
-
       {/* Mini-app container — fixed total height, flex column so the
-          footer bar always stays pinned at the bottom. */}
+          footer bar always stays pinned at the bottom. Elevated shadow
+          makes the container pop against the tinted section backdrop
+          the parent supplies. */}
       <div
-        className="mt-8 flex flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)]"
+        className="flex flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_8px_24px_rgba(16,24,40,0.08)]"
         style={{ height: CONTAINER_HEIGHT }}
       >
         {/* Content area: two independently scrolling columns */}
@@ -274,9 +270,8 @@ export function LivePositionDemo({ positionId }: LivePositionDemoProps) {
 function LoadingSkeleton() {
   return (
     <section aria-hidden="true">
-      <div className="mx-auto h-5 max-w-xl animate-pulse rounded bg-slate-100" />
       <div
-        className="mt-8 flex animate-pulse flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)]"
+        className="flex animate-pulse flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_8px_24px_rgba(16,24,40,0.08)]"
         style={{ height: CONTAINER_HEIGHT }}
       >
         <div className="grid min-h-0 flex-1 lg:grid-cols-[3fr_2fr]">

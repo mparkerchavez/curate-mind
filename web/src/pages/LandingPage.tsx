@@ -116,9 +116,26 @@ export default function LandingPage() {
         </p>
       </section>
 
-      {/* Live Position demo */}
-      <div className="mx-auto mt-8 max-w-6xl px-6">
-        <LivePositionDemo positionId={flagshipId} />
+      {/* Live Position demo on a tinted band for visual separation.
+          The mini-app container stays white and gets a stronger shadow,
+          so it reads as elevated against the slate-50 backdrop. */}
+      <div className="mt-8 bg-slate-50 py-14 lg:py-16">
+        <div className="mx-auto max-w-6xl px-6">
+          <div className="mx-auto max-w-3xl text-center">
+            <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
+              Example position
+            </p>
+            <h2 className="mt-3 text-2xl font-semibold tracking-[-0.01em] text-slate-950">
+              How claims, evidence, and sources connect.
+            </h2>
+            <p className="mt-3 text-base leading-7 text-slate-600">
+              Ask anything, and your answer traces back the same way.
+            </p>
+          </div>
+          <div className="mt-10">
+            <LivePositionDemo positionId={flagshipId} />
+          </div>
+        </div>
       </div>
 
       {/* Methodology teaser */}
@@ -159,9 +176,10 @@ export default function LandingPage() {
         <OpenSourceSection />
       </div>
 
-      {/* Footer */}
-      <footer className="border-t border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-4xl flex-col items-center gap-2 px-6 py-8 text-center text-sm text-slate-500 sm:flex-row sm:justify-between sm:text-left">
+      {/* Footer — dark band, pairs visually with the Open Source
+          section above it to form a single bottom zone. */}
+      <footer className="bg-slate-950">
+        <div className="mx-auto flex max-w-4xl flex-col items-center gap-2 px-6 py-8 text-center text-sm text-slate-400 sm:flex-row sm:justify-between sm:text-left">
           <p>
             Curate Mind &middot; built by Maicol Parker-Chavez &middot;{" "}
             {new Date().getFullYear()}
@@ -169,15 +187,15 @@ export default function LandingPage() {
           <div className="flex items-center gap-5">
             <Link
               to="/methodology"
-              className="transition hover:text-slate-900"
+              className="transition hover:text-white"
             >
-              How it works
+              Methodology
             </Link>
             <a
               href={GITHUB_URL}
               target="_blank"
               rel="noreferrer noopener"
-              className="transition hover:text-slate-900"
+              className="transition hover:text-white"
             >
               GitHub
             </a>

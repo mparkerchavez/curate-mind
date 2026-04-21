@@ -18,13 +18,13 @@ export function OpenSourceSection() {
   return (
     <section
       aria-label="Open source"
-      className="border-t border-slate-200 bg-slate-50"
+      className="bg-slate-900"
     >
       <div className="mx-auto max-w-3xl px-6 py-16 text-center lg:px-8 lg:py-20">
-        <h2 className="text-2xl font-semibold tracking-[-0.01em] text-slate-950">
+        <h2 className="text-2xl font-semibold tracking-[-0.01em] text-white">
           Fork the whole system. Build your own.
         </h2>
-        <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-slate-600">
+        <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-slate-300">
           Curate Mind is open source. The front end you just used is one
           piece of it. The full system includes everything needed to curate
           your own research base, on any topic you care about.
@@ -43,7 +43,7 @@ export function OpenSourceSection() {
           </Button>
           <Link
             to="/methodology"
-            className="text-sm font-medium text-slate-600 transition hover:text-slate-900"
+            className="text-sm font-medium text-slate-300 transition hover:text-white"
           >
             Read the methodology
           </Link>

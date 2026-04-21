@@ -198,53 +198,53 @@ export default function MethodologyPage() {
         </Step>
       </div>
 
-      {/* Depth on your terms — Layers + embedded live demo */}
-      <section className="mx-auto mt-4 max-w-6xl px-6">
-        <div className="mx-auto max-w-3xl">
-          <div className="border-t border-slate-200 pt-12">
-            <h2 className="text-2xl font-semibold tracking-[-0.01em] text-slate-950">
-              Depth on your terms
-            </h2>
-            <p className="mt-3 text-base leading-7 text-slate-600">
-              Not every claim needs the same depth. Curate Mind exposes four
-              layers between a theme and the words in the original source.
-              You do not have to read every article to trust the research,
-              but if a claim matters enough to check, the path all the way
-              down is always open.
-            </p>
+      {/* Depth on your terms — Layers explanation + embedded live demo,
+          both on a tinted band so the demo feels cohesive with the
+          home page treatment. */}
+      <section className="mt-4 bg-slate-50 py-14 lg:py-16">
+        <div className="mx-auto max-w-3xl px-6">
+          <h2 className="text-2xl font-semibold tracking-[-0.01em] text-slate-950">
+            Depth on your terms
+          </h2>
+          <p className="mt-3 text-base leading-7 text-slate-600">
+            Not every claim needs the same depth. Curate Mind exposes four
+            layers between a theme and the words in the original source.
+            You do not have to read every article to trust the research,
+            but if a claim matters enough to check, the path all the way
+            down is always open.
+          </p>
 
-            <ul className="mt-6 space-y-3 text-slate-700">
-              <LayerRow
-                layer="Layer 1"
-                title="Themes & Positions"
-                description="Summaries. Most questions are answered here."
-              />
-              <LayerRow
-                layer="Layer 2"
-                title="Evidence"
-                description="Data points, curator observations, mental models."
-              />
-              <LayerRow
-                layer="Layer 3"
-                title="Verbatim quotes"
-                description="The exact language used in the source, for when the wording matters."
-              />
-              <LayerRow
-                layer="Layer 4"
-                title="Full source"
-                description="The original article or report, for when you want to read it end to end."
-              />
-            </ul>
+          <ul className="mt-6 space-y-3 text-slate-700">
+            <LayerRow
+              layer="Layer 1"
+              title="Themes & Positions"
+              description="Summaries. Most questions are answered here."
+            />
+            <LayerRow
+              layer="Layer 2"
+              title="Evidence"
+              description="Data points, curator observations, mental models."
+            />
+            <LayerRow
+              layer="Layer 3"
+              title="Verbatim quotes"
+              description="The exact language used in the source, for when the wording matters."
+            />
+            <LayerRow
+              layer="Layer 4"
+              title="Full source"
+              description="The original article or report, for when you want to read it end to end."
+            />
+          </ul>
 
-            <p className="mt-6 text-sm text-slate-500">
-              Try it. Click a citation in the stance below to see the data
-              point behind the claim. Click a data point to find its
-              citation in the stance.
-            </p>
-          </div>
+          <p className="mt-6 text-sm text-slate-500">
+            Try it. Click a citation in the stance below to see the data
+            point behind the claim. Click a data point to find its
+            citation in the stance.
+          </p>
         </div>
 
-        <div className="mt-8">
+        <div className="mx-auto mt-10 max-w-6xl px-6">
           <LivePositionDemo positionId={flagshipId} />
         </div>
       </section>
@@ -322,21 +322,21 @@ export default function MethodologyPage() {
       </section>
 
       {/* Footer */}
-      <footer className="mt-16 border-t border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-4xl flex-col items-center gap-2 px-6 py-8 text-center text-sm text-slate-500 sm:flex-row sm:justify-between sm:text-left">
+      <footer className="mt-16 bg-slate-950">
+        <div className="mx-auto flex max-w-4xl flex-col items-center gap-2 px-6 py-8 text-center text-sm text-slate-400 sm:flex-row sm:justify-between sm:text-left">
           <p>
             Curate Mind &middot; built by Maicol Parker-Chavez &middot;{" "}
             {new Date().getFullYear()}
           </p>
           <div className="flex items-center gap-5">
-            <Link to="/" className="transition hover:text-slate-900">
+            <Link to="/" className="transition hover:text-white">
               Home
             </Link>
             <a
               href={GITHUB_URL}
               target="_blank"
               rel="noreferrer noopener"
-              className="transition hover:text-slate-900"
+              className="transition hover:text-white"
             >
               GitHub
             </a>
