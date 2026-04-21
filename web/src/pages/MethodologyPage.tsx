@@ -31,7 +31,7 @@ export default function MethodologyPage() {
           <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
             Methodology
           </p>
-          <h1 className="mx-auto mt-5 max-w-2xl text-display-md font-semibold tracking-[-0.02em] text-primary">
+          <h1 className="mx-auto mt-5 max-w-2xl text-display-lg font-semibold tracking-[-0.025em] text-primary">
             How the research gets made.
           </h1>
           <p className="mx-auto mt-5 max-w-2xl text-base leading-8 text-tertiary">

@@ -81,7 +81,7 @@ export default function LandingPage() {
           <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
             Curate Mind &middot; Feb 2026 &middot; Research ongoing
           </p>
-          <h1 className="mx-auto mt-5 max-w-3xl text-display-md font-semibold tracking-[-0.02em] text-primary">
+          <h1 className="mx-auto mt-5 max-w-3xl text-display-lg font-semibold tracking-[-0.025em] text-primary">
             A curated research base on AI strategy. Ask anything. Trace every claim.
           </h1>
           <p className="mx-auto mt-5 max-w-2xl text-base leading-8 text-tertiary">
@@ -119,9 +119,10 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Example position + methodology teaser on one off-white band
-          (bg-secondary). UUI's prescribed section-alternation color. */}
-      <div className="bg-secondary py-14 lg:py-16">
+      {/* Example position + methodology teaser on clean white
+          (bg-primary). Brand-tinted hero above, white middle content,
+          off-white themes below, dark coda at the bottom. */}
+      <div className="bg-primary py-14 lg:py-16">
         <div className="mx-auto max-w-6xl px-6">
           <div className="mx-auto max-w-3xl text-center">
             <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
@@ -139,16 +140,15 @@ export default function LandingPage() {
           </div>
         </div>
 
-        {/* Methodology teaser, inside the same tinted band */}
+        {/* Methodology teaser, inside the same white band */}
         <div className="mx-auto mt-10 max-w-2xl px-6">
           <MethodologyTeaser />
         </div>
       </div>
 
-      {/* Themes grid on clean white (bg-primary) — gives the page a
-          breathing section after the tinted demo band and before the
-          dark brand coda. */}
-      <div className="bg-primary py-14 lg:py-16">
+      {/* Themes grid on off-white (bg-secondary) — breaks up the white
+          middle content and separates visually from the dark coda. */}
+      <div className="bg-secondary py-14 lg:py-16">
         <section className="mx-auto max-w-4xl px-6">
           <div className="flex items-end justify-between">
             <div>
