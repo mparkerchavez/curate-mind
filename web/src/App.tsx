@@ -3,6 +3,7 @@ import { ProjectProvider } from "./ProjectContext";
 import { WorkspaceProvider } from "./contexts/WorkspaceContext";
 import AppShell from "./layouts/AppShell";
 import LandingPage from "./pages/LandingPage";
+import MethodologyPage from "./pages/MethodologyPage";
 import ThemePage from "./pages/ThemePage";
 import PositionPage from "./pages/PositionPage";
 import SourcePage from "./pages/SourcePage";
@@ -15,6 +16,7 @@ export default function App() {
         <AppShell>
           <Routes>
             <Route path="/" element={<LandingPage />} />
+            <Route path="/methodology" element={<MethodologyPage />} />
             <Route path="/ask" element={<AskPage />} />
             <Route path="/themes/:themeId" element={<ThemePage />} />
             <Route path="/positions/:positionId" element={<PositionPage />} />
