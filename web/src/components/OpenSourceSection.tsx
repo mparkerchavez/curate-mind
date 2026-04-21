@@ -2,6 +2,7 @@ import { ArrowRight } from "@untitledui/icons";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/base/buttons/button";
 import { GitHubIcon } from "@/components/GitHubIcon";
+import { GITHUB_URL } from "@/config/homepage";
 
 /**
  * OpenSourceSection — the "fork the whole system" beat near the bottom
@@ -12,8 +13,6 @@ import { GitHubIcon } from "@/components/GitHubIcon";
  * Sits on a subtle gray background with a top border so it feels like
  * a distinct section, not another content row.
  */
-
-const GITHUB_URL = "https://github.com/mparkerchavez/curate-mind";
 
 export function OpenSourceSection() {
   return (

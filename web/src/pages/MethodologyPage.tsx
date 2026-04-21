@@ -1,12 +1,10 @@
-import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, ArrowUpRight } from "@untitledui/icons";
 import { Badge } from "@/components/base/badges/badges";
 import { Button } from "@/components/base/buttons/button";
 import { GitHubIcon } from "@/components/GitHubIcon";
 import { LivePositionDemo } from "@/components/LivePositionDemo";
-import { useWorkspace } from "@/contexts/WorkspaceContext";
-import { comparePositionsByFreshness } from "@/lib/workspace-utils";
+import { FLAGSHIP_POSITION_ID, GITHUB_URL } from "@/config/homepage";
 
 /**
  * MethodologyPage — explains how the research method works, walked
@@ -18,19 +16,12 @@ import { comparePositionsByFreshness } from "@/lib/workspace-utils";
  *   → Footer
  */
 
-const GITHUB_URL = "https://github.com/mparkerchavez/curate-mind";
 const HBR_URL =
   "https://hbr.org/2026/02/ai-doesnt-reduce-work-it-intensifies-it";
 
 export default function MethodologyPage() {
-  const { allPositions } = useWorkspace();
-
-  // Reuse the home page's flagship fallback so the embedded demo shows
-  // a real, current position.
-  const flagshipId = useMemo(
-    () => [...(allPositions ?? [])].sort(comparePositionsByFreshness)[0]?._id,
-    [allPositions],
-  );
+  // Same flagship the home page uses, so readers see a consistent demo.
+  const flagshipId = FLAGSHIP_POSITION_ID;
 
   return (
     <div className="pt-8">

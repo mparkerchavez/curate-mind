@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { ArrowRight, ChevronRight, LayersThree01, SearchLg } from "@untitledui/icons";
 import EvidencePanel from "@/components/EvidencePanel";
 import { GitHubIcon } from "@/components/GitHubIcon";
+import { GITHUB_URL } from "@/config/homepage";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { cn } from "@/lib/cn";
 
@@ -75,7 +76,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
                 How it works
               </Link>
               <a
-                href="https://github.com/mparkerchavez/curate-mind"
+                href={GITHUB_URL}
                 target="_blank"
                 rel="noopener noreferrer"
                 title="Fork on GitHub"

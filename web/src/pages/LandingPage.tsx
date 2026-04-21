@@ -7,25 +7,13 @@ import { LivePositionDemo } from "@/components/LivePositionDemo";
 import { MethodologyTeaser } from "@/components/MethodologyTeaser";
 import { OpenSourceSection } from "@/components/OpenSourceSection";
 import { ThemeCard } from "@/components/ThemeCard";
+import {
+  EXAMPLE_PROMPTS,
+  FLAGSHIP_POSITION_ID,
+  GITHUB_URL,
+} from "@/config/homepage";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
-import { comparePositionsByFreshness } from "@/lib/workspace-utils";
 import { navigateWithTransition } from "@/utils/navigateWithTransition";
-
-// Phase 2 placeholder prompts. Phase 8 swaps these for real questions
-// workshopped against the corpus.
-const PLACEHOLDER_PROMPTS = [
-  "How is AI changing software development?",
-  "What does the evidence say about enterprise AI adoption?",
-  "Is augmentation or automation winning in practice?",
-  "Where do agentic workflows break down?",
-];
-
-// Phase 3 placeholder flagship position. null falls back to the most
-// recently updated position so the demo renders real data during development.
-// Phase 8 swaps this for a hand-picked flagship ID.
-const FLAGSHIP_POSITION_ID: string | null = null;
-
-const GITHUB_URL = "https://github.com/mparkerchavez/curate-mind";
 
 export default function LandingPage() {
   const { themes, allPositions, navigate, handleAskQuestion, pending } = useWorkspace();
@@ -81,13 +69,8 @@ export default function LandingPage() {
     return map;
   }, [allPositions]);
 
-  // Flagship position for the live demo. Falls back to the most recently
-  // updated position during development; Phase 8 swaps to a hand-picked ID.
-  const mostRecentPositionId = useMemo(
-    () => [...(allPositions ?? [])].sort(comparePositionsByFreshness)[0]?._id,
-    [allPositions],
-  );
-  const flagshipId = FLAGSHIP_POSITION_ID ?? mostRecentPositionId;
+  // Flagship position for the live demo (hand-picked, see config/homepage).
+  const flagshipId = FLAGSHIP_POSITION_ID;
 
   return (
     <div className="pt-8">
@@ -121,7 +104,7 @@ export default function LandingPage() {
 
         {/* Example chips */}
         <ExamplePromptChips
-          prompts={PLACEHOLDER_PROMPTS}
+          prompts={EXAMPLE_PROMPTS}
           onSelect={handleChipSelect}
           disabled={pending}
         />

@@ -1,5 +1,6 @@
 import { LayersThree01 } from "@untitledui/icons";
 import { GitHubIcon } from "@/components/GitHubIcon";
+import { GITHUB_URL } from "@/config/homepage";
 
 /**
  * MobileRedirect — full-screen block shown on viewports below 1024px.
@@ -10,8 +11,6 @@ import { GitHubIcon } from "@/components/GitHubIcon";
  * the site, but the code, methodology, and MCP server for anyone
  * curious about how the system itself is built.
  */
-
-const GITHUB_URL = "https://github.com/mparkerchavez/curate-mind";
 
 export function MobileRedirect() {
   return (
