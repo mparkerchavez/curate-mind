@@ -318,8 +318,8 @@ export function renderInline(
   const renderCitationNode = (t: Extract<Tok, { kind: "citation" }>): ReactNode => {
     if (!t.dpId) {
       return variant === "superscript"
-        ? <sup key={k()} className="ml-0.5 text-[0.65em] italic text-slate-400">{t.number}</sup>
-        : <span key={k()} className="text-slate-400">[{t.label}]</span>;
+        ? <sup key={k()} className="ml-0.5 text-[0.65em] italic text-quaternary">{t.number}</sup>
+        : <span key={k()} className="text-quaternary">[{t.label}]</span>;
     }
     if (variant === "superscript") {
       return (
@@ -330,8 +330,8 @@ export function renderInline(
             className={cn(
               "inline-flex min-w-[1.25rem] items-center justify-center rounded px-1 text-[0.65em] font-semibold tabular-nums transition hover:underline",
               t.isCounter
-                ? "text-amber-600 hover:text-amber-800"
-                : "text-emerald-600 hover:text-emerald-800",
+                ? "text-warning-primary"
+                : "text-success-primary",
             )}
           >
             {t.number}
@@ -346,8 +346,8 @@ export function renderInline(
         className={cn(
           "mx-0.5 inline-flex items-center rounded-full border px-2 py-0 text-[0.7rem] font-semibold leading-5 transition",
           t.isCounter
-            ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
-            : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
+            ? "border-utility-yellow-200 bg-warning-primary text-warning-primary hover:bg-utility-yellow-100"
+            : "border-utility-green-200 bg-success-primary text-success-primary hover:bg-utility-green-100",
         )}
         onClick={() => onCitationClick(t.dpId!)}
       >
@@ -369,11 +369,11 @@ export function renderInline(
     const isHighlighted = highlightedDpId === dpId;
     const tintClass = isCounter
       ? isHighlighted
-        ? "rounded px-0.5 bg-amber-100"
-        : "rounded px-0.5 transition-colors group-hover/claim:bg-amber-100"
+        ? "rounded px-0.5 bg-warning-primary"
+        : "rounded px-0.5 transition-colors group-hover/claim:bg-warning-primary"
       : isHighlighted
-        ? "rounded px-0.5 bg-emerald-100"
-        : "rounded px-0.5 transition-colors group-hover/claim:bg-emerald-100";
+        ? "rounded px-0.5 bg-success-primary"
+        : "rounded px-0.5 transition-colors group-hover/claim:bg-success-primary";
     output.push(
       <span
         key={k()}
