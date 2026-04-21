@@ -58,9 +58,13 @@ export function LivePositionDemo({ positionId }: LivePositionDemoProps) {
   const currentVersion = detail.currentVersion;
   const stance: string = currentVersion?.currentStance ?? "";
   const supportingEvidence: any[] = currentVersion?.supportingEvidenceDetails ?? [];
+  const counterEvidence: any[] = currentVersion?.counterEvidenceDetails ?? [];
+  const totalEvidenceCount = supportingEvidence.length + counterEvidence.length;
 
   // Build citation label maps expected by renderAnswerBlocks and
-  // SourceEvidenceGroup (same E1, E2, ... scheme used on Position page).
+  // SourceEvidenceGroup. Supporting evidence uses E1, E2, ...; counter
+  // evidence uses C1, C2, ... Both live in the same maps so the stance
+  // text's [E1] and [C1] citations can both resolve to their cards.
   const citationMap = new Map<string, string>();
   const labelByDpId: Record<string, string> = {};
   supportingEvidence.forEach((dp: any, i: number) => {
@@ -70,8 +74,33 @@ export function LivePositionDemo({ positionId }: LivePositionDemoProps) {
       labelByDpId[dp._id] = label;
     }
   });
+  counterEvidence.forEach((dp: any, i: number) => {
+    if (dp?._id) {
+      const label = `C${i + 1}`;
+      citationMap.set(label, dp._id);
+      labelByDpId[dp._id] = label;
+    }
+  });
 
-  const sourceGroups = groupDataPointsBySource(supportingEvidence);
+  // Two sections, matching EvidencePanel's structure on Position pages.
+  // Filter drops empty sections so we do not render a header with zero
+  // items when a position has no counter evidence (or none at all).
+  const evidenceSections = [
+    {
+      key: "support" as const,
+      title: "Supporting evidence",
+      subtitle: "Evidence attached to this position version.",
+      items: supportingEvidence,
+      isCounter: false,
+    },
+    {
+      key: "counter" as const,
+      title: "Counter evidence",
+      subtitle: "Signals that narrow, qualify, or challenge the current stance.",
+      items: counterEvidence,
+      isCounter: true,
+    },
+  ].filter((section) => section.items.length > 0);
 
   // Citation → card: scroll the evidence card into view within the evidence
   // column. Relies on SourceEvidenceGroup's id={`evidence-card-${dp._id}`}.
@@ -140,8 +169,8 @@ export function LivePositionDemo({ positionId }: LivePositionDemoProps) {
             <p className="mt-2 text-sm text-slate-500">
               Last updated {formatDateLabel(currentVersion?.versionDate ?? "")}
               {" · "}
-              built from {supportingEvidence.length} data point
-              {supportingEvidence.length === 1 ? "" : "s"}
+              built from {totalEvidenceCount} data point
+              {totalEvidenceCount === 1 ? "" : "s"}
             </p>
 
             <div className="mt-6 space-y-4">
@@ -154,34 +183,67 @@ export function LivePositionDemo({ positionId }: LivePositionDemoProps) {
 
           {/* Evidence column */}
           <aside
-            aria-label="Supporting evidence"
+            aria-label="Evidence"
             className="flex min-h-0 flex-col border-slate-200 bg-slate-50/60 lg:border-l"
           >
             {/* Evidence header (sticky-feeling via shrink-0) */}
             <div className="flex shrink-0 items-center justify-between border-b border-slate-200 bg-white px-5 py-3">
               <p className="text-sm font-semibold text-slate-950">Evidence</p>
               <Badge type="color" size="sm" color="gray">
-                {supportingEvidence.length}
+                {totalEvidenceCount}
               </Badge>
             </div>
 
-            {/* Evidence list, scrollable */}
+            {/* Evidence list, scrollable. One block per section
+                (supporting / counter), matching EvidencePanel. */}
             <div className="flex-1 overflow-y-auto px-4 py-4">
-              {sourceGroups.length === 0 ? (
+              {evidenceSections.length === 0 ? (
                 <p className="text-sm text-slate-500">
-                  No supporting evidence attached to this position yet.
+                  No evidence attached to this position yet.
                 </p>
               ) : (
-                <div className="space-y-3">
-                  {sourceGroups.map((group) => (
-                    <SourceEvidenceGroup
-                      key={group.key}
-                      group={group}
-                      highlightedId={activeId}
-                      labelByDpId={labelByDpId}
-                      onClaimClick={handleCardClick}
-                    />
-                  ))}
+                <div className="space-y-6">
+                  {evidenceSections.map((section) => {
+                    const groups = groupDataPointsBySource(section.items);
+                    return (
+                      <div key={section.key}>
+                        <div className="flex items-center justify-between">
+                          <p
+                            className={
+                              section.isCounter
+                                ? "text-xs font-medium uppercase tracking-[0.14em] text-amber-700"
+                                : "text-xs font-medium uppercase tracking-[0.14em] text-slate-500"
+                            }
+                          >
+                            {section.title}
+                          </p>
+                          <span
+                            className={
+                              section.isCounter
+                                ? "rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold tabular-nums text-amber-700"
+                                : "text-xs tabular-nums text-slate-400"
+                            }
+                          >
+                            {section.items.length}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-xs text-slate-500">
+                          {section.subtitle}
+                        </p>
+                        <div className="mt-3 space-y-3">
+                          {groups.map((group) => (
+                            <SourceEvidenceGroup
+                              key={group.key}
+                              group={group}
+                              highlightedId={activeId}
+                              labelByDpId={labelByDpId}
+                              onClaimClick={handleCardClick}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
