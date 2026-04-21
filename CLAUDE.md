@@ -6,6 +6,18 @@
 **Domain:** AI strategy, adoption, enterprise transformation, agentic workflows
 **Predecessor:** CRIS Research System (archived, see reference path below)
 
+## Design system
+
+The frontend (`web/`) follows **Untitled UI v8** conventions. The full
+agent reference is imported below:
+
+@UNTITLED_UI.md
+
+Key rules to remember while working on any UI:
+- Use semantic color classes (`text-primary`, `bg-secondary`, `bg-brand-section`), not raw Tailwind colors (`text-slate-900`, `bg-blue-700`).
+- File naming is **kebab-case** (`theme-card.tsx`, not `ThemeCard.tsx`).
+- React Aria imports are prefixed with `Aria*` to avoid naming collisions with our custom components.
+
 ---
 
 ## Core Principle

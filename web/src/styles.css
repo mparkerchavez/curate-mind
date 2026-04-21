@@ -4,6 +4,8 @@
 @plugin "tailwindcss-animate";
 @plugin "tailwindcss-react-aria-components";
 
+/* ── Background utilities ────────────────────────────────────── */
+
 @utility bg-primary {
   background-color: var(--ui-bg-primary);
 }
@@ -16,8 +18,44 @@
   background-color: var(--ui-bg-primary-alt);
 }
 
+@utility bg-secondary {
+  background-color: var(--ui-bg-secondary);
+}
+
+@utility bg-secondary_hover {
+  background-color: var(--ui-bg-secondary-hover);
+}
+
 @utility bg-secondary_alt {
   background-color: var(--ui-bg-secondary-alt);
+}
+
+@utility bg-secondary_subtle {
+  background-color: var(--ui-bg-secondary-subtle);
+}
+
+@utility bg-tertiary {
+  background-color: var(--ui-bg-tertiary);
+}
+
+@utility bg-quaternary {
+  background-color: var(--ui-bg-quaternary);
+}
+
+@utility bg-active {
+  background-color: var(--ui-bg-active);
+}
+
+@utility bg-brand-primary {
+  background-color: var(--ui-bg-brand-primary);
+}
+
+@utility bg-brand-primary_alt {
+  background-color: var(--ui-bg-brand-primary-alt);
+}
+
+@utility bg-brand-secondary {
+  background-color: var(--ui-bg-brand-secondary);
 }
 
 @utility bg-brand-solid {
@@ -26,6 +64,14 @@
 
 @utility bg-brand-solid_hover {
   background-color: var(--ui-bg-brand-hover);
+}
+
+@utility bg-brand-section {
+  background-color: var(--ui-bg-brand-section);
+}
+
+@utility bg-brand-section_subtle {
+  background-color: var(--ui-bg-brand-section-subtle);
 }
 
 @utility bg-error-primary {
@@ -40,9 +86,27 @@
   background-color: var(--ui-bg-error-solid-hover);
 }
 
+@utility bg-warning-primary {
+  background-color: var(--ui-bg-warning);
+}
+
+@utility bg-warning-solid {
+  background-color: var(--ui-bg-warning-solid);
+}
+
+@utility bg-success-primary {
+  background-color: var(--ui-bg-success);
+}
+
+@utility bg-success-solid {
+  background-color: var(--ui-bg-success-solid);
+}
+
 @utility bg-overlay {
   background-color: var(--ui-bg-overlay);
 }
+
+/* ── Text utilities ──────────────────────────────────────────── */
 
 @utility text-primary {
   color: var(--ui-text-primary);
@@ -70,6 +134,117 @@
 
 @utility text-placeholder {
   color: var(--ui-text-placeholder);
+}
+
+/* Text on solid brand backgrounds (e.g. bg-brand-section, bg-brand-solid) */
+@utility text-primary_on-brand {
+  color: var(--ui-text-primary-on-brand);
+}
+
+@utility text-secondary_on-brand {
+  color: var(--ui-text-secondary-on-brand);
+}
+
+@utility text-tertiary_on-brand {
+  color: var(--ui-text-tertiary-on-brand);
+}
+
+@utility text-quaternary_on-brand {
+  color: var(--ui-text-quaternary-on-brand);
+}
+
+/* Brand-tinted text (for use on light backgrounds) */
+@utility text-brand-primary {
+  color: var(--ui-text-brand-primary);
+}
+
+@utility text-brand-secondary {
+  color: var(--ui-text-brand-secondary);
+}
+
+@utility text-brand-tertiary {
+  color: var(--ui-text-brand-tertiary);
+}
+
+@utility text-brand-tertiary_alt {
+  color: var(--ui-text-brand-tertiary-alt);
+}
+
+/* Semantic status text */
+@utility text-error-primary {
+  color: var(--ui-text-error-primary);
+}
+
+@utility text-warning-primary {
+  color: var(--ui-text-warning-primary);
+}
+
+@utility text-success-primary {
+  color: var(--ui-text-success-primary);
+}
+
+/* ── Foreground (icon) utilities ─────────────────────────────── */
+
+@utility fg-primary {
+  color: var(--ui-fg-primary);
+}
+
+@utility fg-secondary {
+  color: var(--ui-fg-secondary);
+}
+
+@utility fg-tertiary {
+  color: var(--ui-fg-tertiary);
+}
+
+@utility fg-quaternary {
+  color: var(--ui-fg-quaternary);
+}
+
+@utility fg-white {
+  color: var(--ui-fg-white);
+}
+
+@utility fg-brand-primary {
+  color: var(--ui-fg-brand-primary);
+}
+
+@utility fg-brand-secondary {
+  color: var(--ui-fg-brand-secondary);
+}
+
+/* ── Border utilities ────────────────────────────────────────── */
+
+@utility border-primary {
+  border-color: var(--ui-border-primary);
+}
+
+@utility border-secondary {
+  border-color: var(--ui-border-secondary);
+}
+
+@utility border-secondary_alt {
+  border-color: var(--ui-border-secondary-alt);
+}
+
+@utility border-tertiary {
+  border-color: var(--ui-border-tertiary);
+}
+
+@utility border-brand {
+  border-color: var(--ui-border-brand);
+}
+
+@utility border-brand_alt {
+  border-color: var(--ui-border-brand-alt);
+}
+
+@utility border-error {
+  border-color: var(--ui-border-error);
+}
+
+@utility border-error_subtle {
+  border-color: var(--ui-border-error-subtle);
 }
 
 @utility ring-primary {
@@ -136,7 +311,7 @@ body,
 
 body {
   background:
-    radial-gradient(circle at top left, rgba(21, 112, 239, 0.08), transparent 28%),
+    radial-gradient(circle at top left, rgba(105, 56, 239, 0.08), transparent 28%),
     linear-gradient(180deg, #f8fafc 0%, #eef2f6 100%);
   color: var(--ui-text-primary);
   font-family: var(--font-body);
@@ -164,5 +339,5 @@ button:disabled {
 }
 
 ::selection {
-  background: rgba(21, 112, 239, 0.16);
+  background: rgba(105, 56, 239, 0.16);
 }

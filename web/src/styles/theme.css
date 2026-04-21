@@ -51,12 +51,12 @@
   --color-utility-neutral-500: #667085;
   --color-utility-neutral-700: #344054;
 
-  --color-utility-brand-50: #eff8ff;
-  --color-utility-brand-100: #d1e9ff;
-  --color-utility-brand-200: #b2ddff;
-  --color-utility-brand-400: #53b1fd;
-  --color-utility-brand-500: #2e90fa;
-  --color-utility-brand-700: #175cd3;
+  --color-utility-brand-50: #f4f3ff;
+  --color-utility-brand-100: #e0ddff;
+  --color-utility-brand-200: #bdb4fe;
+  --color-utility-brand-400: #9b8afb;
+  --color-utility-brand-500: #7a5af8;
+  --color-utility-brand-700: #5925dc;
 
   --color-utility-green-50: #ecfdf3;
   --color-utility-green-100: #d1fadf;
@@ -79,11 +79,11 @@
   --color-utility-red-500: #f04438;
   --color-utility-red-700: #b42318;
 
-  --color-fg-brand-primary: #1570ef;
-  --color-fg-brand-primary_alt: #53b1fd;
-  --color-fg-brand-secondary: #175cd3;
-  --color-fg-brand-secondary_alt: #2e90fa;
-  --color-fg-brand-secondary_hover: #1849a9;
+  --color-fg-brand-primary: #6938ef;
+  --color-fg-brand-primary_alt: #9b8afb;
+  --color-fg-brand-secondary: #5925dc;
+  --color-fg-brand-secondary_alt: #7a5af8;
+  --color-fg-brand-secondary_hover: #4a1fb8;
   --color-fg-secondary: #344054;
   --color-fg-secondary_hover: #182230;
   --color-fg-quaternary: #667085;
@@ -92,22 +92,46 @@
   --color-fg-error-secondary: #f04438;
   --color-fg-white: #ffffff;
   --color-bg-tertiary: #eaecf0;
-  --color-brand-tertiary: #2e90fa;
+  --color-brand-tertiary: #7a5af8;
 }
 
 :root {
   color-scheme: light;
+
+  /* ── Background tokens ────────────────────────────────────────── */
   --ui-bg-primary: #ffffff;
   --ui-bg-primary-hover: #f9fafb;
   --ui-bg-primary-alt: #f2f4f7;
+  --ui-bg-secondary: #f9fafb;          /* section-alternation contrast */
+  --ui-bg-secondary-hover: #f2f4f7;
   --ui-bg-secondary-alt: #f8fafc;
+  --ui-bg-secondary-subtle: #fcfcfd;
+  --ui-bg-tertiary: #f2f4f7;
+  --ui-bg-quaternary: #eaecf0;
+  --ui-bg-active: #f9fafb;
   --ui-bg-overlay: rgba(16, 24, 40, 0.64);
-  --ui-bg-brand: #1570ef;
-  --ui-bg-brand-hover: #175cd3;
+
+  /* ── Brand background tokens ─────────────────────────────────── */
+  --ui-bg-brand: #6938ef;              /* primary interactive purple */
+  --ui-bg-brand-hover: #5925dc;
+  --ui-bg-brand-primary: #f4f3ff;      /* light brand bg */
+  --ui-bg-brand-primary-alt: #ebe9fe;
+  --ui-bg-brand-secondary: #e0ddff;
+  --ui-bg-brand-solid: #6938ef;
+  --ui-bg-brand-solid-hover: #5925dc;
+  --ui-bg-brand-section: #2f1d6e;      /* deep brand for CTA sections */
+  --ui-bg-brand-section-subtle: #f9f8ff;  /* very light brand tint for hero-like sections */
+
+  /* ── Status background tokens ────────────────────────────────── */
   --ui-bg-error: #fef3f2;
   --ui-bg-error-solid: #d92d20;
   --ui-bg-error-solid-hover: #b42318;
+  --ui-bg-warning: #fffaeb;
+  --ui-bg-warning-solid: #f79009;
+  --ui-bg-success: #ecfdf3;
+  --ui-bg-success-solid: #12b76a;
 
+  /* ── Text tokens ─────────────────────────────────────────────── */
   --ui-text-primary: #101828;
   --ui-text-secondary: #344054;
   --ui-text-secondary-hover: #182230;
@@ -116,14 +140,57 @@
   --ui-text-quaternary: #98a2b3;
   --ui-text-placeholder: #98a2b3;
 
+  /* Text on solid brand backgrounds (for bg-brand-solid / bg-brand-section) */
+  --ui-text-primary-on-brand: #ffffff;
+  --ui-text-secondary-on-brand: #e0ddff;
+  --ui-text-tertiary-on-brand: #bdb4fe;
+  --ui-text-quaternary-on-brand: #9b8afb;
+
+  /* Brand-tinted text (for use on light backgrounds) */
+  --ui-text-brand-primary: #4a1fb8;
+  --ui-text-brand-secondary: #5925dc;
+  --ui-text-brand-tertiary: #6938ef;
+  --ui-text-brand-tertiary-alt: #7a5af8;
+
+  /* Semantic status text */
+  --ui-text-error-primary: #b42318;
+  --ui-text-warning-primary: #b54708;
+  --ui-text-success-primary: #027a48;
+
+  /* ── Foreground (icon) tokens ────────────────────────────────── */
+  --ui-fg-primary: #101828;
+  --ui-fg-secondary: #344054;
+  --ui-fg-secondary-hover: #182230;
+  --ui-fg-tertiary: #667085;
+  --ui-fg-tertiary-hover: #475467;
+  --ui-fg-quaternary: #98a2b3;
+  --ui-fg-quaternary-hover: #667085;
+  --ui-fg-white: #ffffff;
+  --ui-fg-brand-primary: #6938ef;
+  --ui-fg-brand-primary-alt: #9b8afb;
+  --ui-fg-brand-secondary: #5925dc;
+  --ui-fg-brand-secondary-alt: #7a5af8;
+  --ui-fg-error-primary: #d92d20;
+  --ui-fg-error-secondary: #f04438;
+  --ui-fg-warning-primary: #dc6803;
+  --ui-fg-warning-secondary: #f79009;
+  --ui-fg-success-primary: #027a48;
+  --ui-fg-success-secondary: #12b76a;
+
+  /* ── Border tokens ───────────────────────────────────────────── */
   --ui-border-primary: rgba(16, 24, 40, 0.08);
   --ui-border-secondary: rgba(16, 24, 40, 0.12);
   --ui-border-secondary-alt: rgba(16, 24, 40, 0.16);
+  --ui-border-tertiary: rgba(16, 24, 40, 0.04);
+  --ui-border-brand: #7a5af8;
+  --ui-border-brand-alt: #7a5af8;
   --ui-border-error: rgba(240, 68, 56, 0.28);
-  --ui-focus-ring: #84caff;
-  --ui-brand-ring: #1570ef;
+  --ui-border-error-subtle: rgba(240, 68, 56, 0.16);
+  --ui-focus-ring: #bdb4fe;
+  --ui-brand-ring: #7a5af8;
   --ui-error-ring: #f04438;
 
+  /* ── Shadows ─────────────────────────────────────────────────── */
   --ui-shadow-xs-skeuomorphic:
     0 1px 2px rgba(16, 24, 40, 0.06),
     0 0 0 1px rgba(16, 24, 40, 0.02);
