@@ -60,10 +60,10 @@ export default function PositionPage() {
       {/* Position header — open canvas, no card wrapper */}
       <header>
         <div className="flex items-start gap-3">
-          <h1 className="text-[1.75rem] font-semibold leading-[1.2] tracking-[-0.02em] text-primary 2xl:text-display-sm">
+          <h1 className="text-display-sm font-semibold tracking-[-0.02em] text-primary 2xl:text-display-md">
             {positionDetail.title}
           </h1>
-          <span className="mt-1.5 shrink-0 2xl:mt-2.5">
+          <span className="mt-2 shrink-0 2xl:mt-3">
             <LegendPopover
               heading="Position labels"
               rows={POSITION_LEGEND_ROWS}

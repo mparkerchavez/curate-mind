@@ -39,7 +39,7 @@ export default function EvidencePanel() {
   return (
     <div className="flex h-full flex-col">
       {/* Panel header */}
-      <div className="shrink-0 border-b border-secondary px-4 py-3">
+      <div className="shrink-0 border-b border-secondary px-5 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5">
             <h2 className="text-sm font-semibold text-primary">Evidence</h2>
@@ -57,8 +57,8 @@ export default function EvidencePanel() {
       </div>
 
       {/* Evidence sections */}
-      <div className="flex-1 overflow-y-auto px-4 py-4">
-        <div className="space-y-6">
+      <div className="flex-1 overflow-y-auto px-5 py-4">
+        <div className="space-y-7">
           {evidenceSections.map((section) => {
             const groups = groupDataPointsBySource(section.items);
             const isCounter = section.variant === "counter";
@@ -85,7 +85,7 @@ export default function EvidencePanel() {
                   </span>
                 </div>
                 <p className="mt-1 text-xs text-tertiary">{section.subtitle}</p>
-                <div className="mt-3 space-y-3">
+                <div className="mt-5 space-y-5">
                   {groups.map((group) => (
                     <SourceEvidenceGroup
                       key={group.key}

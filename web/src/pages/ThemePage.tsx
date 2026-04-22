@@ -39,10 +39,10 @@ export default function ThemePage() {
       </p>
 
       <div className="mt-3 flex items-start gap-2">
-        <h1 className="text-3xl font-semibold leading-[1.2] tracking-[-0.02em] text-primary 2xl:text-display-xs">
+        <h1 className="text-display-sm font-semibold tracking-[-0.02em] text-primary 2xl:text-display-md">
           {activeTheme.title}
         </h1>
-        <span className="mt-1.5 2xl:mt-2.5">
+        <span className="mt-2 shrink-0 2xl:mt-3">
           <LegendPopover
             heading="Position status"
             rows={THEME_LEGEND_ROWS}

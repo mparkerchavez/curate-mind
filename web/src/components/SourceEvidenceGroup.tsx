@@ -86,49 +86,50 @@ export default function SourceEvidenceGroup({
       : "Open original";
 
   return (
-    <article className="overflow-hidden rounded-2xl border border-secondary bg-primary shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
-      {/* Source header */}
-      <header className="flex items-start justify-between gap-4 px-5 pt-6 pb-5">
-        <div className="min-w-0 flex-1">
-          <p className="text-xl font-semibold leading-7 tracking-[-0.01em] text-primary">
-            {primary}
+    <section className="border-t border-secondary pt-5 first:border-t-0 first:pt-0">
+      {/* Source header — no card wrapper, flows with the panel's padding.
+          Title + author get full column width; "Open original" sits on its
+          own line below so the name isn't squeezed by a side-by-side button. */}
+      <header>
+        <p className="text-lg font-semibold leading-6 tracking-[-0.01em] text-primary">
+          {primary}
+        </p>
+        {secondary && (
+          internalHref ? (
+            <Link
+              to={internalHref}
+              className="mt-1.5 block text-sm leading-5 text-secondary hover:text-brand-secondary"
+            >
+              {secondary}
+            </Link>
+          ) : (
+            <p className="mt-1.5 text-sm leading-5 text-secondary">{secondary}</p>
+          )
+        )}
+        {tertiaryBits.length > 0 && (
+          <p className="mt-1.5 text-xs leading-5 text-tertiary">
+            {tertiaryBits.join(" \u00b7 ")}
           </p>
-          {secondary && (
-            internalHref ? (
-              <Link
-                to={internalHref}
-                className="mt-1.5 block text-base leading-6 text-secondary hover:text-brand-secondary"
-              >
-                {secondary}
-              </Link>
-            ) : (
-              <p className="mt-1.5 text-base leading-6 text-secondary">{secondary}</p>
-            )
-          )}
-          {tertiaryBits.length > 0 && (
-            <p className="mt-2 text-xs leading-5 text-tertiary">
-              {tertiaryBits.join(" \u00b7 ")}
-            </p>
-          )}
-        </div>
+        )}
 
         {externalHref && (
-          <Button
-            size="sm"
-            color="secondary"
-            iconTrailing={ArrowUpRight}
-            className="shrink-0"
-            href={externalHref}
-            target="_blank"
-            rel="noreferrer noopener"
-          >
-            {externalLabel}
-          </Button>
+          <div className="mt-3">
+            <Button
+              size="sm"
+              color="link-color"
+              iconTrailing={ArrowUpRight}
+              href={externalHref}
+              target="_blank"
+              rel="noreferrer noopener"
+            >
+              {externalLabel}
+            </Button>
+          </div>
         )}
       </header>
 
       {/* Data points — numbered list, clickable rows */}
-      <div className="border-t border-tertiary px-5 pt-4 pb-5">
+      <div className="mt-5">
         <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-quaternary">
           Data points
         </p>
@@ -180,6 +181,6 @@ export default function SourceEvidenceGroup({
           })}
         </ol>
       </div>
-    </article>
+    </section>
   );
 }
