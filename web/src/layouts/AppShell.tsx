@@ -1,4 +1,4 @@
-import { type ReactNode, useState, useRef, useEffect } from "react";
+import { type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, ChevronRight, LayersThree01, SearchLg } from "@untitledui/icons";
 import EvidencePanel from "@/components/EvidencePanel";
@@ -6,13 +6,9 @@ import { GitHubIcon } from "@/components/GitHubIcon";
 import ThemeRail from "@/components/ThemeRail";
 import { GITHUB_URL } from "@/config/homepage";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
-import { cn } from "@/lib/cn";
 
 export default function AppShell({ children }: { children: ReactNode }) {
   const {
-    themes,
-    activeTheme,
-    positionDetail,
     sourceDetail,
     routeKind,
     navigate,
@@ -54,15 +50,8 @@ export default function AppShell({ children }: { children: ReactNode }) {
             </span>
           </Link>
 
-          {/* Breadcrumb */}
-          <Breadcrumb
-            routeKind={routeKind}
-            activeTheme={activeTheme}
-            positionDetail={positionDetail}
-            sourceDetail={sourceDetail}
-            themes={themes}
-            navigate={navigate}
-          />
+          {/* Breadcrumb — only on ask/source; theme and position rely on the rail + H1. */}
+          <Breadcrumb routeKind={routeKind} sourceDetail={sourceDetail} />
 
           {/* Spacer */}
           <div className="flex-1" />
@@ -122,151 +111,37 @@ export default function AppShell({ children }: { children: ReactNode }) {
   );
 }
 
-/* ── Breadcrumb ── */
+/* ── Breadcrumb ──
+ * Suppressed on home (where it never appeared) and on theme/position routes
+ * (where the left rail now carries theme context and the page H1 carries the
+ * position title — the breadcrumb would just repeat them). Still shown on
+ * ask and source routes where the top bar is the only place the scope shows.
+ */
 
 type BreadcrumbProps = {
   routeKind: string;
-  activeTheme: any | null;
-  positionDetail: any | undefined;
   sourceDetail: any | undefined;
-  themes: any[] | undefined;
-  navigate: (path: string) => void;
 };
 
-function Breadcrumb({ routeKind, activeTheme, positionDetail, sourceDetail, themes, navigate }: BreadcrumbProps) {
-  if (routeKind === "home") return null;
+function Breadcrumb({ routeKind, sourceDetail }: BreadcrumbProps) {
+  if (routeKind === "home" || routeKind === "theme" || routeKind === "position") {
+    return null;
+  }
 
-  const segments: { label: string; href?: string; dropdown?: any[] }[] = [];
-
+  let label: string;
   if (routeKind === "ask") {
-    segments.push({ label: "Ask" });
+    label = "Ask";
   } else if (routeKind === "source") {
-    segments.push({ label: sourceDetail?.source?.title ?? "Source" });
+    label = sourceDetail?.source?.title ?? "Source";
   } else {
-    // Theme segment — always present on theme/position routes, with dropdown
-    if (activeTheme) {
-      const isTerminal = routeKind === "theme";
-      segments.push({
-        label: activeTheme.title,
-        href: isTerminal ? undefined : `/themes/${activeTheme._id}`,
-        dropdown: themes,
-      });
-    }
-
-    // Position segment — on position routes
-    if (routeKind === "position" && positionDetail) {
-      segments.push({ label: positionDetail.title });
-    }
+    return null;
   }
 
   return (
     <nav className="flex min-w-0 items-center gap-1.5" aria-label="Breadcrumb">
-      {segments.map((seg, idx) => (
-        <div key={idx} className="flex min-w-0 items-center gap-1.5">
-          <ChevronRight className="size-4 shrink-0 text-quaternary" />
-          {seg.dropdown ? (
-            <ThemeDropdown
-              themes={seg.dropdown}
-              currentThemeId={activeTheme?._id}
-              label={seg.label}
-              href={seg.href}
-              navigate={navigate}
-            />
-          ) : seg.href ? (
-            <Link
-              to={seg.href}
-              className="truncate text-sm text-tertiary hover:text-primary"
-            >
-              {seg.label}
-            </Link>
-          ) : (
-            <span className="truncate text-sm font-medium text-primary">
-              {seg.label}
-            </span>
-          )}
-        </div>
-      ))}
+      <ChevronRight className="size-4 shrink-0 text-quaternary" />
+      <span className="truncate text-sm font-medium text-primary">{label}</span>
     </nav>
-  );
-}
-
-/* ── Theme dropdown (in breadcrumb) ── */
-
-type ThemeDropdownProps = {
-  themes: any[];
-  currentThemeId: string | undefined;
-  label: string;
-  href: string | undefined;
-  navigate: (path: string) => void;
-};
-
-function ThemeDropdown({ themes, currentThemeId, label, href, navigate }: ThemeDropdownProps) {
-  const [open, setOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    function handleClickOutside(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [open]);
-
-  const sortedThemes = [...(themes ?? [])].sort((a: any, b: any) => {
-    const diff = (b.positionCount ?? 0) - (a.positionCount ?? 0);
-    return diff !== 0 ? diff : String(a.title ?? "").localeCompare(String(b.title ?? ""));
-  });
-
-  return (
-    <div ref={containerRef} className="relative overflow-visible">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className={cn(
-          "flex items-center gap-1 truncate rounded-md px-1.5 py-0.5 text-sm transition hover:bg-secondary",
-          href ? "text-tertiary hover:text-primary" : "font-medium text-primary",
-        )}
-      >
-        <span className="truncate">{label}</span>
-        <ChevronRight
-          className={cn(
-            "size-3.5 shrink-0 text-quaternary transition-transform",
-            open && "rotate-90",
-          )}
-        />
-      </button>
-
-      {open && (
-        <div className="absolute left-0 top-full z-50 mt-1 w-72 overflow-hidden rounded-xl border border-secondary bg-primary shadow-lg">
-          <div className="max-h-80 overflow-y-auto py-1">
-            {sortedThemes.map((theme: any) => (
-              <button
-                key={theme._id}
-                type="button"
-                onClick={() => {
-                  navigate(`/themes/${theme._id}`);
-                  setOpen(false);
-                }}
-                className={cn(
-                  "flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm transition hover:bg-secondary",
-                  String(theme._id) === String(currentThemeId)
-                    ? "bg-brand-primary text-brand-secondary"
-                    : "text-secondary",
-                )}
-              >
-                <span className="flex-1 truncate leading-5">{theme.title}</span>
-                <span className="shrink-0 text-xs tabular-nums text-quaternary">
-                  {theme.positionCount ?? 0}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
   );
 }
 
