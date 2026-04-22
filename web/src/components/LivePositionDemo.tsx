@@ -255,7 +255,7 @@ export function LivePositionDemo({ positionId }: LivePositionDemoProps) {
             size="sm"
             color="primary"
             iconTrailing={ArrowRight}
-            onClick={() => navigate(`/positions/${detail._id}`)}
+            onClick={() => navigate(theme?._id ? `/themes/${theme._id}/positions/${detail._id}` : `/positions/${detail._id}`)}
           >
             Open full position
           </Button>

@@ -8,6 +8,7 @@ import LandingPage from "./pages/LandingPage";
 import MethodologyPage from "./pages/MethodologyPage";
 import ThemePage from "./pages/ThemePage";
 import PositionPage from "./pages/PositionPage";
+import PositionRedirect from "./components/PositionRedirect";
 import SourcePage from "./pages/SourcePage";
 import AskPage from "./pages/AskPage";
 
@@ -51,7 +52,9 @@ export default function App() {
             <Route path="/methodology" element={<MethodologyPage />} />
             <Route path="/ask" element={<AskPage />} />
             <Route path="/themes/:themeId" element={<ThemePage />} />
-            <Route path="/positions/:positionId" element={<PositionPage />} />
+            <Route path="/themes/:themeId/positions/:positionId" element={<PositionPage />} />
+            {/* Legacy flat URL redirects to the nested shape. */}
+            <Route path="/positions/:positionId" element={<PositionRedirect />} />
             <Route path="/sources/:sourceId" element={<SourcePage />} />
             {/* Legacy routes redirect */}
             <Route path="/browse" element={<Navigate to="/" replace />} />

@@ -179,8 +179,9 @@ export function groupDataPointsBySource(dataPoints: any[]): SourceGroup[] {
 }
 
 export function getRouteKind(pathname: string): RouteKind {
+  // Check nested /themes/:tid/positions/:pid first — the position scope wins.
+  if (pathname.includes("/positions/")) return "position";
   if (pathname.startsWith("/themes/")) return "theme";
-  if (pathname.startsWith("/positions/")) return "position";
   if (pathname.startsWith("/sources/")) return "source";
   if (pathname === "/ask") return "ask";
   return "home";

@@ -63,9 +63,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const location = useLocation();
 
   // Parse route params from pathname so WorkspaceProvider can live above <Routes>.
+  // Position id matches both /positions/:pid and /themes/:tid/positions/:pid.
   const routeKind = getRouteKind(location.pathname);
   const themeRecordId = location.pathname.match(/^\/themes\/([^/]+)/)?.[1] as Id<"researchThemes"> | undefined;
-  const positionRecordId = location.pathname.match(/^\/positions\/([^/]+)/)?.[1] as Id<"researchPositions"> | undefined;
+  const positionRecordId = location.pathname.match(/\/positions\/([^/]+)/)?.[1] as Id<"researchPositions"> | undefined;
   const sourceRecordId = location.pathname.match(/^\/sources\/([^/]+)/)?.[1] as Id<"sources"> | undefined;
 
   /* ── Convex queries ── */

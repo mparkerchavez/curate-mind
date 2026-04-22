@@ -98,7 +98,7 @@ export default function ThemePage() {
               <button
                 key={position._id}
                 type="button"
-                onClick={() => navigate(`/positions/${position._id}`)}
+                onClick={() => navigate(`/themes/${activeTheme._id}/positions/${position._id}`)}
                 className="group w-full rounded-2xl border border-secondary bg-primary px-5 py-4 text-left transition hover:border-brand hover:bg-secondary_subtle"
               >
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
