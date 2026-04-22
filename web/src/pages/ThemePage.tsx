@@ -1,12 +1,14 @@
 import { useMemo } from "react";
+import { Navigate } from "react-router-dom";
 import { LoadingIndicator } from "@/components/application/loading-indicator/loading-indicator";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
-import { comparePositionsByFreshness, formatDateLabel } from "@/lib/workspace-utils";
+import { comparePositionsByFreshness } from "@/lib/workspace-utils";
 
 /**
- * Theme overview — the middle column when no position is selected.
- * The left rail (in AppShell) already surfaces theme title + positions
- * list, so this page focuses on framing: what the theme is about.
+ * Theme entry route. Redirects to the theme's first position so the
+ * middle column always shows a stance instead of a blank framing page.
+ * Rail sort order matches comparePositionsByFreshness, so "first" stays
+ * consistent with what the user sees on the left.
  */
 export default function ThemePage() {
   const { activeTheme, themePositions } = useWorkspace();
@@ -16,7 +18,7 @@ export default function ThemePage() {
     [themePositions],
   );
 
-  if (!activeTheme) {
+  if (!activeTheme || themePositions === undefined) {
     return (
       <div className="flex min-h-[24rem] items-center justify-center">
         <LoadingIndicator type="line-simple" size="lg" label="Loading theme" />
@@ -24,11 +26,15 @@ export default function ThemePage() {
     );
   }
 
-  const latestVersionDate = sortedPositions[0]?.currentVersion?.versionDate ?? sortedPositions[0]?.versionDate;
-  const metaBits = [
-    `${sortedPositions.length} position${sortedPositions.length === 1 ? "" : "s"}`,
-    latestVersionDate ? `Updated ${formatDateLabel(latestVersionDate)}` : null,
-  ].filter(Boolean);
+  const firstPosition = sortedPositions[0];
+  if (firstPosition) {
+    return (
+      <Navigate
+        to={`/themes/${activeTheme._id}/positions/${firstPosition._id}`}
+        replace
+      />
+    );
+  }
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-10 lg:py-12">
@@ -46,14 +52,8 @@ export default function ThemePage() {
         </p>
       )}
 
-      {metaBits.length > 0 && (
-        <p className="mt-6 text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
-          {metaBits.join(" \u00b7 ")}
-        </p>
-      )}
-
       <p className="mt-10 text-sm leading-6 text-tertiary">
-        Open a position from the left to see the current stance and evidence chain.
+        No positions have been published under this theme yet.
       </p>
     </div>
   );
