@@ -39,10 +39,9 @@ export default function ThemeRail() {
   );
 
   const sortedThemes = useMemo(() => {
-    return [...(themes ?? [])].sort((a: any, b: any) => {
-      const diff = (b.positionCount ?? 0) - (a.positionCount ?? 0);
-      return diff !== 0 ? diff : String(a.title ?? "").localeCompare(String(b.title ?? ""));
-    });
+    return [...(themes ?? [])].sort((a: any, b: any) =>
+      String(a.title ?? "").localeCompare(String(b.title ?? "")),
+    );
   }, [themes]);
 
   if (!activeTheme) return null;
@@ -96,18 +95,13 @@ export default function ThemeRail() {
                                 close();
                               }}
                               className={cn(
-                                "flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition duration-100 ease-linear",
+                                "block w-full truncate rounded-md px-3 py-2 text-left text-sm leading-5 transition duration-100 ease-linear",
                                 isCurrent
                                   ? "bg-brand-primary/40 font-semibold text-brand-secondary"
                                   : "font-medium text-secondary hover:bg-secondary hover:text-primary",
                               )}
                             >
-                              <span className="min-w-0 flex-1 truncate leading-5">
-                                {theme.title}
-                              </span>
-                              <span className="shrink-0 text-xs tabular-nums text-quaternary">
-                                {theme.positionCount ?? 0}
-                              </span>
+                              {theme.title}
                             </button>
                           </li>
                         );
