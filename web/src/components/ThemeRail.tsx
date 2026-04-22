@@ -1,12 +1,6 @@
 import { useMemo } from "react";
-import { ChevronDown } from "@untitledui/icons";
-import {
-  Button as AriaButton,
-  Dialog as AriaDialog,
-  DialogTrigger as AriaDialogTrigger,
-} from "react-aria-components";
-import { Dropdown } from "@/components/base/dropdown/dropdown";
 import { LegendPopover } from "@/components/LegendPopover";
+import { Select } from "@/components/base/select/select";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { comparePositionsByFreshness } from "@/lib/workspace-utils";
 import { THEME_LEGEND_ROWS } from "@/lib/legend-copy";
@@ -24,8 +18,7 @@ const STATUS_DOT: Record<string, string> = {
  * Left rail for the theme workspace.
  *
  * Rendered by AppShell as a sibling of <main>, so it lives outside main's
- * scroll area and stays visible without needing `position: sticky`. The
- * rail is its own overflow container if its content exceeds the viewport.
+ * scroll area and stays visible without needing `position: sticky`.
  *
  * Width shrinks to 240px on smaller laptops (1024–1439) and grows to 288px
  * at ≥1440 so the middle column has enough room on a 13" display.
@@ -38,10 +31,12 @@ export default function ThemeRail() {
     [themePositions],
   );
 
-  const sortedThemes = useMemo(() => {
-    return [...(themes ?? [])].sort((a: any, b: any) =>
-      String(a.title ?? "").localeCompare(String(b.title ?? "")),
-    );
+  const themeItems = useMemo(() => {
+    return [...(themes ?? [])]
+      .sort((a: any, b: any) =>
+        String(a.title ?? "").localeCompare(String(b.title ?? "")),
+      )
+      .map((t: any) => ({ id: String(t._id), label: t.title as string }));
   }, [themes]);
 
   if (!activeTheme) return null;
@@ -52,68 +47,29 @@ export default function ThemeRail() {
   return (
     <aside className="hidden h-full shrink-0 overflow-y-auto border-r border-secondary bg-primary lg:block lg:w-60 2xl:w-72">
       <div className="flex flex-col px-5 py-6">
-        {/* Theme header — click the title to switch themes. */}
+        {/* Theme header — UUI Select as the primary switcher affordance. */}
         <div>
           <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
             Theme
           </p>
-          <AriaDialogTrigger>
-            <AriaButton
+          <div className="mt-2">
+            <Select
               aria-label="Switch theme"
-              className={({ isHovered, isFocusVisible }) =>
-                cn(
-                  "group mt-1 -ml-1.5 flex w-[calc(100%+0.75rem)] items-start gap-1.5 rounded-md px-1.5 py-1 text-left outline-hidden transition duration-100 ease-linear",
-                  isHovered && "bg-secondary",
-                  isFocusVisible && "outline-2 outline-focus-ring",
-                )
-              }
+              size="sm"
+              selectedKey={themeId}
+              onSelectionChange={(key) => {
+                if (key && String(key) !== themeId) {
+                  navigate(`/themes/${key}`);
+                }
+              }}
+              items={themeItems}
+              popoverClassName="w-72"
             >
-              <span className="min-w-0 flex-1 text-base font-semibold leading-6 text-primary">
-                {activeTheme.title}
-              </span>
-              <ChevronDown
-                aria-hidden="true"
-                className="mt-1 size-4 shrink-0 text-quaternary transition group-hover:text-tertiary"
-              />
-            </AriaButton>
-            <Dropdown.Popover placement="bottom start" className="w-72 p-1">
-              <AriaDialog className="outline-hidden">
-                {({ close }) => (
-                  <>
-                    <p className="px-3 pt-2 pb-1 text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
-                      Switch theme
-                    </p>
-                    <ul className="max-h-80 overflow-y-auto py-1">
-                      {sortedThemes.map((theme: any) => {
-                        const isCurrent = String(theme._id) === themeId;
-                        return (
-                          <li key={theme._id}>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                navigate(`/themes/${theme._id}`);
-                                close();
-                              }}
-                              className={cn(
-                                "block w-full truncate rounded-md px-3 py-2 text-left text-sm leading-5 transition duration-100 ease-linear",
-                                isCurrent
-                                  ? "bg-brand-primary/40 font-semibold text-brand-secondary"
-                                  : "font-medium text-secondary hover:bg-secondary hover:text-primary",
-                              )}
-                            >
-                              {theme.title}
-                            </button>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </>
-                )}
-              </AriaDialog>
-            </Dropdown.Popover>
-          </AriaDialogTrigger>
+              {(item) => <Select.Item id={item.id}>{item.label}</Select.Item>}
+            </Select>
+          </div>
           {activeTheme.description && (
-            <p className="mt-2 line-clamp-3 text-sm leading-6 text-tertiary">
+            <p className="mt-3 line-clamp-3 text-sm leading-6 text-tertiary">
               {activeTheme.description}
             </p>
           )}
