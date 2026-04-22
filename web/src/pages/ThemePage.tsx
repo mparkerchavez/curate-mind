@@ -1,9 +1,7 @@
 import { useMemo } from "react";
 import { LoadingIndicator } from "@/components/application/loading-indicator/loading-indicator";
-import { LegendPopover } from "@/components/LegendPopover";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { comparePositionsByFreshness, formatDateLabel } from "@/lib/workspace-utils";
-import { THEME_LEGEND_ROWS } from "@/lib/legend-copy";
 
 /**
  * Theme overview — the middle column when no position is selected.
@@ -38,18 +36,9 @@ export default function ThemePage() {
         Theme
       </p>
 
-      <div className="mt-3 flex items-start gap-2">
-        <h1 className="text-display-sm font-semibold tracking-[-0.02em] text-primary 2xl:text-display-md">
-          {activeTheme.title}
-        </h1>
-        <span className="mt-2 shrink-0 2xl:mt-3">
-          <LegendPopover
-            heading="Position status"
-            rows={THEME_LEGEND_ROWS}
-            ariaLabel="What do position status labels mean?"
-          />
-        </span>
-      </div>
+      <h1 className="mt-3 text-display-sm font-semibold tracking-[-0.02em] text-primary 2xl:text-display-md">
+        {activeTheme.title}
+      </h1>
 
       {activeTheme.description && (
         <p className="mt-4 text-base leading-7 text-tertiary">

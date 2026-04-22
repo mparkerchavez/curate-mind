@@ -86,7 +86,7 @@ export default function SourceEvidenceGroup({
       : "Open original";
 
   return (
-    <section className="border-t border-secondary pt-5 first:border-t-0 first:pt-0">
+    <section className="border-t border-secondary pt-7 first:border-t-0 first:pt-0">
       {/* Source header — no card wrapper, flows with the panel's padding.
           Title + author get full column width; "Open original" sits on its
           own line below so the name isn't squeezed by a side-by-side button. */}

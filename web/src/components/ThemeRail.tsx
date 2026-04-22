@@ -1,6 +1,8 @@
 import { useMemo } from "react";
+import { LegendPopover } from "@/components/LegendPopover";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { comparePositionsByFreshness } from "@/lib/workspace-utils";
+import { THEME_LEGEND_ROWS } from "@/lib/legend-copy";
 import { cn } from "@/lib/cn";
 
 const STATUS_DOT: Record<string, string> = {
@@ -54,12 +56,20 @@ export default function ThemeRail() {
 
         {/* Positions list */}
         <div className="mt-7">
-          <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
-            Positions
-            <span className="ml-1.5 text-quaternary/70 tabular-nums">
-              {sortedPositions.length}
-            </span>
-          </p>
+          <div className="flex items-center gap-1.5">
+            <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
+              Positions
+              <span className="ml-1.5 text-quaternary/70 tabular-nums">
+                {sortedPositions.length}
+              </span>
+            </p>
+            <LegendPopover
+              heading="Position status"
+              rows={THEME_LEGEND_ROWS}
+              ariaLabel="What do position status labels mean?"
+              placement="bottom start"
+            />
+          </div>
           <nav className="mt-2 -mx-2">
             {sortedPositions.map((position: any) => {
               const isActive = String(position._id) === activePositionId;

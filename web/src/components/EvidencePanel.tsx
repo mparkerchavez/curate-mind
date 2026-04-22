@@ -85,7 +85,7 @@ export default function EvidencePanel() {
                   </span>
                 </div>
                 <p className="mt-1 text-xs text-tertiary">{section.subtitle}</p>
-                <div className="mt-5 space-y-5">
+                <div className="mt-5 space-y-7">
                   {groups.map((group) => (
                     <SourceEvidenceGroup
                       key={group.key}
