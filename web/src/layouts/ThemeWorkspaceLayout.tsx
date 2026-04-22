@@ -44,9 +44,9 @@ export default function ThemeWorkspaceLayout() {
     <div className="flex min-h-full">
       <aside
         style={{ "--rail-width": `${RAIL_WIDTH}px` } as React.CSSProperties}
-        className="sticky top-0 hidden shrink-0 self-start border-r border-secondary bg-primary lg:block lg:w-(--rail-width)"
+        className="sticky top-0 hidden h-screen shrink-0 border-r border-secondary bg-primary lg:block lg:w-(--rail-width)"
       >
-        <div className="flex max-h-screen flex-col overflow-y-auto px-5 py-6">
+        <div className="flex h-full flex-col overflow-y-auto px-5 py-6">
           {/* Theme header */}
           <div>
             <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
