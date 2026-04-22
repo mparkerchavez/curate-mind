@@ -58,9 +58,16 @@ export default function ThemeRail() {
               size="sm"
               selectedKey={themeId}
               onSelectionChange={(key) => {
-                if (key && String(key) !== themeId) {
-                  navigate(`/themes/${key}`);
-                }
+                if (!key || String(key) === themeId) return;
+                const selected = (themes ?? []).find(
+                  (t: any) => String(t._id) === String(key),
+                );
+                const firstPositionId = selected?.firstPositionId;
+                navigate(
+                  firstPositionId
+                    ? `/themes/${key}/positions/${firstPositionId}`
+                    : `/themes/${key}`,
+                );
               }}
               items={themeItems}
               popoverClassName="w-72"

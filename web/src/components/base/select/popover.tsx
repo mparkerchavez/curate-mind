@@ -10,7 +10,7 @@ interface PopoverProps extends AriaPopoverProps, RefAttributes<HTMLElement> {
 export const Popover = (props: PopoverProps) => {
     return (
         <AriaPopover
-            placement="bottom"
+            placement="bottom start"
             containerPadding={0}
             offset={4}
             {...props}
@@ -23,10 +23,9 @@ export const Popover = (props: PopoverProps) => {
                     state.isExiting &&
                         "duration-100 ease-in animate-out fade-out placement-right:slide-out-to-left-0.5 placement-top:slide-out-to-bottom-0.5 placement-bottom:slide-out-to-top-0.5",
 
-                    props.size === "sm" && "max-h-56!",
-                    props.size === "md" && "max-h-64!",
-                    props.size === "lg" && "max-h-80!",
-
+                    // React Aria already constrains the popover to the viewport, so
+                    // we don't cap the height here. Consumers that need a fixed cap
+                    // can pass their own max-h via className.
                     typeof props.className === "function" ? props.className(state) : props.className,
                 )
             }

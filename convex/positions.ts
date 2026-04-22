@@ -41,9 +41,25 @@ export const getThemes = query({
           .withIndex("by_themeId", (q) => q.eq("themeId", theme._id))
           .collect();
 
+        // Pick the most recently updated position as the theme's "default" —
+        // used by the rail's theme switcher so picking a theme lands on a
+        // position instead of a blank overview.
+        const positionsWithDates = await Promise.all(
+          positions.map(async (pos) => {
+            const version = pos.currentVersionId
+              ? await ctx.db.get(pos.currentVersionId)
+              : null;
+            return { _id: pos._id, versionDate: version?.versionDate ?? "" };
+          })
+        );
+        positionsWithDates.sort((a, b) =>
+          String(b.versionDate).localeCompare(String(a.versionDate))
+        );
+
         return {
           ...theme,
           positionCount: positions.length,
+          firstPositionId: positionsWithDates[0]?._id ?? null,
         };
       })
     );
