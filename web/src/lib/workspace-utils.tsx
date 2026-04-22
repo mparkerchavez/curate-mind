@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/cn";
+import { Tooltip } from "@/components/base/tooltip/tooltip";
+import { CITATION_LEGEND } from "@/lib/legend-copy";
 
 /* ── Shared types ── */
 
@@ -321,38 +323,42 @@ export function renderInline(
         ? <sup key={k()} className="ml-0.5 text-[0.65em] italic text-quaternary">{t.number}</sup>
         : <span key={k()} className="text-quaternary">[{t.label}]</span>;
     }
+    const legend = t.isCounter ? CITATION_LEGEND.counter : CITATION_LEGEND.support;
     if (variant === "superscript") {
       return (
         <sup key={k()} className="ml-0.5">
-          <button
-            type="button"
-            onClick={() => onCitationClick(t.dpId!)}
-            className={cn(
-              "inline-flex min-w-[1.25rem] items-center justify-center rounded px-1 text-[0.65em] font-semibold tabular-nums transition hover:underline",
-              t.isCounter
-                ? "text-warning-primary"
-                : "text-success-primary",
-            )}
-          >
-            {t.number}
-          </button>
+          <Tooltip title={legend.title} description={legend.description} placement="top">
+            <button
+              type="button"
+              onClick={() => onCitationClick(t.dpId!)}
+              className={cn(
+                "inline-flex min-w-[1.25rem] items-center justify-center rounded px-1 text-[0.65em] font-semibold tabular-nums outline-hidden transition hover:underline",
+                t.isCounter
+                  ? "text-warning-primary"
+                  : "text-success-primary",
+              )}
+            >
+              {t.number}
+            </button>
+          </Tooltip>
         </sup>
       );
     }
     return (
-      <button
-        key={k()}
-        type="button"
-        className={cn(
-          "mx-0.5 inline-flex items-center rounded-full border px-2 py-0 text-[0.7rem] font-semibold leading-5 transition",
-          t.isCounter
-            ? "border-utility-yellow-200 bg-warning-primary text-warning-primary hover:bg-utility-yellow-100"
-            : "border-utility-green-200 bg-success-primary text-success-primary hover:bg-utility-green-100",
-        )}
-        onClick={() => onCitationClick(t.dpId!)}
-      >
-        {t.label}
-      </button>
+      <Tooltip key={k()} title={legend.title} description={legend.description} placement="top">
+        <button
+          type="button"
+          className={cn(
+            "mx-0.5 inline-flex items-center rounded-full border px-2 py-0 text-[0.7rem] font-semibold leading-5 outline-hidden transition",
+            t.isCounter
+              ? "border-utility-yellow-200 bg-warning-primary text-warning-primary hover:bg-utility-yellow-100"
+              : "border-utility-green-200 bg-success-primary text-success-primary hover:bg-utility-green-100",
+          )}
+          onClick={() => onCitationClick(t.dpId!)}
+        >
+          {t.label}
+        </button>
+      </Tooltip>
     );
   };
 

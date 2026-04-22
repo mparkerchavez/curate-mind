@@ -3,8 +3,10 @@ import { ArrowRight } from "@untitledui/icons";
 import { Badge, BadgeWithDot } from "@/components/base/badges/badges";
 import { LoadingIndicator } from "@/components/application/loading-indicator/loading-indicator";
 import { ConfidenceBadge, StatusBadge } from "@/components/Badges";
+import { LegendPopover } from "@/components/LegendPopover";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { comparePositionsByFreshness, formatDateLabel, getThemePosture, summarizeText } from "@/lib/workspace-utils";
+import { THEME_LEGEND_ROWS } from "@/lib/legend-copy";
 
 export default function ThemePage() {
   const { activeTheme, themePositions, navigate } = useWorkspace();
@@ -34,9 +36,18 @@ export default function ThemePage() {
         <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
           Theme overview
         </p>
-        <h1 className="mt-3 text-display-xs font-semibold tracking-[-0.02em] text-primary">
-          {activeTheme.title}
-        </h1>
+        <div className="mt-3 flex items-start gap-2">
+          <h1 className="text-display-xs font-semibold tracking-[-0.02em] text-primary">
+            {activeTheme.title}
+          </h1>
+          <span className="mt-2">
+            <LegendPopover
+              heading="Position status"
+              rows={THEME_LEGEND_ROWS}
+              ariaLabel="What do position status labels mean?"
+            />
+          </span>
+        </div>
         <p className="mt-3 max-w-3xl text-base leading-8 text-tertiary">
           {activeTheme.description ?? "Open a position to see the current stance and evidence chain."}
         </p>
@@ -93,8 +104,8 @@ export default function ThemePage() {
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      {status && <StatusBadge status={status} />}
-                      {confidence && <ConfidenceBadge confidence={confidence} />}
+                      {status && <StatusBadge status={status} withTooltip={false} />}
+                      {confidence && <ConfidenceBadge confidence={confidence} withTooltip={false} />}
                     </div>
                     <p className="mt-3 text-base font-semibold leading-7 text-primary">{position.title}</p>
                     {stance && (

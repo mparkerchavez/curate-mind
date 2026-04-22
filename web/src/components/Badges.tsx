@@ -1,4 +1,6 @@
 import { Badge, BadgeWithDot } from "@/components/base/badges/badges";
+import { Tooltip, TooltipTrigger } from "@/components/base/tooltip/tooltip";
+import { CONFIDENCE_LEGEND, STATUS_LEGEND } from "@/lib/legend-copy";
 
 type Status = "emerging" | "active" | "established" | "evolved" | "retired";
 type Confidence = "emerging" | "active" | "established" | "strong" | "moderate" | "suggestive";
@@ -7,8 +9,8 @@ const STATUS_COLORS = {
   emerging: "warning",
   active: "brand",
   established: "success",
-  evolved: "gray",
-  retired: "gray",
+  evolved: "blue",
+  retired: "error",
 } as const;
 
 const CONFIDENCE_COLORS = {
@@ -30,37 +32,62 @@ function prettify(value: string) {
   return value.replace(/-/g, " ");
 }
 
-export function StatusBadge({ status }: { status: Status }) {
-  return (
+export function StatusBadge({
+  status,
+  withTooltip = true,
+}: {
+  status: Status;
+  /** Set false when nested inside a `<button>` (e.g. clickable card) to avoid invalid HTML. */
+  withTooltip?: boolean;
+}) {
+  const badge = (
     <BadgeWithDot type="pill-color" size="sm" color={STATUS_COLORS[status] ?? "gray"}>
       {prettify(status)}
     </BadgeWithDot>
+  );
+
+  const legend = STATUS_LEGEND[status];
+  if (!withTooltip || !legend) return badge;
+
+  return (
+    <Tooltip title={legend.title} description={legend.description} placement="top">
+      <TooltipTrigger className="cursor-default rounded-full">{badge}</TooltipTrigger>
+    </Tooltip>
   );
 }
 
 export function ConfidenceBadge({
   confidence,
+  withTooltip = true,
 }: {
   confidence: Confidence | undefined;
+  /** Set false when nested inside a `<button>` (e.g. clickable card) to avoid invalid HTML. */
+  withTooltip?: boolean;
 }) {
   if (!confidence) return null;
 
-  if (
+  const isSharedLabel =
     confidence === "emerging" ||
     confidence === "active" ||
-    confidence === "established"
-  ) {
-    return (
-      <BadgeWithDot type="pill-color" size="sm" color={STATUS_COLORS[confidence]}>
-        confidence {confidence}
-      </BadgeWithDot>
-    );
-  }
+    confidence === "established";
 
-  return (
+  const badge = isSharedLabel ? (
+    <BadgeWithDot type="pill-color" size="sm" color={STATUS_COLORS[confidence]}>
+      confidence {confidence}
+    </BadgeWithDot>
+  ) : (
     <BadgeWithDot type="pill-color" size="sm" color={CONFIDENCE_COLORS[confidence]}>
       {confidence}
     </BadgeWithDot>
+  );
+
+  const legend = isSharedLabel ? CONFIDENCE_LEGEND[confidence] : undefined;
+  if (!withTooltip || !legend) return badge;
+
+  return (
+    <Tooltip title={legend.title} description={legend.description} placement="top">
+      <TooltipTrigger className="cursor-default rounded-full">{badge}</TooltipTrigger>
+    </Tooltip>
   );
 }
 

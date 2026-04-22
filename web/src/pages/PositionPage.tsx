@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef } from "react";
 import { Badge } from "@/components/base/badges/badges";
 import { LoadingIndicator } from "@/components/application/loading-indicator/loading-indicator";
+import { LegendPopover } from "@/components/LegendPopover";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { formatDateLabel, renderAnswerBlocks } from "@/lib/workspace-utils";
+import { POSITION_LEGEND_ROWS } from "@/lib/legend-copy";
 
 export default function PositionPage() {
   const { positionDetail, handleCitationClick, highlightedEvidenceId } = useWorkspace();
@@ -57,9 +59,18 @@ export default function PositionPage() {
     <div className="mx-auto max-w-4xl px-6 py-8">
       {/* Position header — open canvas, no card wrapper */}
       <header>
-        <h1 className="text-display-md font-semibold tracking-[-0.02em] text-primary">
-          {positionDetail.title}
-        </h1>
+        <div className="flex items-start gap-3">
+          <h1 className="text-display-md font-semibold tracking-[-0.02em] text-primary">
+            {positionDetail.title}
+          </h1>
+          <span className="mt-3">
+            <LegendPopover
+              heading="Position labels"
+              rows={POSITION_LEGEND_ROWS}
+              ariaLabel="What do position status and confidence labels mean?"
+            />
+          </span>
+        </div>
         {metaBits.length > 0 && (
           <p className="mt-2 text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
             {metaBits.join(" \u00b7 ")}

@@ -1,8 +1,10 @@
 import { useEffect } from "react";
 import { Badge } from "@/components/base/badges/badges";
 import SourceEvidenceGroup from "@/components/SourceEvidenceGroup";
+import { LegendPopover } from "@/components/LegendPopover";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { groupDataPointsBySource } from "@/lib/workspace-utils";
+import { EVIDENCE_LEGEND_ROWS } from "@/lib/legend-copy";
 
 /**
  * Persistent right-side evidence panel.
@@ -39,7 +41,15 @@ export default function EvidencePanel() {
       {/* Panel header */}
       <div className="shrink-0 border-b border-secondary px-4 py-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-primary">Evidence</h2>
+          <div className="flex items-center gap-1.5">
+            <h2 className="text-sm font-semibold text-primary">Evidence</h2>
+            <LegendPopover
+              heading="Citation labels"
+              rows={EVIDENCE_LEGEND_ROWS}
+              ariaLabel="What do E# and C# citation labels mean?"
+              placement="bottom end"
+            />
+          </div>
           <Badge type="color" size="sm" color="gray">
             {totalItems}
           </Badge>
