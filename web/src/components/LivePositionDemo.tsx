@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useQuery } from "convex/react";
 import { ArrowRight } from "@untitledui/icons";
 import { Badge } from "@/components/base/badges/badges";
@@ -6,7 +6,9 @@ import { Button } from "@/components/base/buttons/button";
 import SourceEvidenceGroup from "./SourceEvidenceGroup";
 import { api, type Id } from "@/api";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { cn } from "@/lib/cn";
 import {
+  computeStanceReferencedDpIds,
   formatDateLabel,
   groupDataPointsBySource,
   renderAnswerBlocks,
@@ -16,27 +18,29 @@ import {
  * LivePositionDemo — a self-contained "mini app" on the home page that
  * showcases how claims, evidence, and sources connect in Curate Mind.
  *
- * Reuses the exact same components the rest of the app uses:
- *   - renderAnswerBlocks for stance text + citation pills
- *   - SourceEvidenceGroup for evidence rendered by source
- *   - groupDataPointsBySource for grouping logic
- * So any change to the research "viewer" propagates here automatically.
- *
- * Layout: a bordered card container with a fixed height. The position
- * column and the evidence column scroll independently inside it. A
- * footer bar with "Open full position →" stays pinned and visible.
- *
- * Interactions (same grammar as Position/Ask pages):
- *   - Click a citation pill in the stance: matching claim row in the
- *     evidence column highlights and scrolls into view.
- *   - Click a claim row: the claim highlights; its citation pill in the
- *     stance also visually highlights via the shared activeId.
+ * Reuses the same grammar as the main EvidencePanel on the Position page:
+ *   - Three sticky sections (Supporting / Counter / Also attached) with
+ *     bold section-colored titles and border-y framing.
+ *   - Evidence whose DP id is referenced in the stance text (via [E#]/[C#]
+ *     tokens) stays in its primary section. Everything else collapses into
+ *     Also attached with a grey marker but consistent claim text.
+ *   - Counter and Also attached always render so the taxonomy stays legible.
  */
 
 const CONTAINER_HEIGHT = 640; // px
 
 type LivePositionDemoProps = {
   positionId: Id<"researchPositions"> | string | undefined;
+};
+
+type DemoSection = {
+  key: string;
+  title: string;
+  subtitle: string;
+  items: any[];
+  variant: "support" | "counter" | "also-attached";
+  dimmed?: boolean;
+  emptyMessage?: string;
 };
 
 export function LivePositionDemo({ positionId }: LivePositionDemoProps) {
@@ -51,56 +55,87 @@ export function LivePositionDemo({ positionId }: LivePositionDemoProps) {
   // so clicking an evidence card doesn't end up scrolling the whole page.
   const positionColRef = useRef<HTMLDivElement>(null);
 
-  if (!positionId) return null;
-  if (!detail) return <LoadingSkeleton />;
-
-  const theme = detail.theme;
-  const currentVersion = detail.currentVersion;
-  const stance: string = currentVersion?.currentStance ?? "";
+  const currentVersion = detail?.currentVersion;
   const supportingEvidence: any[] = currentVersion?.supportingEvidenceDetails ?? [];
   const counterEvidence: any[] = currentVersion?.counterEvidenceDetails ?? [];
-  const totalEvidenceCount = supportingEvidence.length + counterEvidence.length;
+  const stance: string = currentVersion?.currentStance ?? "";
 
   // Build citation label maps expected by renderAnswerBlocks and
   // SourceEvidenceGroup. Supporting evidence uses E1, E2, ...; counter
   // evidence uses C1, C2, ... Both live in the same maps so the stance
   // text's [E1] and [C1] citations can both resolve to their cards.
-  const citationMap = new Map<string, string>();
-  const labelByDpId: Record<string, string> = {};
-  supportingEvidence.forEach((dp: any, i: number) => {
-    if (dp?._id) {
-      const label = `E${i + 1}`;
-      citationMap.set(label, dp._id);
-      labelByDpId[dp._id] = label;
-    }
-  });
-  counterEvidence.forEach((dp: any, i: number) => {
-    if (dp?._id) {
-      const label = `C${i + 1}`;
-      citationMap.set(label, dp._id);
-      labelByDpId[dp._id] = label;
-    }
-  });
+  const { citationMap, labelByDpId } = useMemo(() => {
+    const cm = new Map<string, string>();
+    const labels: Record<string, string> = {};
+    supportingEvidence.forEach((dp: any, i: number) => {
+      if (dp?._id) {
+        const label = `E${i + 1}`;
+        cm.set(label, dp._id);
+        labels[dp._id] = label;
+      }
+    });
+    counterEvidence.forEach((dp: any, i: number) => {
+      if (dp?._id) {
+        const label = `C${i + 1}`;
+        cm.set(label, dp._id);
+        labels[dp._id] = label;
+      }
+    });
+    return { citationMap: cm, labelByDpId: labels };
+  }, [supportingEvidence, counterEvidence]);
 
-  // Two sections, matching EvidencePanel's structure on Position pages.
-  // Filter drops empty sections so we do not render a header with zero
-  // items when a position has no counter evidence (or none at all).
-  const evidenceSections = [
-    {
-      key: "support" as const,
-      title: "Supporting evidence",
-      subtitle: "Evidence attached to this position version.",
-      items: supportingEvidence,
-      isCounter: false,
-    },
-    {
-      key: "counter" as const,
-      title: "Counter evidence",
-      subtitle: "Signals that narrow, qualify, or challenge the current stance.",
-      items: counterEvidence,
-      isCounter: true,
-    },
-  ].filter((section) => section.items.length > 0);
+  // Three-section split. DPs referenced inline in the stance stay in their
+  // primary section; everything else becomes Also attached.
+  const sections = useMemo<DemoSection[]>(() => {
+    const referenced = computeStanceReferencedDpIds(
+      stance,
+      supportingEvidence,
+      counterEvidence,
+    );
+    const supportReferenced = supportingEvidence.filter((dp: any) =>
+      referenced.has(dp._id),
+    );
+    const counterReferenced = counterEvidence.filter((dp: any) =>
+      referenced.has(dp._id),
+    );
+    const alsoAttached = [
+      ...supportingEvidence.filter((dp: any) => !referenced.has(dp._id)),
+      ...counterEvidence.filter((dp: any) => !referenced.has(dp._id)),
+    ];
+    return [
+      {
+        key: "support",
+        title: "Supporting evidence",
+        subtitle: "Evidence attached to this position version.",
+        items: supportReferenced,
+        variant: "support",
+        emptyMessage: "No supporting evidence named in the stance.",
+      },
+      {
+        key: "counter",
+        title: "Counter evidence",
+        subtitle: "Signals that narrow, qualify, or challenge the current stance.",
+        items: counterReferenced,
+        variant: "counter",
+        emptyMessage: "No counter evidence named in the stance.",
+      },
+      {
+        key: "also-attached",
+        title: "Also attached",
+        subtitle: "Filed under this position but not named in the stance.",
+        items: alsoAttached,
+        variant: "also-attached",
+        dimmed: true,
+        emptyMessage: "Everything attached here is named in the stance.",
+      },
+    ];
+  }, [stance, supportingEvidence, counterEvidence]);
+
+  if (!positionId) return null;
+  if (!detail) return <LoadingSkeleton />;
+
+  const theme = detail.theme;
+  const totalEvidenceCount = supportingEvidence.length + counterEvidence.length;
 
   // Citation → card: scroll the evidence card into view within the evidence
   // column. Relies on SourceEvidenceGroup's id={`evidence-card-${dp._id}`}.
@@ -182,7 +217,7 @@ export function LivePositionDemo({ positionId }: LivePositionDemoProps) {
             aria-label="Evidence"
             className="flex min-h-0 flex-col border-secondary bg-secondary_subtle lg:border-l"
           >
-            {/* Evidence header (sticky-feeling via shrink-0) */}
+            {/* Evidence panel header */}
             <div className="flex shrink-0 items-center justify-between border-b border-secondary bg-primary px-5 py-3">
               <p className="text-sm font-semibold text-primary">Evidence</p>
               <Badge type="color" size="sm" color="gray">
@@ -190,58 +225,66 @@ export function LivePositionDemo({ positionId }: LivePositionDemoProps) {
               </Badge>
             </div>
 
-            {/* Evidence list, scrollable. One block per section
-                (supporting / counter), matching EvidencePanel. */}
-            <div className="flex-1 overflow-y-auto px-4 py-4">
-              {evidenceSections.length === 0 ? (
-                <p className="text-sm text-tertiary">
-                  No evidence attached to this position yet.
-                </p>
-              ) : (
-                <div className="space-y-6">
-                  {evidenceSections.map((section) => {
-                    const groups = groupDataPointsBySource(section.items);
-                    return (
-                      <div key={section.key}>
-                        <div className="flex items-center justify-between">
-                          <p
-                            className={
-                              section.isCounter
-                                ? "text-xs font-medium uppercase tracking-[0.14em] text-warning-primary"
-                                : "text-xs font-medium uppercase tracking-[0.14em] text-quaternary"
-                            }
-                          >
-                            {section.title}
-                          </p>
-                          <span
-                            className={
-                              section.isCounter
-                                ? "rounded-full bg-warning-primary px-2 py-0.5 text-xs font-semibold tabular-nums text-warning-primary"
-                                : "text-xs tabular-nums text-quaternary"
-                            }
-                          >
-                            {section.items.length}
-                          </span>
-                        </div>
-                        <p className="mt-1 text-xs text-tertiary">
-                          {section.subtitle}
+            {/* Scroll area — no horizontal padding; each section owns its
+                own px-5 so sticky headers can span edge-to-edge with a
+                clean top + bottom border. */}
+            <div className="flex-1 overflow-y-auto pb-4">
+              {sections.map((section) => {
+                const isCounter = section.variant === "counter";
+                const groups = groupDataPointsBySource(section.items);
+                const titleColorClass = isCounter
+                  ? "text-warning-primary"
+                  : section.variant === "support"
+                    ? "text-success-primary"
+                    : "text-quaternary";
+                return (
+                  <section key={section.key}>
+                    <div className="sticky top-0 z-10 border-y border-secondary bg-primary px-5 py-3">
+                      <div className="flex items-center justify-between">
+                        <p
+                          className={cn(
+                            "text-xs font-semibold uppercase tracking-[0.14em]",
+                            titleColorClass,
+                          )}
+                        >
+                          {section.title}
                         </p>
-                        <div className="mt-3 space-y-3">
+                        <span
+                          className={cn(
+                            "text-xs font-semibold tabular-nums",
+                            titleColorClass,
+                          )}
+                        >
+                          {section.items.length}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-tertiary">
+                        {section.subtitle}
+                      </p>
+                    </div>
+                    <div className="px-5 pt-5 pb-7">
+                      {groups.length > 0 ? (
+                        <div className="space-y-7">
                           {groups.map((group) => (
                             <SourceEvidenceGroup
                               key={group.key}
                               group={group}
                               highlightedId={activeId}
                               labelByDpId={labelByDpId}
-                              onClaimClick={handleCardClick}
+                              onClaimClick={section.dimmed ? undefined : handleCardClick}
+                              dimmed={section.dimmed}
                             />
                           ))}
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+                      ) : (
+                        <p className="text-sm italic text-tertiary">
+                          {section.emptyMessage}
+                        </p>
+                      )}
+                    </div>
+                  </section>
+                );
+              })}
             </div>
           </aside>
         </div>
