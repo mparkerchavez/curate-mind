@@ -56,14 +56,14 @@ export default function PositionPage() {
   const stanceText = version?.currentStance ?? "No stance has been written for this position yet.";
 
   return (
-    <div className="mx-auto max-w-4xl px-6 py-8">
+    <div className="mx-auto max-w-2xl px-6 py-10 lg:py-12 2xl:max-w-3xl">
       {/* Position header — open canvas, no card wrapper */}
       <header>
         <div className="flex items-start gap-3">
-          <h1 className="text-display-md font-semibold tracking-[-0.02em] text-primary">
+          <h1 className="text-[1.75rem] font-semibold leading-[1.2] tracking-[-0.02em] text-primary 2xl:text-display-sm">
             {positionDetail.title}
           </h1>
-          <span className="mt-3">
+          <span className="mt-1.5 shrink-0 2xl:mt-2.5">
             <LegendPopover
               heading="Position labels"
               rows={POSITION_LEGEND_ROWS}

@@ -3,11 +3,10 @@ import { Link } from "react-router-dom";
 import { ArrowRight, ChevronRight, LayersThree01, SearchLg } from "@untitledui/icons";
 import EvidencePanel from "@/components/EvidencePanel";
 import { GitHubIcon } from "@/components/GitHubIcon";
+import ThemeRail from "@/components/ThemeRail";
 import { GITHUB_URL } from "@/config/homepage";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { cn } from "@/lib/cn";
-
-const EVIDENCE_PANEL_WIDTH = 440;
 
 export default function AppShell({ children }: { children: ReactNode }) {
   const {
@@ -35,6 +34,10 @@ export default function AppShell({ children }: { children: ReactNode }) {
     routeKind === "position" ||
     routeKind === "source";
   const hasEvidence = isEvidenceRoute && evidenceSections.length > 0;
+
+  // The theme rail lives on theme + position routes. It sits as a sibling
+  // of <main> so it stays visually pinned without `position: sticky`.
+  const showThemeRail = routeKind === "theme" || routeKind === "position";
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-secondary">
@@ -99,19 +102,18 @@ export default function AppShell({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      {/* Body — main content + optional evidence panel */}
+      {/* Body — optional left rail + main content + optional evidence panel */}
       <div className="flex min-h-0 flex-1">
+        {showThemeRail && <ThemeRail />}
+
         <main className="min-w-0 flex-1 overflow-y-auto">
           {children}
         </main>
 
         {/* Evidence panel — right side, desktop only, visible when there's evidence.
-            Fixed pixel width via CSS custom property, matching UUI's sidebar pattern. */}
+            Narrower on small laptops (≥1024) and bumps up at ≥1440. */}
         {hasEvidence && (
-          <aside
-            style={{ "--width": `${EVIDENCE_PANEL_WIDTH}px` } as React.CSSProperties}
-            className="hidden shrink-0 overflow-hidden border-l border-secondary bg-primary lg:block lg:w-(--width)"
-          >
+          <aside className="hidden shrink-0 overflow-hidden border-l border-secondary bg-primary lg:block lg:w-[400px] 2xl:w-[440px]">
             <EvidencePanel />
           </aside>
         )}
