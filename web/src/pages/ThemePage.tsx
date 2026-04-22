@@ -1,15 +1,21 @@
 import { useMemo } from "react";
-import { ArrowRight } from "@untitledui/icons";
-import { Badge, BadgeWithDot } from "@/components/base/badges/badges";
+import { BadgeWithDot } from "@/components/base/badges/badges";
 import { LoadingIndicator } from "@/components/application/loading-indicator/loading-indicator";
-import { ConfidenceBadge, StatusBadge } from "@/components/Badges";
 import { LegendPopover } from "@/components/LegendPopover";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
-import { comparePositionsByFreshness, formatDateLabel, getThemePosture, summarizeText } from "@/lib/workspace-utils";
+import { comparePositionsByFreshness, getThemePosture } from "@/lib/workspace-utils";
 import { THEME_LEGEND_ROWS } from "@/lib/legend-copy";
 
+/**
+ * Theme overview — renders in the middle column of ThemeWorkspaceLayout
+ * when no position is selected. The left rail handles the positions list,
+ * so this page focuses on context: what the theme is and how it's trending.
+ *
+ * The posture cards below are a transitional state — commit 3 will
+ * simplify them into a compact meta line.
+ */
 export default function ThemePage() {
-  const { activeTheme, themePositions, navigate } = useWorkspace();
+  const { activeTheme, themePositions } = useWorkspace();
 
   const sortedPositions = useMemo(
     () => [...(themePositions ?? [])].sort(comparePositionsByFreshness),
@@ -49,7 +55,7 @@ export default function ThemePage() {
           </span>
         </div>
         <p className="mt-3 max-w-3xl text-base leading-8 text-tertiary">
-          {activeTheme.description ?? "Open a position to see the current stance and evidence chain."}
+          {activeTheme.description ?? "Open a position from the left to see the current stance and evidence chain."}
         </p>
 
         <div className="mt-5 flex flex-wrap gap-2">
@@ -65,7 +71,7 @@ export default function ThemePage() {
         </div>
       </section>
 
-      {/* Posture cards */}
+      {/* Posture cards — transitional; commit 3 will simplify or remove. */}
       <div className="mt-6 grid gap-3 md:grid-cols-3">
         {posture.cards.map((card) => (
           <div key={card.label} className="rounded-2xl border border-secondary bg-primary p-4">
@@ -77,58 +83,6 @@ export default function ThemePage() {
           </div>
         ))}
       </div>
-
-      {/* Positions list */}
-      <section className="mt-8">
-        <div className="flex items-end justify-between">
-          <h2 className="text-xl font-semibold text-primary">Positions</h2>
-          <Badge type="color" size="sm" color="gray">
-            {sortedPositions.length} total
-          </Badge>
-        </div>
-
-        <div className="mt-4 space-y-3">
-          {sortedPositions.map((position: any) => {
-            const stance = position.currentVersion?.currentStance ?? position.currentStance;
-            const confidence = position.currentVersion?.confidenceLevel ?? position.confidenceLevel;
-            const status = position.currentVersion?.status ?? position.status;
-            const versionDate = position.currentVersion?.versionDate ?? position.versionDate;
-
-            return (
-              <button
-                key={position._id}
-                type="button"
-                onClick={() => navigate(`/themes/${activeTheme._id}/positions/${position._id}`)}
-                className="group w-full rounded-2xl border border-secondary bg-primary px-5 py-4 text-left transition hover:border-brand hover:bg-secondary_subtle"
-              >
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      {status && <StatusBadge status={status} withTooltip={false} />}
-                      {confidence && <ConfidenceBadge confidence={confidence} withTooltip={false} />}
-                    </div>
-                    <p className="mt-3 text-base font-semibold leading-7 text-primary">{position.title}</p>
-                    {stance && (
-                      <p className="mt-2 text-sm leading-7 text-tertiary">
-                        {summarizeText(stance, 220)}
-                      </p>
-                    )}
-                    {versionDate && (
-                      <p className="mt-2 text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
-                        Updated {formatDateLabel(versionDate)}
-                      </p>
-                    )}
-                  </div>
-                  <div className="inline-flex shrink-0 items-center gap-2 text-sm font-semibold text-brand-secondary">
-                    Open
-                    <ArrowRight className="size-4 transition group-hover:translate-x-1" />
-                  </div>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </section>
     </div>
   );
 }
