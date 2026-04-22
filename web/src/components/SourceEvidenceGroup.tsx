@@ -16,6 +16,12 @@ type Props = {
   labelByDpId?: Record<string, string>;
   /** When provided, clicking a claim row calls this with the data point ID. */
   onClaimClick?: (dpId: string) => void;
+  /**
+   * When true, rows render in a subdued "Also attached" style: no click-to-scroll
+   * affordance, muted claim text, smaller marker. Used for evidence that is
+   * attached to the position but not referenced inline in the stance.
+   */
+  dimmed?: boolean;
 };
 
 /**
@@ -44,6 +50,7 @@ export default function SourceEvidenceGroup({
   citedIds,
   labelByDpId,
   onClaimClick,
+  dimmed = false,
 }: Props) {
   const source = group.source;
   const publisher = source?.publisherName?.trim() || null;
@@ -137,7 +144,7 @@ export default function SourceEvidenceGroup({
           {group.claims.map((claim: any, idx: number) => {
             const isHighlighted = highlightedId === claim._id;
             const isCited = citedSet.has(claim._id);
-            const isClickable = !!onClaimClick;
+            const isClickable = !!onClaimClick && !dimmed;
             const label = labelByDpId?.[claim._id];
             const isCounter = label?.startsWith("C") ?? false;
             const markerText = label ?? String(idx + 1);
@@ -156,13 +163,15 @@ export default function SourceEvidenceGroup({
                   className={cn(
                     "shrink-0 text-sm font-semibold tabular-nums tracking-[0.02em]",
                     label ? "w-7" : "w-5",
-                    isCounter
-                      ? "text-warning-primary"
-                      : label
-                        ? "text-success-primary"
-                        : isCited
+                    dimmed
+                      ? "text-quaternary"
+                      : isCounter
+                        ? "text-warning-primary"
+                        : label
                           ? "text-success-primary"
-                          : "text-quaternary",
+                          : isCited
+                            ? "text-success-primary"
+                            : "text-quaternary",
                   )}
                   aria-hidden="true"
                 >

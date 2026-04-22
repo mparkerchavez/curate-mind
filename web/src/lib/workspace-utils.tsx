@@ -36,7 +36,39 @@ export type EvidenceSection = {
   cited?: boolean;
   /** Map from data point id → citation label ("E2", "C1") used as the evidence-card marker. */
   labelByDpId?: Record<string, string>;
+  /**
+   * DP ids actually referenced inline in the stance text (via [E#]/[C#] tokens).
+   * When present, items NOT in this set render as a subdued "Also attached"
+   * subgroup and lose their click-to-scroll affordance. Only populated for
+   * the position context — ask/source contexts leave this undefined so every
+   * card stays fully clickable.
+   */
+  referencedDpIds?: Set<string>;
 };
+
+/**
+ * Scan a stance text for [E#]/[C#] citation tokens and return the set of
+ * data point ids they resolve to, via the supporting/counter arrays' ordering.
+ */
+export function computeStanceReferencedDpIds(
+  stanceText: string,
+  supportingDetails: any[],
+  counterDetails: any[],
+): Set<string> {
+  const labelToId = new Map<string, string>();
+  supportingDetails.forEach((dp, i) => {
+    if (dp?._id) labelToId.set(`E${i + 1}`, dp._id);
+  });
+  counterDetails.forEach((dp, i) => {
+    if (dp?._id) labelToId.set(`C${i + 1}`, dp._id);
+  });
+  const referenced = new Set<string>();
+  for (const match of stanceText.matchAll(/\[(E|C)(\d+)\]/g)) {
+    const dpId = labelToId.get(`${match[1]}${match[2]}`);
+    if (dpId) referenced.add(dpId);
+  }
+  return referenced;
+}
 
 export type SourceGroupSource = {
   _id: string;

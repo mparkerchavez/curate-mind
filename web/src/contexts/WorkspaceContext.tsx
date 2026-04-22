@@ -11,6 +11,7 @@ import {
   type Turn,
   type RouteKind,
   type EvidenceSection,
+  computeStanceReferencedDpIds,
 } from "@/lib/workspace-utils";
 
 type WorkspaceState = {
@@ -170,17 +171,25 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       ].filter((s) => s.items.length > 0);
     }
     if (positionDetail?.currentVersion) {
+      const version = positionDetail.currentVersion;
+      const supportingDetails = version.supportingEvidenceDetails ?? [];
+      const counterDetails = version.counterEvidenceDetails ?? [];
       const supportLabels: Record<string, string> = {};
-      (positionDetail.currentVersion.supportingEvidenceDetails ?? []).forEach((dp: any, i: number) => {
+      supportingDetails.forEach((dp: any, i: number) => {
         if (dp?._id) supportLabels[dp._id] = `E${i + 1}`;
       });
       const counterLabels: Record<string, string> = {};
-      (positionDetail.currentVersion.counterEvidenceDetails ?? []).forEach((dp: any, i: number) => {
+      counterDetails.forEach((dp: any, i: number) => {
         if (dp?._id) counterLabels[dp._id] = `C${i + 1}`;
       });
+      const referencedDpIds = computeStanceReferencedDpIds(
+        version.currentStance ?? "",
+        supportingDetails,
+        counterDetails,
+      );
       return [
-        { key: "support", title: "Supporting evidence", subtitle: "Evidence attached to this position version.", items: positionDetail.currentVersion.supportingEvidenceDetails ?? [], labelByDpId: supportLabels },
-        { key: "counter", title: "Counter evidence", subtitle: "Signals that narrow, qualify, or challenge the current stance.", items: positionDetail.currentVersion.counterEvidenceDetails ?? [], variant: "counter" as const, labelByDpId: counterLabels },
+        { key: "support", title: "Supporting evidence", subtitle: "Evidence attached to this position version.", items: supportingDetails, variant: "support" as const, labelByDpId: supportLabels, referencedDpIds },
+        { key: "counter", title: "Counter evidence", subtitle: "Signals that narrow, qualify, or challenge the current stance.", items: counterDetails, variant: "counter" as const, labelByDpId: counterLabels, referencedDpIds },
       ].filter((s) => s.items.length > 0);
     }
     if (sourceDetail) {
