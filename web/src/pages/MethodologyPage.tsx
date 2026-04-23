@@ -7,13 +7,16 @@ import { LivePositionDemo } from "@/components/LivePositionDemo";
 import { FLAGSHIP_POSITION_ID, GITHUB_URL } from "@/config/homepage";
 
 /**
- * MethodologyPage — explains how the research method works, walked
- * through with a real article from the corpus. Structure:
+ * MethodologyPage explains the research method, walked through with a real
+ * article from the corpus. Structure:
  *
- *   Hero → Workflow visual → Steps 01-04 (how research is made)
- *   → Depth on your terms (how you read it, with the live demo inline)
- *   → What using it actually looks like (MCP section, user-experience framing)
- *   → Footer
+ *   Hero (problem + promise)
+ *   Workflow strip (four anchor-linked step cards)
+ *   Steps 01, 02, 03 (curate, extract, connect)
+ *   Live demo band (legend, flagship position demo, compact layer note)
+ *   Step 04 (version, with a v1→v2 timeline from Convex history)
+ *   MCP section (how the system is actually driven)
+ *   Footer
  */
 
 const HBR_URL =
@@ -32,27 +35,36 @@ export default function MethodologyPage() {
             Methodology
           </p>
           <h1 className="mx-auto mt-5 max-w-2xl text-display-lg font-semibold tracking-[-0.025em] text-primary">
-            How the research gets made.
+            A verifiable research base, built one source at a time.
           </h1>
-          <p className="mx-auto mt-5 max-w-2xl text-base leading-8 text-tertiary">
-            The method behind Curate Mind, walked through with a real article
-            from the corpus.
+          <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-secondary">
+            The usual choices: skim summaries you can&apos;t verify, or read
+            the full source you don&apos;t have time for.
+          </p>
+          <p className="mx-auto mt-3 max-w-2xl text-base leading-7 text-tertiary">
+            Curate Mind sits between. A curated point of view you can query,
+            with every claim traceable to the exact sentence in the source.
+            Walked through below with a real article from the corpus.
           </p>
         </div>
       </section>
 
-      {/* Workflow visual — four pill cards connected by arrows */}
-      <div className="mx-auto max-w-4xl px-6 pt-12">
-        <div className="flex items-stretch justify-between gap-2">
-          <FlowCard step="01" title="Curate" body="Choose what makes it in" />
+      {/* Workflow visual: four cards connected by arrows. Each card is a
+          bold visual anchor and links to its corresponding step section. */}
+      <nav
+        aria-label="Method overview"
+        className="mx-auto max-w-5xl px-6 pt-14"
+      >
+        <ol className="flex flex-col items-stretch gap-3 sm:flex-row sm:gap-2">
+          <FlowCard step="01" title="Curate" body="Choose what makes it in" href="#step-01" />
           <FlowArrow />
-          <FlowCard step="02" title="Extract" body="Claims with anchor quotes" />
+          <FlowCard step="02" title="Extract" body="Claims with anchor quotes" href="#step-02" />
           <FlowArrow />
-          <FlowCard step="03" title="Connect" body="Evidence to positions" />
+          <FlowCard step="03" title="Connect" body="Evidence to positions" href="#step-03" />
           <FlowArrow />
-          <FlowCard step="04" title="Version" body="Append-only over time" />
-        </div>
-      </div>
+          <FlowCard step="04" title="Version" body="Append-only over time" href="#step-04" />
+        </ol>
+      </nav>
 
       {/* Body */}
       <div className="mx-auto mt-4 max-w-3xl px-6">
@@ -69,29 +81,25 @@ export default function MethodologyPage() {
           </p>
           <p>
             Credibility comes first. The source has to be worth spending time
-            on. After that, I'm watching for two patterns. One, a topic or
+            on. After that, I&apos;m watching for two patterns: a topic or
             finding that shows up across multiple sources, which tells me a
-            real signal is forming in the field. Two, a genuinely novel angle
-            that nothing else in the corpus is tracking yet.
-          </p>
-          <p>
-            Sometimes I pull a source in simply because the thinker is
-            credible, then let a weekly pass through Claude surface the
-            patterns that connect it to the rest of what I've gathered.
-            Analysis shapes curation in both directions.
+            real signal is forming in the field; or a genuinely novel angle
+            that nothing else in the corpus is tracking yet. Sometimes a
+            credible thinker earns a slot on credibility alone, with the
+            patterns surfacing on a later weekly pass.
           </p>
           <p>
             The corpus is biased on purpose. My background is in Product
             Design and Human-Centered Design, so sources that speak to how
             AI is reshaping design, or how it is meaningfully changing
-            people's lives, weigh heavier. A different curator would keep a
-            different set. That is the point. A curated research base is a
-            point of view made queryable.
+            people&apos;s lives, weigh heavier. A different curator would
+            keep a different set. That is the point. A curated research
+            base is a point of view made queryable.
           </p>
           <ExampleCallout
             label="Example source"
             title="AI Doesn't Reduce Work — It Intensifies It"
-            meta="Harvard Business Review · Aruna Ranganathan and Xingqi Maggie Ye · Feb 2026 · 1,736 words · Tier 2"
+            meta="Harvard Business Review · Aruna Ranganathan and Xingqi Maggie Ye · Feb 2026 · 1,736 words"
             url={HBR_URL}
           >
             <p>
@@ -151,9 +159,8 @@ export default function MethodologyPage() {
           </div>
 
           <p className="mt-6">
-            This one article produced roughly a dozen data points. A longer
-            report can produce fifty. Each one is a small unit of evidence
-            that can later be combined with claims from other sources.
+            This one article produced roughly a dozen data points; longer
+            reports produce fifty or more.
           </p>
         </Step>
 
@@ -168,87 +175,101 @@ export default function MethodologyPage() {
             (broad ongoing questions) and <strong>research positions</strong>{" "}
             (specific stances within a theme). A position states where the
             research currently sits on a question, and lists the data points
-            that support it, the ones that challenge it, and the curator's
+            that support it, the ones that challenge it, and the curator&apos;s
             observations that connect them.
           </p>
           <p>
-            The HBR data points above support a position in the{" "}
-            <em>AI Productivity &amp; Workforce Impact</em> theme on whether
-            AI reduces or intensifies workload at the employee level. They
-            sit alongside data points from other sources across the theme.
+            Below is a working position from the{" "}
+            <em>AI Productivity and Workforce Impact</em> theme. It holds that
+            complex knowledge work benefits more from AI than simple tasks,
+            even after adjusting for lower success rates. The HBR data points
+            from Step 02 attach to a related position in the same theme, on
+            work intensification.
           </p>
         </Step>
+      </div>
 
-        {/* Step 4 */}
+      {/* Legend + live demo + compact layer note on an off-white band.
+          The demo is the visual payoff of Step 03. */}
+      <section className="mt-10 bg-secondary py-12 lg:py-16">
+        <div className="mx-auto max-w-3xl px-6">
+          <div className="rounded-2xl border border-secondary bg-primary px-5 py-4">
+            <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
+              How to read this
+            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2">
+              <LegendChip variant="support" label="Supporting evidence" />
+              <LegendChip variant="counter" label="Counter evidence" />
+              <LegendChip variant="also" label="Also attached" />
+            </div>
+            <p className="mt-3 text-sm text-tertiary">
+              Click a citation in the stance to jump to its evidence. Click a
+              data point to find its citation.
+            </p>
+          </div>
+        </div>
+
+        <div className="mx-auto mt-6 max-w-6xl px-6">
+          <LivePositionDemo positionId={flagshipId} />
+        </div>
+
+        <div className="mx-auto mt-10 max-w-3xl px-6">
+          <div className="rounded-2xl border border-secondary bg-primary px-6 py-5">
+            <p className="text-sm font-semibold text-primary">
+              The four layers you just navigated
+            </p>
+            <p className="mt-2 text-sm leading-6 text-tertiary">
+              Curate Mind exposes four layers between a theme and the
+              original source. You can stop at whichever layer answers the
+              question in front of you.
+            </p>
+            <ul className="mt-4 space-y-2 text-sm leading-6 text-secondary">
+              <li>
+                <strong>Layer 1.</strong> Themes and positions. Summaries.
+                Most questions are answered here.
+              </li>
+              <li>
+                <strong>Layer 2.</strong> Evidence: data points, curator
+                observations, and mental models (named frameworks, analogies,
+                or recurring terms that show up across sources).
+              </li>
+              <li>
+                <strong>Layer 3.</strong> Verbatim anchor quotes from the
+                source, for when the exact wording matters.
+              </li>
+              <li>
+                <strong>Layer 4.</strong> The original article or report, in
+                full.
+              </li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      {/* Step 4 lives after the demo so the reader sees the thing that
+          gets versioned before learning how versioning works. */}
+      <div className="mx-auto max-w-3xl px-6">
         <Step
           number="04"
           title="Version positions over time"
           tagline="Positions are append-only. Each update writes a new version; older versions stay readable."
         >
           <p>
-            Research does not stand still. A new source can reinforce,
+            Research doesn&apos;t stand still. A new source can reinforce,
             qualify, or contradict an existing position. When that happens,
             the position gets a new version, and the old version stays in
-            the history. A stance can be watched evolving from week to week,
-            month to month, quarter to quarter.
+            the history, readable.
           </p>
+
+          <VersionTimeline />
+
           <p>
-            Research is a practice, not a one-time deliverable. Being able
-            to trace a stance back through its versions is part of what a
-            research base is for.
+            Being able to trace a stance back through its versions, and to
+            see when the evidence base expanded, is part of what a research
+            base is for.
           </p>
         </Step>
       </div>
-
-      {/* Depth on your terms — Layers explanation + embedded live demo
-          on an off-white band (bg-secondary). */}
-      <section className="mt-4 bg-secondary py-14 lg:py-16">
-        <div className="mx-auto max-w-3xl px-6">
-          <h2 className="text-2xl font-semibold tracking-[-0.01em] text-primary">
-            Depth on your terms
-          </h2>
-          <p className="mt-3 text-base leading-7 text-tertiary">
-            Not every claim needs the same depth. Curate Mind exposes four
-            layers between a theme and the words in the original source.
-            You do not have to read every article to trust the research,
-            but if a claim matters enough to check, the path all the way
-            down is always open.
-          </p>
-
-          <ul className="mt-6 space-y-3 text-secondary">
-            <LayerRow
-              layer="Layer 1"
-              title="Themes & Positions"
-              description="Summaries. Most questions are answered here."
-            />
-            <LayerRow
-              layer="Layer 2"
-              title="Evidence"
-              description="Data points, curator observations, mental models."
-            />
-            <LayerRow
-              layer="Layer 3"
-              title="Verbatim quotes"
-              description="The exact language used in the source, for when the wording matters."
-            />
-            <LayerRow
-              layer="Layer 4"
-              title="Full source"
-              description="The original article or report, for when you want to read it end to end."
-            />
-          </ul>
-
-          <p className="mt-6 text-sm text-tertiary">
-            Try it. Click a citation in the stance below to see the data
-            point behind the claim. Click a data point to find its
-            citation in the stance.
-          </p>
-        </div>
-
-        <div className="mx-auto mt-10 max-w-6xl px-6">
-          <LivePositionDemo positionId={flagshipId} />
-        </div>
-      </section>
 
       {/* What using it actually looks like (MCP) */}
       <section className="mx-auto mt-16 max-w-3xl px-6">
@@ -262,27 +283,16 @@ export default function MethodologyPage() {
               Curate Mind is not maintained through this front end. The
               curation, extraction, position updates, and question answering
               all happen on the other side, inside Claude or the Codex
-              desktop app.
-            </p>
-            <p>
-              A typical session: I open a conversation, hand it a URL, and
-              the four steps above run as tool calls to a Model Context
-              Protocol server that writes directly to the same Convex
-              backend this front end reads from. An article becomes a
-              source. A pass through it produces data points with anchor
-              quotes. Those data points get attached to a position, which
-              writes a new version. Asking a question routes back through
-              the same corpus, with an answer that carries its sources
-              inline.
+              desktop app, through a Model Context Protocol server that
+              writes directly to the same Convex backend this front end
+              reads from.
             </p>
             <p>
               The front end you are reading is the verification layer. It
-              shows what has been captured and how the pieces connect, but
-              the capturing itself happens elsewhere.
+              shows what has been captured and how the pieces connect; the
+              capturing itself happens elsewhere.
             </p>
-            <p>
-              A few representative tools, named in plain language:
-            </p>
+            <p>A few representative tools, named in plain language:</p>
             <ul className="space-y-2">
               <ToolRow
                 name="cm_add_source_from_url"
@@ -295,10 +305,6 @@ export default function MethodologyPage() {
               <ToolRow
                 name="cm_update_position"
                 description="Append a new version of a research position. Steps 03 and 04."
-              />
-              <ToolRow
-                name="cm_enrich_data_point"
-                description="Refine a data point with a curator note, updated tags, or a new confidence level."
               />
             </ul>
             <p>
@@ -354,30 +360,47 @@ function FlowCard({
   step,
   title,
   body,
+  href,
 }: {
   step: string;
   title: string;
   body: string;
+  href: string;
 }) {
   return (
-    <div className="flex-1 rounded-xl border border-secondary bg-primary px-3 py-3 text-center shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-quaternary">
-        Step {step}
-      </p>
-      <p className="mt-1.5 text-sm font-semibold text-primary">{title}</p>
-      <p className="mt-1 text-xs leading-5 text-tertiary">{body}</p>
-    </div>
+    <li className="flex-1">
+      <a
+        href={href}
+        className="group relative flex h-full flex-col items-start gap-3 overflow-hidden rounded-2xl border border-secondary bg-primary px-5 py-5 text-left shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition duration-150 ease-linear hover:-translate-y-0.5 hover:border-brand hover:shadow-[0_6px_16px_rgba(16,24,40,0.08)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+      >
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute -right-4 -top-6 text-[72px] font-bold leading-none tracking-[-0.04em] text-brand-primary opacity-40 transition duration-150 ease-linear group-hover:opacity-60"
+        >
+          {step}
+        </span>
+        <div className="relative flex h-full flex-col gap-1.5">
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-brand-secondary">
+            Step {step}
+          </p>
+          <p className="text-xl font-bold tracking-[-0.01em] text-primary">
+            {title}
+          </p>
+          <p className="text-sm leading-5 text-tertiary">{body}</p>
+        </div>
+      </a>
+    </li>
   );
 }
 
 function FlowArrow() {
   return (
-    <div
-      className="flex shrink-0 items-center text-quaternary"
+    <li
+      className="hidden shrink-0 items-center text-fg-brand-secondary sm:flex"
       aria-hidden="true"
     >
-      <ArrowRight className="size-4" />
-    </div>
+      <ArrowRight className="size-5" strokeWidth={2.5} />
+    </li>
   );
 }
 
@@ -393,7 +416,10 @@ function Step({
   children: React.ReactNode;
 }) {
   return (
-    <section className="border-t border-secondary py-12 first:border-t-0 first:pt-8">
+    <section
+      id={`step-${number}`}
+      className="scroll-mt-24 border-t border-secondary py-12 first:border-t-0 first:pt-8"
+    >
       <div className="flex items-baseline gap-3 text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
         <span className="font-mono text-quaternary">{number}</span>
         <span>Step</span>
@@ -479,9 +505,9 @@ function DataPointExample({
           {confidence}
         </span>
       </div>
-      <h4 className="mt-3 text-base font-semibold leading-7 text-primary">
+      <h3 className="mt-3 text-base font-semibold leading-7 text-primary">
         {claim}
-      </h4>
+      </h3>
       <blockquote className="mt-3 rounded-xl border border-secondary bg-secondary px-4 py-3 text-sm leading-6 text-secondary">
         &ldquo;{anchorQuote}&rdquo;
       </blockquote>
@@ -499,25 +525,164 @@ function DataPointExample({
   );
 }
 
-function LayerRow({
-  layer,
-  title,
-  description,
+function LegendChip({
+  variant,
+  label,
 }: {
-  layer: string;
-  title: string;
-  description: string;
+  variant: "support" | "counter" | "also";
+  label: string;
+}) {
+  const dotClass =
+    variant === "support"
+      ? "bg-success-solid"
+      : variant === "counter"
+      ? "bg-error-solid"
+      : "bg-quaternary";
+  return (
+    <span className="inline-flex items-center gap-2 text-xs font-medium text-secondary">
+      <span className={`size-2 rounded-full ${dotClass}`} aria-hidden="true" />
+      {label}
+    </span>
+  );
+}
+
+/**
+ * VersionTimeline — shows v1 → v2 of the flagship position, sourced from
+ * Convex history. The pedagogical point is that v1 → v2 changed the
+ * evidence base (2 → 10 supporting, 0 → 2 counter) while leaving the
+ * stance text unchanged. Later versions (shown in the footer) sharpened
+ * the prose and promoted confidence to active.
+ */
+function VersionTimeline() {
+  return (
+    <div className="my-2 overflow-hidden rounded-2xl border border-secondary bg-primary shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+      <div className="border-b border-secondary bg-secondary_subtle px-5 py-3">
+        <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
+          Version history
+        </p>
+        <p className="mt-1 text-sm font-semibold text-primary">
+          Complex tasks yield greater AI speedups but lower success rates
+        </p>
+      </div>
+
+      <div className="bg-secondary_subtle px-5 py-4">
+        <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
+          Stance (unchanged between v1 and v2)
+        </p>
+        <blockquote className="mt-2 text-sm leading-6 text-secondary">
+          &ldquo;AI provides 9-12x speedups on college-level tasks vs.
+          lower-complexity work, but success rates decline with task
+          complexity. This is the central tradeoff constraining AI
+          productivity claims.&rdquo;
+        </blockquote>
+      </div>
+
+      <div className="divide-y divide-secondary">
+        <VersionRow
+          version="v1"
+          date="Mar 22, 2026"
+          confidence="Emerging"
+          supporting={2}
+          counter={0}
+          supportDelta={null}
+          counterDelta={null}
+          note="Initial save. Two data points attached from the first pass."
+        />
+        <VersionRow
+          version="v2"
+          date="Mar 24, 2026"
+          confidence="Emerging"
+          supporting={10}
+          counter={2}
+          supportDelta={8}
+          counterDelta={2}
+          note="Evidence linking Batch 2: eight supporting data points and two counter-evidence data points added from tags ai-productivity-impact and task-complexity-reliability."
+        />
+      </div>
+
+      <div className="border-t border-secondary bg-secondary_subtle px-5 py-3">
+        <p className="text-xs leading-5 text-tertiary">
+          The stance text did not change between v1 and v2. Only the
+          evidence base grew. The position is now on version 8, with the
+          prose sharpened and confidence promoted to active along the way.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function VersionRow({
+  version,
+  date,
+  confidence,
+  supporting,
+  counter,
+  supportDelta,
+  counterDelta,
+  note,
+}: {
+  version: string;
+  date: string;
+  confidence: string;
+  supporting: number;
+  counter: number;
+  supportDelta: number | null;
+  counterDelta: number | null;
+  note: string;
 }) {
   return (
-    <li className="flex items-baseline gap-4">
-      <span className="w-16 shrink-0 text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
-        {layer}
-      </span>
-      <div className="flex-1">
-        <p className="text-sm font-semibold text-primary">{title}</p>
-        <p className="text-sm text-tertiary">{description}</p>
+    <div className="px-5 py-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="font-mono text-sm font-semibold text-primary">
+          {version}
+        </span>
+        <span className="text-xs text-tertiary">{date}</span>
+        <span className="inline-flex items-center rounded-full border border-secondary px-2 py-0.5 text-xs text-secondary">
+          {confidence}
+        </span>
       </div>
-    </li>
+      <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1.5">
+        <EvidenceCount
+          variant="support"
+          label="supporting"
+          count={supporting}
+          delta={supportDelta}
+        />
+        <EvidenceCount
+          variant="counter"
+          label="counter"
+          count={counter}
+          delta={counterDelta}
+        />
+      </div>
+      <p className="mt-3 text-sm leading-6 text-tertiary">{note}</p>
+    </div>
+  );
+}
+
+function EvidenceCount({
+  variant,
+  label,
+  count,
+  delta,
+}: {
+  variant: "support" | "counter";
+  label: string;
+  count: number;
+  delta: number | null;
+}) {
+  const dotClass =
+    variant === "support" ? "bg-success-solid" : "bg-error-solid";
+  const deltaClass =
+    variant === "support" ? "text-success-primary" : "text-error-primary";
+  return (
+    <span className="inline-flex items-center gap-2 text-sm text-secondary">
+      <span className={`size-2 rounded-full ${dotClass}`} aria-hidden="true" />
+      {count} {label}
+      {delta !== null && delta > 0 ? (
+        <span className={`text-xs font-medium ${deltaClass}`}>+{delta}</span>
+      ) : null}
+    </span>
   );
 }
 
