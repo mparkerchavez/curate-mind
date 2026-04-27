@@ -1,10 +1,11 @@
 import { useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { ArrowDown, ArrowRight } from "@untitledui/icons";
 import { Badge } from "@/components/base/badges/badges";
+import { Button } from "@/components/base/buttons/button";
 import { ExamplePromptChips } from "@/components/ExamplePromptChips";
 import { HeroAskInput } from "@/components/HeroAskInput";
 import { LivePositionDemo } from "@/components/LivePositionDemo";
-import { MethodologyTeaser } from "@/components/MethodologyTeaser";
 import { OpenSourceSection } from "@/components/OpenSourceSection";
 import { ThemeCard } from "@/components/ThemeCard";
 import {
@@ -75,47 +76,45 @@ export default function LandingPage() {
   return (
     <div className="bg-primary">
       {/* Hero — subtle brand tint band (bg-brand-section_subtle) for the
-          "colorful but readable" opening beat UUI prescribes. */}
+          "colorful but readable" opening beat UUI prescribes. The hero
+          carries the dual proposition (working research base + open
+          method) and two CTAs into the rest of the page. */}
       <section className="bg-brand-section_subtle">
         <div className="mx-auto max-w-4xl px-6 pt-8 pb-12 text-center lg:pb-16">
           <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
-            Curate Mind &middot; Feb 2026 &middot; Research ongoing
+            Feb 2026 &middot; Research ongoing &middot; Open source
           </p>
           <h1 className="mx-auto mt-5 max-w-3xl text-display-lg font-semibold tracking-[-0.025em] text-primary">
-            A curated research base on AI strategy. Ask anything. Trace every claim.
+            A working research base on AI strategy. An open-source method
+            for building your own.
           </h1>
           <p className="mx-auto mt-5 max-w-2xl text-base leading-8 text-tertiary">
-            178 sources chosen and distilled into data points, positions, and themes.
-            A researcher's point of view, not a search result.
+            178 sources distilled into traceable positions by one
+            researcher. Read the positions, trace every claim, or fork the
+            method on GitHub.
           </p>
 
-          {/* Ask input */}
-          <div className="mt-8">
-            <HeroAskInput
-              value={heroInput}
-              onChange={setHeroInput}
-              onSubmit={handleHeroSubmit}
-              disabled={pending}
-              inputRef={heroInputRef}
-            />
+          {/* Two CTAs: anchor-scroll to the themes grid, and link to the
+              methodology page. The GitHub link stays in the nav and the
+              open-source coda. */}
+          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <Button
+              size="lg"
+              color="primary"
+              href="#themes"
+              iconTrailing={ArrowDown}
+            >
+              Read the positions
+            </Button>
+            <Button
+              size="lg"
+              color="secondary"
+              href="/methodology"
+              iconTrailing={ArrowRight}
+            >
+              Learn the methodology
+            </Button>
           </div>
-          <p className="mx-auto mt-3 max-w-xl text-sm text-tertiary">
-            Answers are grounded in a curated set of sources.
-            Every claim can be traced back to its original quote.
-          </p>
-
-          {/* Example chips */}
-          <ExamplePromptChips
-            prompts={EXAMPLE_PROMPTS}
-            onSelect={handleChipSelect}
-            disabled={pending}
-          />
-
-          {/* Proof line — compact stat string under the chips */}
-          <p className="mt-8 text-sm text-tertiary">
-            Drawing from 178 sources &middot; 1,561 data points &middot;{" "}
-            {allPositions?.length ?? 28} positions across {sortedThemes.length || 11} themes
-          </p>
         </div>
       </section>
 
@@ -138,17 +137,43 @@ export default function LandingPage() {
           <div className="mt-10">
             <LivePositionDemo positionId={flagshipId} />
           </div>
-        </div>
 
-        {/* Methodology teaser, inside the same white band */}
-        <div className="mx-auto mt-10 max-w-2xl px-6">
-          <MethodologyTeaser />
+          {/* Ask preview: the demo introduces the structure, the input
+              lets the reader try one. Reframed as a preview, not the
+              page's primary action. */}
+          <div className="mx-auto mt-16 max-w-3xl text-center">
+            <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
+              Try the experience
+            </p>
+            <h2 className="mt-3 text-2xl font-semibold tracking-[-0.01em] text-primary">
+              Ask your own question.
+            </h2>
+            <p className="mt-3 text-base leading-7 text-tertiary">
+              Answers carry their evidence inline, with citations to the
+              data points and original sources.
+            </p>
+            <div className="mt-6">
+              <HeroAskInput
+                value={heroInput}
+                onChange={setHeroInput}
+                onSubmit={handleHeroSubmit}
+                disabled={pending}
+                inputRef={heroInputRef}
+              />
+            </div>
+            <ExamplePromptChips
+              prompts={EXAMPLE_PROMPTS}
+              onSelect={handleChipSelect}
+              disabled={pending}
+            />
+          </div>
         </div>
       </div>
 
       {/* Themes grid on off-white (bg-secondary) — breaks up the white
-          middle content and separates visually from the dark coda. */}
-      <div className="bg-secondary py-14 lg:py-16">
+          middle content and separates visually from the dark coda.
+          Anchor target for the hero's "Read the positions" CTA. */}
+      <div id="themes" className="scroll-mt-16 bg-secondary py-14 lg:py-16">
         <section className="mx-auto max-w-4xl px-6">
           <div className="flex items-end justify-between">
             <div>
@@ -158,6 +183,11 @@ export default function LandingPage() {
               <h2 className="mt-2 text-xl font-semibold text-primary">
                 Explore by thread
               </h2>
+              <p className="mt-2 text-sm text-tertiary">
+                Drawing from 178 sources &middot; 1,561 data points &middot;{" "}
+                {allPositions?.length ?? 28} positions across{" "}
+                {sortedThemes.length || 11} themes.
+              </p>
             </div>
             <Badge type="color" size="sm" color="gray">
               {sortedThemes.length} total
