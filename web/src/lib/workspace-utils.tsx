@@ -282,15 +282,82 @@ export function renderAnswerBlocks(
       continue;
     }
 
+    if (isMarkdownTableStart(lines, i)) {
+      const start = i;
+      const headers = splitMarkdownTableRow(lines[i].trim());
+      i += 2;
+      const rows: string[][] = [];
+      while (i < lines.length && isMarkdownTableRow(lines[i].trim())) {
+        rows.push(normalizeMarkdownTableRow(splitMarkdownTableRow(lines[i].trim()), headers.length));
+        i++;
+      }
+      blocks.push(
+        <div key={`tbl-${start}`} className="overflow-x-auto rounded-lg border border-secondary">
+          <table className="min-w-full divide-y divide-secondary text-left text-sm">
+            <thead className="bg-secondary">
+              <tr>
+                {headers.map((header, j) => (
+                  <th key={j} scope="col" className="px-3 py-2 font-semibold leading-6 text-primary">
+                    {renderInline(header, citationMap, onCitationClick, options)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-secondary bg-primary">
+              {rows.map((row, r) => (
+                <tr key={r}>
+                  {row.map((cell, c) => (
+                    <td key={c} className="px-3 py-2 align-top leading-6 text-secondary">
+                      {renderInline(cell, citationMap, onCitationClick, options)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>,
+      );
+      continue;
+    }
+
     const pl: string[] = [];
     while (i < lines.length) {
       const c = lines[i].trim();
-      if (!c || /^(-{3,}|\*{3,})$/.test(c) || /^#{1,3}\s/.test(c) || /^>\s/.test(c) || /^[-*]\s+/.test(c) || /^\d+\.\s+/.test(c)) break;
+      if (!c || /^(-{3,}|\*{3,})$/.test(c) || /^#{1,3}\s/.test(c) || /^>\s/.test(c) || /^[-*]\s+/.test(c) || /^\d+\.\s+/.test(c) || isMarkdownTableStart(lines, i)) break;
       pl.push(c); i++;
     }
     blocks.push(<p key={`p-${i}`} className="text-base leading-8 text-slate-700">{renderInline(pl.join(" "), citationMap, onCitationClick, options)}</p>);
   }
   return blocks;
+}
+
+function isMarkdownTableStart(lines: string[], index: number): boolean {
+  const header = lines[index]?.trim() ?? "";
+  const separator = lines[index + 1]?.trim() ?? "";
+  return isMarkdownTableRow(header) && isMarkdownTableSeparator(separator);
+}
+
+function isMarkdownTableRow(line: string): boolean {
+  return line.startsWith("|") && line.endsWith("|") && splitMarkdownTableRow(line).length >= 2;
+}
+
+function isMarkdownTableSeparator(line: string): boolean {
+  if (!isMarkdownTableRow(line)) return false;
+  return splitMarkdownTableRow(line).every((cell) => /^:?-{3,}:?$/.test(cell.trim()));
+}
+
+function splitMarkdownTableRow(line: string): string[] {
+  return line
+    .replace(/^\|/, "")
+    .replace(/\|$/, "")
+    .split("|")
+    .map((cell) => cell.trim());
+}
+
+function normalizeMarkdownTableRow(row: string[], length: number): string[] {
+  if (row.length === length) return row;
+  if (row.length > length) return row.slice(0, length);
+  return [...row, ...Array.from({ length: length - row.length }, () => "")];
 }
 
 export type CitationVariant = "pill" | "superscript";
