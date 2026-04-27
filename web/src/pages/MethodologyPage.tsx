@@ -39,12 +39,9 @@ export default function MethodologyPage() {
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-secondary">
             The usual choices: skim summaries you can&apos;t verify, or read
-            the full source you don&apos;t have time for.
-          </p>
-          <p className="mx-auto mt-3 max-w-2xl text-base leading-7 text-tertiary">
-            Curate Mind sits between. A curated point of view you can query,
-            with every claim traceable to the exact sentence in the source.
-            Walked through below with a real article from the corpus.
+            the full source you don&apos;t have time for. Curate Mind sits
+            between, with every claim traceable to the exact sentence in
+            the source.
           </p>
         </div>
       </section>
@@ -56,13 +53,33 @@ export default function MethodologyPage() {
         className="mx-auto max-w-5xl px-6 pt-14"
       >
         <ol className="flex flex-col items-stretch gap-3 sm:flex-row sm:gap-2">
-          <FlowCard step="01" title="Curate" body="Choose what makes it in" href="#step-01" />
+          <FlowCard
+            step="01"
+            title="Curate"
+            body="Pick the sources worth keeping. An opinionated cut from each week's scan."
+            href="#step-01"
+          />
           <FlowArrow />
-          <FlowCard step="02" title="Extract" body="Claims with anchor quotes" href="#step-02" />
+          <FlowCard
+            step="02"
+            title="Extract"
+            body="Abstract each source into data points. Every claim anchored to its exact words."
+            href="#step-02"
+          />
           <FlowArrow />
-          <FlowCard step="03" title="Connect" body="Evidence to positions" href="#step-03" />
+          <FlowCard
+            step="03"
+            title="Connect"
+            body="Attach data points to research positions. Stances built from evidence, not summaries."
+            href="#step-03"
+          />
           <FlowArrow />
-          <FlowCard step="04" title="Version" body="Append-only over time" href="#step-04" />
+          <FlowCard
+            step="04"
+            title="Version"
+            body="Update positions as evidence shifts. Older versions stay in the history."
+            href="#step-04"
+          />
         </ol>
       </nav>
 
@@ -371,23 +388,15 @@ function FlowCard({
     <li className="flex-1">
       <a
         href={href}
-        className="group relative flex h-full flex-col items-start gap-3 overflow-hidden rounded-2xl border border-secondary bg-primary px-5 py-5 text-left shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition duration-150 ease-linear hover:-translate-y-0.5 hover:border-brand hover:shadow-[0_6px_16px_rgba(16,24,40,0.08)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+        className="group flex h-full flex-col items-start gap-2 rounded-2xl border border-secondary bg-primary px-5 py-5 text-left shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition duration-150 ease-linear hover:-translate-y-0.5 hover:border-brand hover:shadow-[0_6px_16px_rgba(16,24,40,0.08)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
       >
-        <span
-          aria-hidden="true"
-          className="pointer-events-none absolute -right-4 -top-6 text-[72px] font-bold leading-none tracking-[-0.04em] text-brand-primary opacity-40 transition duration-150 ease-linear group-hover:opacity-60"
-        >
-          {step}
-        </span>
-        <div className="relative flex h-full flex-col gap-1.5">
-          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-brand-secondary">
-            Step {step}
-          </p>
-          <p className="text-xl font-bold tracking-[-0.01em] text-primary">
-            {title}
-          </p>
-          <p className="text-sm leading-5 text-tertiary">{body}</p>
-        </div>
+        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-brand-secondary">
+          Step {step}
+        </p>
+        <p className="text-3xl font-bold tracking-[-0.02em] text-primary">
+          {title}
+        </p>
+        <p className="mt-1 text-sm leading-6 text-tertiary">{body}</p>
       </a>
     </li>
   );
