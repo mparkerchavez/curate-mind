@@ -22,8 +22,9 @@ export default function ChatPanel() {
     handleAskQuestion,
     resetConversation,
     reachedTurnLimit,
+    activeAnswer,
     highlightedEvidenceId,
-    handleCitationClick,
+    focusAnswerEvidence,
   } = useWorkspace();
 
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -101,7 +102,11 @@ export default function ChatPanel() {
                       {renderAnswerBlocks(
                         turn.content,
                         new Map(turn.answerState.citations.map((c) => [c.label, c.dataPointId])),
-                        handleCitationClick,
+                        (dpId) => focusAnswerEvidence(turn.answerState, dpId),
+                        {
+                          highlightedDpId:
+                            activeAnswer === turn.answerState ? highlightedEvidenceId : null,
+                        },
                       )}
                     </div>
                   ) : (
@@ -126,6 +131,10 @@ export default function ChatPanel() {
                         group={group}
                         highlightedId={highlightedEvidenceId}
                         citedIds={turn.answerState.citedDataPointIds}
+                        labelByDpId={Object.fromEntries(
+                          turn.answerState.citations.map((c) => [c.dataPointId, c.label]),
+                        )}
+                        onClaimClick={(dpId) => focusAnswerEvidence(turn.answerState, dpId)}
                       />
                     ))}
                   </div>

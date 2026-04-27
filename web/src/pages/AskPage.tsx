@@ -28,8 +28,9 @@ export default function AskPage() {
     handleAskQuestion,
     resetConversation,
     reachedTurnLimit,
+    activeAnswer,
     highlightedEvidenceId,
-    handleCitationClick,
+    focusAnswerEvidence,
   } = useWorkspace();
 
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -99,7 +100,11 @@ export default function AskPage() {
                       new Map(
                         turn.answerState.citations.map((c) => [c.label, c.dataPointId]),
                       ),
-                      handleCitationClick,
+                      (dpId) => focusAnswerEvidence(turn.answerState, dpId),
+                      {
+                        highlightedDpId:
+                          activeAnswer === turn.answerState ? highlightedEvidenceId : null,
+                      },
                     )}
                   </div>
                 ) : (

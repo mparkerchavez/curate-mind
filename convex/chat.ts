@@ -188,7 +188,10 @@ export const askGrounded = action({
     const messages = [
       ...args.conversationHistory.map((t) => ({
         role: t.role,
-        content: t.content,
+        content:
+          t.role === "assistant"
+            ? stripCitationLabelsFromHistory(t.content)
+            : t.content,
       })),
       { role: "user" as const, content: args.question },
     ];
@@ -478,4 +481,10 @@ function parseCitedJson(raw: string): {
   }
 
   return { answer: raw.trim(), citedDataPointIds: [] };
+}
+
+function stripCitationLabelsFromHistory(content: string): string {
+  // Evidence labels are scoped to a single answer. Keeping old labels in
+  // chat history can cause later answers to reuse stale [E#] references.
+  return content.replace(/\s*\[(?:E|C)\d+\]/g, "");
 }

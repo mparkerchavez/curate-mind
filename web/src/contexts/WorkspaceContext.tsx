@@ -44,6 +44,7 @@ type WorkspaceState = {
   /* evidence highlighting */
   highlightedEvidenceId: string | null;
   handleCitationClick: (dpId: string) => void;
+  focusAnswerEvidence: (answerState: AssistantAnswer, dpId?: string) => void;
   evidenceSections: EvidenceSection[];
   /* mobile */
   mobilePane: "main" | "chat";
@@ -155,19 +156,26 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     setHighlightedEvidenceId(dpId);
   }
 
+  function focusAnswerEvidence(answerState: AssistantAnswer, dpId?: string) {
+    setActiveAnswer(answerState);
+    setHighlightedEvidenceId(
+      dpId ?? answerState.citedDataPointIds[0] ?? answerState.retrievedDataPoints[0]?._id ?? null,
+    );
+  }
+
   /* ── Evidence sections ── */
   const evidenceSections = useMemo<EvidenceSection[]>(() => {
     if (activeAnswer) {
       const citedSet = new Set(activeAnswer.citedDataPointIds);
       const cited = activeAnswer.retrievedDataPoints.filter((dp: any) => citedSet.has(dp._id));
       const retrieved = activeAnswer.retrievedDataPoints.filter((dp: any) => !citedSet.has(dp._id));
-      const citedLabelByDpId: Record<string, string> = {};
+      const labelByDpId: Record<string, string> = {};
       for (const c of activeAnswer.citations ?? []) {
-        if (c.dataPointId && c.label) citedLabelByDpId[c.dataPointId] = c.label;
+        if (c.dataPointId && c.label) labelByDpId[c.dataPointId] = c.label;
       }
       return [
-        { key: "cited", title: "Cited in the answer", subtitle: "Directly cited in the current response.", items: cited, cited: true, labelByDpId: citedLabelByDpId },
-        { key: "retrieved", title: "Retrieved for context", subtitle: "Adjacent evidence used to ground the answer.", items: retrieved },
+        { key: "cited", title: "Cited in the answer", subtitle: "Directly cited in the current response.", items: cited, cited: true, labelByDpId },
+        { key: "retrieved", title: "Retrieved for context", subtitle: "Adjacent evidence used to ground the answer.", items: retrieved, labelByDpId },
       ].filter((s) => s.items.length > 0);
     }
     if (positionDetail?.currentVersion) {
@@ -224,6 +232,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       reachedTurnLimit,
       highlightedEvidenceId,
       handleCitationClick,
+      focusAnswerEvidence,
       evidenceSections,
       mobilePane,
       setMobilePane,
