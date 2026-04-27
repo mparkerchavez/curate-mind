@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, RefreshCcw01, SearchLg } from "@untitledui/icons";
+import { ArrowRight, RefreshCcw01 } from "@untitledui/icons";
 
 // Cycling status messages shown while the AI is processing.
 // Each step advances every PENDING_INTERVAL_MS until the last one,
@@ -13,13 +13,10 @@ const PENDING_MESSAGES = [
 const PENDING_INTERVAL_MS = 2500;
 import { Button } from "@/components/base/buttons/button";
 import { TextAreaBase } from "@/components/base/textarea/textarea";
-import { EmptyState } from "@/components/application/empty-state/empty-state";
+import { EXAMPLE_PROMPTS } from "@/config/homepage";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { cn } from "@/lib/cn";
-import {
-  getSuggestions,
-  renderAnswerBlocks,
-} from "@/lib/workspace-utils";
+import { renderAnswerBlocks } from "@/lib/workspace-utils";
 
 export default function AskPage() {
   const {
@@ -36,7 +33,7 @@ export default function AskPage() {
   } = useWorkspace();
 
   const bottomRef = useRef<HTMLDivElement>(null);
-  const suggestions = getSuggestions("home");
+  const suggestions = EXAMPLE_PROMPTS;
 
   // Cycle the pending status message while the query is in flight.
   const [pendingIdx, setPendingIdx] = useState(0);
@@ -58,42 +55,26 @@ export default function AskPage() {
   return (
     <div className="mx-auto flex max-w-4xl flex-col px-6 py-8">
       {turns.length === 0 ? (
-        /* Empty state — hero with suggestions */
-        <div className="space-y-6">
-          <EmptyState
-            size="sm"
-            className="rounded-2xl border border-dashed border-secondary bg-secondary_subtle px-6 py-8"
-          >
-            <EmptyState.Header pattern="none">
-              <EmptyState.FeaturedIcon icon={SearchLg} color="gray" theme="modern" />
-            </EmptyState.Header>
-            <EmptyState.Content>
-              <EmptyState.Title>Ask about the research</EmptyState.Title>
-              <EmptyState.Description>
-                Every answer is grounded in the curated knowledge base with
-                citations you can trace back to original sources.
-              </EmptyState.Description>
-            </EmptyState.Content>
-          </EmptyState>
-
-          <div className="space-y-2">
-            <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
-              Suggested prompts
-            </p>
-            {suggestions.map((prompt) => (
-              <button
-                key={prompt}
-                type="button"
-                onClick={() => void handleAskQuestion(prompt)}
-                className="group w-full rounded-xl border border-secondary bg-primary px-4 py-3 text-left text-sm leading-6 text-secondary transition hover:border-brand hover:bg-secondary"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <span>{prompt}</span>
-                  <ArrowRight className="mt-0.5 size-4 shrink-0 text-quaternary transition group-hover:translate-x-0.5 group-hover:text-brand-secondary" />
-                </div>
-              </button>
-            ))}
-          </div>
+        /* Initial state — suggestions only. The header already names the
+           page (nav + breadcrumb), and the prompts themselves explain the
+           feature better than a hero block could. */
+        <div className="space-y-2">
+          <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
+            Suggested prompts
+          </p>
+          {suggestions.map((prompt) => (
+            <button
+              key={prompt}
+              type="button"
+              onClick={() => void handleAskQuestion(prompt)}
+              className="group w-full rounded-xl border border-secondary bg-primary px-4 py-3 text-left text-sm leading-6 text-secondary transition hover:border-brand hover:bg-secondary"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <span>{prompt}</span>
+                <ArrowRight className="mt-0.5 size-4 shrink-0 text-quaternary transition group-hover:translate-x-0.5 group-hover:text-brand-secondary" />
+              </div>
+            </button>
+          ))}
         </div>
       ) : (
         /* Conversation */

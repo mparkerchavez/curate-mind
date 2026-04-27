@@ -6,6 +6,7 @@ import { WorkspaceProvider } from "./contexts/WorkspaceContext";
 import AppShell from "./layouts/AppShell";
 import LandingPage from "./pages/LandingPage";
 import MethodologyPage from "./pages/MethodologyPage";
+import ThemesIndexPage from "./pages/ThemesIndexPage";
 import ThemePage from "./pages/ThemePage";
 import PositionPage from "./pages/PositionPage";
 import PositionRedirect from "./components/PositionRedirect";
@@ -51,6 +52,7 @@ export default function App() {
             <Route path="/" element={<LandingPage />} />
             <Route path="/methodology" element={<MethodologyPage />} />
             <Route path="/ask" element={<AskPage />} />
+            <Route path="/themes" element={<ThemesIndexPage />} />
             <Route path="/themes/:themeId" element={<ThemePage />} />
             <Route path="/themes/:themeId/positions/:positionId" element={<PositionPage />} />
             {/* Legacy flat URL redirects to the nested shape. */}

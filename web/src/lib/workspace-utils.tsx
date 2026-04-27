@@ -5,7 +5,7 @@ import { CITATION_LEGEND } from "@/lib/legend-copy";
 
 /* ── Shared types ── */
 
-export type RouteKind = "home" | "theme" | "position" | "source" | "ask";
+export type RouteKind = "home" | "themes" | "theme" | "position" | "source" | "ask";
 
 export type ChatCitation = {
   label: string;
@@ -213,6 +213,7 @@ export function groupDataPointsBySource(dataPoints: any[]): SourceGroup[] {
 export function getRouteKind(pathname: string): RouteKind {
   // Check nested /themes/:tid/positions/:pid first — the position scope wins.
   if (pathname.includes("/positions/")) return "position";
+  if (pathname === "/themes") return "themes";
   if (pathname.startsWith("/themes/")) return "theme";
   if (pathname.startsWith("/sources/")) return "source";
   if (pathname === "/ask") return "ask";
