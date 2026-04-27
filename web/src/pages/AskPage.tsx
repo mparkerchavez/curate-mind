@@ -53,6 +53,14 @@ export default function AskPage() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [turns.length]);
 
+  useEffect(() => {
+    if (!activeAnswer || !highlightedEvidenceId) return;
+    const selector = `[data-dp-id="${CSS.escape(highlightedEvidenceId)}"]`;
+    const activeAnswerEl = document.querySelector('[data-active-answer="true"]');
+    const el = activeAnswerEl?.querySelector(selector) ?? document.querySelector(selector);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [activeAnswer, highlightedEvidenceId]);
+
   return (
     <div className="mx-auto flex max-w-4xl flex-col px-6 py-8">
       {turns.length === 0 ? (
@@ -94,7 +102,10 @@ export default function AskPage() {
                   {turn.role === "user" ? "You" : "Research assistant"}
                 </p>
                 {turn.role === "assistant" ? (
-                  <div className="mt-2 space-y-3 text-sm leading-7 text-secondary">
+                  <div
+                    className="mt-2 space-y-3 text-sm leading-7 text-secondary"
+                    data-active-answer={activeAnswer === turn.answerState ? "true" : undefined}
+                  >
                     {renderAnswerBlocks(
                       turn.content,
                       new Map(

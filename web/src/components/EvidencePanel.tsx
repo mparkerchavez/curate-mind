@@ -38,7 +38,7 @@ type RenderSection = {
  * in the stance.
  */
 export default function EvidencePanel() {
-  const { evidenceSections, highlightedEvidenceId, handleCitationClick } = useWorkspace();
+  const { routeKind, evidenceSections, highlightedEvidenceId, handleCitationClick } = useWorkspace();
 
   // Scroll to highlighted evidence card when it changes
   useEffect(() => {
@@ -156,6 +156,8 @@ export default function EvidencePanel() {
           const isCounter = section.variant === "counter";
           const groups = groupDataPointsBySource(section.items);
           const citedIds = section.cited ? section.items.map((dp: any) => dp._id) : undefined;
+          const canClickClaims =
+            !section.dimmed && (routeKind !== "ask" || section.cited);
           // Title carries the section color + weight; background stays neutral.
           // Borders on top and bottom of the sticky header frame it as a bar
           // so it reads as a header whether pinned or inline.
@@ -197,7 +199,7 @@ export default function EvidencePanel() {
                         highlightedId={highlightedEvidenceId}
                         citedIds={citedIds}
                         labelByDpId={section.labelByDpId}
-                        onClaimClick={section.dimmed ? undefined : handleCitationClick}
+                        onClaimClick={canClickClaims ? handleCitationClick : undefined}
                         dimmed={section.dimmed}
                       />
                     ))}
