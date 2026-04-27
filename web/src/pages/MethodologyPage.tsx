@@ -147,6 +147,10 @@ export default function MethodologyPage() {
             checked against the source word for word. Claims that cannot be
             anchored do not get saved.
           </p>
+          <p>
+            This one article produced roughly a dozen data points; three
+            are shown below. Longer reports produce fifty or more.
+          </p>
 
           <div className="mt-6 space-y-4">
             <DataPointExample
@@ -174,11 +178,6 @@ export default function MethodologyPage() {
               tags={["productivity-paradox", "cognitive-load", "ai-practice"]}
             />
           </div>
-
-          <p className="mt-6">
-            This one article produced roughly a dozen data points; longer
-            reports produce fifty or more.
-          </p>
         </Step>
 
         {/* Step 3 */}
@@ -206,60 +205,28 @@ export default function MethodologyPage() {
         </Step>
       </div>
 
-      {/* Legend + live demo + compact layer note on an off-white band.
-          The demo is the visual payoff of Step 03. */}
+      {/* Live demo on an off-white band, framed only by a quiet caption
+          and a small color legend. The demo is the visual payoff of
+          Step 03; the caption stays out of its way. */}
       <section className="mt-10 bg-secondary py-12 lg:py-16">
-        <div className="mx-auto max-w-3xl px-6">
-          <div className="rounded-2xl border border-secondary bg-primary px-5 py-4">
-            <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
-              How to read this
-            </p>
-            <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2">
-              <LegendChip variant="support" label="Supporting evidence" />
-              <LegendChip variant="counter" label="Counter evidence" />
-              <LegendChip variant="also" label="Also attached" />
-            </div>
-            <p className="mt-3 text-sm text-tertiary">
-              Click a citation in the stance to jump to its evidence. Click a
-              data point to find its citation.
-            </p>
+        <div className="mx-auto max-w-3xl px-6 text-center">
+          <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
+            How to read this
+          </p>
+          <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-tertiary">
+            Click a citation in the left column to jump to its data point on
+            the right. Click a data point on the right to find its citation
+            on the left. Click Open original to view the underlying source.
+          </p>
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
+            <LegendChip variant="support" label="Supporting evidence" />
+            <LegendChip variant="counter" label="Counter evidence" />
+            <LegendChip variant="also" label="Also attached" />
           </div>
         </div>
 
-        <div className="mx-auto mt-6 max-w-6xl px-6">
+        <div className="mx-auto mt-8 max-w-6xl px-6">
           <LivePositionDemo positionId={flagshipId} />
-        </div>
-
-        <div className="mx-auto mt-10 max-w-3xl px-6">
-          <div className="rounded-2xl border border-secondary bg-primary px-6 py-5">
-            <p className="text-sm font-semibold text-primary">
-              The four layers you just navigated
-            </p>
-            <p className="mt-2 text-sm leading-6 text-tertiary">
-              Curate Mind exposes four layers between a theme and the
-              original source. You can stop at whichever layer answers the
-              question in front of you.
-            </p>
-            <ul className="mt-4 space-y-2 text-sm leading-6 text-secondary">
-              <li>
-                <strong>Layer 1.</strong> Themes and positions. Summaries.
-                Most questions are answered here.
-              </li>
-              <li>
-                <strong>Layer 2.</strong> Evidence: data points, curator
-                observations, and mental models (named frameworks, analogies,
-                or recurring terms that show up across sources).
-              </li>
-              <li>
-                <strong>Layer 3.</strong> Verbatim anchor quotes from the
-                source, for when the exact wording matters.
-              </li>
-              <li>
-                <strong>Layer 4.</strong> The original article or report, in
-                full.
-              </li>
-            </ul>
-          </div>
         </div>
       </section>
 
@@ -545,7 +512,7 @@ function LegendChip({
     variant === "support"
       ? "bg-success-solid"
       : variant === "counter"
-      ? "bg-error-solid"
+      ? "bg-warning-solid"
       : "bg-quaternary";
   return (
     <span className="inline-flex items-center gap-2 text-xs font-medium text-secondary">
@@ -681,9 +648,9 @@ function EvidenceCount({
   delta: number | null;
 }) {
   const dotClass =
-    variant === "support" ? "bg-success-solid" : "bg-error-solid";
+    variant === "support" ? "bg-success-solid" : "bg-warning-solid";
   const deltaClass =
-    variant === "support" ? "text-success-primary" : "text-error-primary";
+    variant === "support" ? "text-success-primary" : "text-warning-primary";
   return (
     <span className="inline-flex items-center gap-2 text-sm text-secondary">
       <span className={`size-2 rounded-full ${dotClass}`} aria-hidden="true" />
