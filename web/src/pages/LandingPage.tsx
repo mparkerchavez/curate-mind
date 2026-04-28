@@ -86,7 +86,7 @@ export default function LandingPage() {
           </p>
           <h1 className="mx-auto mt-5 max-w-3xl text-display-lg font-semibold tracking-[-0.025em] text-primary">
             A working research base on AI strategy. An open-source method
-            for building your own.
+            for building your&nbsp;own.
           </h1>
           <p className="mx-auto mt-5 max-w-2xl text-base leading-8 text-tertiary">
             178 sources distilled into traceable positions by one
