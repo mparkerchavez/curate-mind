@@ -12,6 +12,7 @@ export type ChatCitation = {
   dataPointId: string;
   order: number;
   isCited: boolean;
+  origin?: "carried" | "fresh";
 };
 
 export type AssistantAnswer = {
@@ -19,6 +20,8 @@ export type AssistantAnswer = {
   answer: string;
   citations: ChatCitation[];
   citedDataPointIds: string[];
+  carriedDataPointIds: string[];
+  freshDataPointIds: string[];
   retrievedDataPoints: any[];
   scopeLabel: string;
 };
@@ -32,7 +35,7 @@ export type EvidenceSection = {
   title: string;
   subtitle: string;
   items: any[];
-  variant?: "support" | "counter";
+  variant?: "support" | "counter" | "carried" | "context";
   cited?: boolean;
   /** Map from data point id → citation label ("E2", "C1") used as the evidence-card marker. */
   labelByDpId?: Record<string, string>;

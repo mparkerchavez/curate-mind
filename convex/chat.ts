@@ -46,11 +46,14 @@ type CitedDataPoint = {
     } | null;
 };
 
+type EvidenceOrigin = "carried" | "fresh";
+
 type CitationMeta = {
   label: string;
   dataPointId: string;
   order: number;
   isCited: boolean;
+  origin: EvidenceOrigin;
 };
 
 type ScopeContext = {
@@ -68,6 +71,7 @@ export const askGrounded = action({
     themeId: v.optional(v.id("researchThemes")),
     positionId: v.optional(v.id("researchPositions")),
     sourceId: v.optional(v.id("sources")),
+    carriedDataPointIds: v.optional(v.array(v.id("dataPoints"))),
     conversationHistory: v.array(
       v.object({
         role: v.union(v.literal("user"), v.literal("assistant")),
@@ -82,6 +86,8 @@ export const askGrounded = action({
     answer: string;
     citations: CitationMeta[];
     citedDataPointIds: string[];
+    carriedDataPointIds: string[];
+    freshDataPointIds: string[];
     retrievedDataPoints: CitedDataPoint[];
     context: {
       themeId?: string;
@@ -114,7 +120,14 @@ export const askGrounded = action({
       scope.allowedDataPointIds && scopedIds.length === 0
         ? Array.from(scope.allowedDataPointIds)
         : [];
-    const retrievedIds = [...scopedIds, ...fallbackScopedIds].slice(0, 12);
+    const carriedIds = uniqueIds(args.carriedDataPointIds ?? [])
+      .map((id) => String(id))
+      .filter((id) => !scope.allowedDataPointIds || scope.allowedDataPointIds.has(id));
+    const carriedIdSet = new Set(carriedIds);
+    const freshIds = [...scopedIds, ...fallbackScopedIds]
+      .filter((id) => !carriedIdSet.has(id))
+      .slice(0, 12);
+    const retrievedIds = uniqueIds([...carriedIds, ...freshIds]);
     const retrieved = await hydrateDataPoints(ctx, retrievedIds);
 
     // 4. Pull the current Research Lens for context
@@ -149,6 +162,7 @@ export const askGrounded = action({
           : "Source: unknown";
         return [
           `### Evidence ${i + 1} — id: ${dp._id}`,
+          `Origin: ${carriedIdSet.has(dp._id) ? "carried from earlier questions" : "freshly retrieved for this question"}`,
           `Type: ${dp.evidenceType}${
             dp.confidence ? ` · confidence: ${dp.confidence}` : ""
           }`,
@@ -167,7 +181,7 @@ export const askGrounded = action({
       "",
       "Style: precise, intellectually honest, never breathless. Write like an analyst, not a marketer. When evidence is thin, say so.",
       "",
-      "When you draw on a data point, cite it inline like [E1], [E2], where the number matches the evidence order below.",
+      "When you draw on a data point, cite it inline like [E1], [E2], where the number matches the evidence order below. Evidence marked 'carried from earlier questions' is available only for thread continuity; cite it again only if it directly supports this answer.",
       "If a workspace scope is provided, stay inside that scope unless the evidence explicitly says the context is too thin.",
       "",
       "At the very end of your response, on its own line after a blank line, output a single JSON code block listing the IDs (not the DPN labels) of the data points you actually used:",
@@ -234,16 +248,22 @@ export const askGrounded = action({
     const normalizedCitedIds = citedDataPointIds.filter((id) => retrievedIdSet.has(id));
 
     const citedSet = new Set(normalizedCitedIds);
-    const citations = retrieved.map((dp, index) => ({
-      label: `E${index + 1}`,
-      dataPointId: dp._id,
-      order: index + 1,
-      isCited: citedSet.has(dp._id),
-    }));
+    const citations: CitationMeta[] = retrieved.map((dp, index) => {
+      const origin: EvidenceOrigin = carriedIdSet.has(dp._id) ? "carried" : "fresh";
+      return {
+        label: `E${index + 1}`,
+        dataPointId: dp._id,
+        order: index + 1,
+        isCited: citedSet.has(dp._id),
+        origin,
+      };
+    });
 
     return {
       answer,
       citedDataPointIds: normalizedCitedIds,
+      carriedDataPointIds: carriedIds,
+      freshDataPointIds: freshIds,
       citations,
       retrievedDataPoints: retrieved,
       context: {
@@ -299,6 +319,18 @@ async function hydrateDataPoints(
   }
 
   return retrieved;
+}
+
+function uniqueIds(ids: Array<string | Id<"dataPoints">>): string[] {
+  const seen = new Set<string>();
+  const unique: string[] = [];
+  for (const id of ids) {
+    const normalized = String(id);
+    if (seen.has(normalized)) continue;
+    seen.add(normalized);
+    unique.push(normalized);
+  }
+  return unique;
 }
 
 async function resolveScopeContext(
@@ -462,6 +494,9 @@ function parseCitedJson(raw: string): {
     }
   }
 
+  const trailingObject = parseTrailingCitedObject(raw);
+  if (trailingObject) return trailingObject;
+
   // Fallback: try a bare JSON object at the very end
   const bareRe = /\{[^{}]*"cited_dp_ids"[^{}]*\}\s*$/;
   const bareMatch = raw.match(bareRe);
@@ -481,6 +516,63 @@ function parseCitedJson(raw: string): {
   }
 
   return { answer: raw.trim(), citedDataPointIds: [] };
+}
+
+function parseTrailingCitedObject(raw: string): {
+  answer: string;
+  citedDataPointIds: string[];
+} | null {
+  const keyIndex = raw.lastIndexOf('"cited_dp_ids"');
+  if (keyIndex < 0) return null;
+  const objectStart = raw.lastIndexOf("{", keyIndex);
+  if (objectStart < 0) return null;
+  const objectEnd = findMatchingJsonObjectEnd(raw, objectStart);
+  if (objectEnd < 0) return null;
+
+  const afterObject = raw.slice(objectEnd + 1).trim();
+  if (afterObject && !/^`+$/.test(afterObject)) return null;
+
+  try {
+    const parsed = JSON.parse(raw.slice(objectStart, objectEnd + 1));
+    const ids = Array.isArray(parsed?.cited_dp_ids)
+      ? parsed.cited_dp_ids.filter((x: unknown) => typeof x === "string")
+      : [];
+    const answer = raw
+      .slice(0, objectStart)
+      .replace(/`{2,3}json\s*$/i, "")
+      .trim();
+    return { answer, citedDataPointIds: ids };
+  } catch {
+    return null;
+  }
+}
+
+function findMatchingJsonObjectEnd(text: string, objectStart: number): number {
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = objectStart; i < text.length; i++) {
+    const char = text[i];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (char === "\\") {
+      escaped = true;
+      continue;
+    }
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+    if (char === "{") depth++;
+    if (char === "}") {
+      depth--;
+      if (depth === 0) return i;
+    }
+  }
+  return -1;
 }
 
 function stripCitationLabelsFromHistory(content: string): string {

@@ -16,7 +16,7 @@ import { TextAreaBase } from "@/components/base/textarea/textarea";
 import { EXAMPLE_PROMPTS } from "@/config/homepage";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { cn } from "@/lib/cn";
-import { renderAnswerBlocks } from "@/lib/workspace-utils";
+import { renderAnswerBlocks, USER_TURN_LIMIT } from "@/lib/workspace-utils";
 
 export default function AskPage() {
   const {
@@ -28,6 +28,7 @@ export default function AskPage() {
     handleAskQuestion,
     resetConversation,
     reachedTurnLimit,
+    userTurnsCount,
     activeAnswer,
     highlightedEvidenceId,
     focusAnswerEvidence,
@@ -35,6 +36,9 @@ export default function AskPage() {
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const suggestions = EXAMPLE_PROMPTS;
+  const questionsRemaining = Math.max(USER_TURN_LIMIT - userTurnsCount, 0);
+  const nextQuestionNumber = Math.min(userTurnsCount + 1, USER_TURN_LIMIT);
+  const threadComplete = reachedTurnLimit && !pending;
 
   // Cycle the pending status message while the query is in flight.
   const [pendingIdx, setPendingIdx] = useState(0);
@@ -151,59 +155,73 @@ export default function AskPage() {
 
       {/* Input area — sticky at bottom */}
       <div className="sticky bottom-0 mt-6 border-t border-secondary bg-secondary pt-4 pb-2">
-        {turns.length > 0 && (
-          <div className="mb-3 flex justify-end">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
+              {reachedTurnLimit
+                ? pending
+                  ? "Final question in progress"
+                  : "Thread complete"
+                : `Question ${nextQuestionNumber} of ${USER_TURN_LIMIT}`}
+            </p>
+            <p className="mt-1 text-xs text-tertiary">
+              {reachedTurnLimit
+                ? pending
+                  ? "Composing the last answer in this thread."
+                  : "Start a new thread to ask another question."
+                : `${questionsRemaining} question${questionsRemaining === 1 ? "" : "s"} left in this thread.`}
+            </p>
+          </div>
+          {threadComplete && (
             <Button
-              size="xs"
-              color="tertiary"
+              size="sm"
+              color="primary"
               iconLeading={RefreshCcw01}
               onClick={resetConversation}
             >
-              Reset
+              Start a new thread
             </Button>
-          </div>
-        )}
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            void handleAskQuestion();
-          }}
-          // Shared-element target for the View Transitions morph from
-          // the home page's hero input. Must match HeroAskInput's form
-          // view-transition-name.
-          style={{ viewTransitionName: "curate-ask-input" }}
-        >
-          <TextAreaBase
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-                e.preventDefault();
-                void handleAskQuestion();
-              }
+          )}
+        </div>
+        {!reachedTurnLimit && (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              void handleAskQuestion();
             }}
-            rows={3}
-            disabled={pending || reachedTurnLimit}
-            placeholder={
-              reachedTurnLimit
-                ? "Turn limit reached. Reset to continue."
-                : "Ask about AI strategy, adoption, agentic workflows..."
-            }
-            className="min-h-[4.5rem] resize-none"
-          />
-          <div className="mt-2 flex items-center justify-between">
-            <p className="text-xs text-tertiary">{"\u2318"}/Ctrl + Enter</p>
-            <Button
-              type="submit"
-              size="sm"
-              color="primary"
-              iconTrailing={ArrowRight}
-              disabled={pending || reachedTurnLimit || !input.trim()}
-            >
-              {pending ? "Asking..." : "Ask"}
-            </Button>
-          </div>
-        </form>
+            // Shared-element target for the View Transitions morph from
+            // the home page's hero input. Must match HeroAskInput's form
+            // view-transition-name.
+            style={{ viewTransitionName: "curate-ask-input" }}
+          >
+            <TextAreaBase
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                  e.preventDefault();
+                  void handleAskQuestion();
+                }
+              }}
+              rows={3}
+              disabled={pending}
+              placeholder="Ask about AI strategy, adoption, agentic workflows..."
+              className="min-h-[4.5rem] resize-none"
+            />
+            <div className="mt-2 flex items-center justify-between">
+              <p className="text-xs text-tertiary">{"\u2318"}/Ctrl + Enter</p>
+              <Button
+                type="submit"
+                size="sm"
+                color="primary"
+                iconTrailing={ArrowRight}
+                disabled={pending || !input.trim()}
+              >
+                {pending ? "Asking..." : "Ask"}
+              </Button>
+            </div>
+          </form>
+        )}
       </div>
     </div>
   );

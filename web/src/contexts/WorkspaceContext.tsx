@@ -108,6 +108,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     if (!projectId || !question || pending || reachedTurnLimit) return;
 
     const history = turns.map((t) => ({ role: t.role, content: t.content }));
+    const carriedDataPointIds = getPriorCitedDataPointIds(turns);
     const userTurn: Turn = { role: "user", content: question };
     const nextTurns = [...turns, userTurn];
 
@@ -120,6 +121,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       const result = (await askGrounded({
         question,
         projectId,
+        carriedDataPointIds: carriedDataPointIds as Id<"dataPoints">[],
         conversationHistory: history,
         ...scopeArgs,
       })) as any;
@@ -129,6 +131,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         answer: result.answer,
         citations: result.citations ?? [],
         citedDataPointIds: result.citedDataPointIds ?? [],
+        carriedDataPointIds: result.carriedDataPointIds ?? carriedDataPointIds,
+        freshDataPointIds: result.freshDataPointIds ?? [],
         retrievedDataPoints: result.retrievedDataPoints ?? [],
         scopeLabel,
       };
@@ -167,15 +171,22 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const evidenceSections = useMemo<EvidenceSection[]>(() => {
     if (activeAnswer) {
       const citedSet = new Set(activeAnswer.citedDataPointIds);
+      const carriedSet = new Set(activeAnswer.carriedDataPointIds);
       const cited = activeAnswer.retrievedDataPoints.filter((dp: any) => citedSet.has(dp._id));
-      const retrieved = activeAnswer.retrievedDataPoints.filter((dp: any) => !citedSet.has(dp._id));
+      const carried = activeAnswer.retrievedDataPoints.filter(
+        (dp: any) => !citedSet.has(dp._id) && carriedSet.has(dp._id),
+      );
+      const retrieved = activeAnswer.retrievedDataPoints.filter(
+        (dp: any) => !citedSet.has(dp._id) && !carriedSet.has(dp._id),
+      );
       const labelByDpId: Record<string, string> = {};
       for (const c of activeAnswer.citations ?? []) {
         if (c.dataPointId && c.label) labelByDpId[c.dataPointId] = c.label;
       }
       return [
-        { key: "cited", title: "Cited in the answer", subtitle: "Directly cited in the current response.", items: cited, cited: true, labelByDpId },
-        { key: "retrieved", title: "Retrieved for context", subtitle: "Adjacent evidence used to ground the answer.", items: retrieved, labelByDpId },
+        { key: "cited", title: "Cited in this answer", subtitle: "Directly cited in the current response.", items: cited, cited: true, labelByDpId },
+        { key: "carried", title: "Carried from earlier questions", subtitle: "Prior cited evidence kept for thread continuity.", items: carried, variant: "carried" as const, labelByDpId },
+        { key: "retrieved", title: "New context retrieved", subtitle: "Fresh adjacent evidence used to ground this answer.", items: retrieved, variant: "context" as const, labelByDpId },
       ].filter((s) => s.items.length > 0);
     }
     if (positionDetail?.currentVersion) {
@@ -242,4 +253,18 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+}
+
+function getPriorCitedDataPointIds(turns: Turn[]): string[] {
+  const seen = new Set<string>();
+  const ids: string[] = [];
+  for (const turn of turns) {
+    if (turn.role !== "assistant") continue;
+    for (const id of turn.answerState.citedDataPointIds) {
+      if (seen.has(id)) continue;
+      seen.add(id);
+      ids.push(id);
+    }
+  }
+  return ids;
 }

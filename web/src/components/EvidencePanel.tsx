@@ -12,7 +12,7 @@ type RenderSection = {
   title: string;
   subtitle: string;
   items: any[];
-  variant?: "support" | "counter" | "also-attached";
+  variant?: "support" | "counter" | "carried" | "context" | "also-attached";
   cited?: boolean;
   labelByDpId?: Record<string, string>;
   dimmed?: boolean;
