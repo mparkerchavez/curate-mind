@@ -65,7 +65,7 @@ export const CITATION_LEGEND = {
 export type LegendRow = {
   label: string;
   description: string;
-  tone: "emerald" | "amber" | "brand" | "gray" | "warning" | "blue" | "red";
+  tone: "emerald" | "amber" | "purple" | "gray" | "warning" | "blue" | "red";
 };
 
 export const THEME_LEGEND_ROWS: LegendRow[] = [
@@ -77,7 +77,7 @@ export const THEME_LEGEND_ROWS: LegendRow[] = [
   {
     label: "Active",
     description: "Currently being worked; supported but still in motion.",
-    tone: "brand",
+    tone: "purple",
   },
   {
     label: "Established",
@@ -102,7 +102,7 @@ export const POSITION_LEGEND_ROWS: LegendRow[] = [
     label: "Confidence",
     description:
       "Separate from status — how certain the curator is in the stance (emerging · active · established).",
-    tone: "brand",
+    tone: "purple",
   },
 ];
 

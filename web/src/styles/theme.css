@@ -53,16 +53,37 @@
   --color-utility-neutral-50: #f9fafb;
   --color-utility-neutral-100: #f2f4f7;
   --color-utility-neutral-200: #eaecf0;
+  --color-utility-neutral-300: #d0d5dd;
   --color-utility-neutral-400: #98a2b3;
   --color-utility-neutral-500: #667085;
   --color-utility-neutral-700: #344054;
 
-  --color-utility-brand-50: #f4f3ff;
-  --color-utility-brand-100: #e0ddff;
-  --color-utility-brand-200: #bdb4fe;
-  --color-utility-brand-400: #9b8afb;
-  --color-utility-brand-500: #7a5af8;
-  --color-utility-brand-700: #5925dc;
+  --color-brand-25: #fcfcfd;
+  --color-brand-50: #f9fafb;
+  --color-brand-100: #f2f4f7;
+  --color-brand-200: #eaecf0;
+  --color-brand-300: #d0d5dd;
+  --color-brand-400: #98a2b3;
+  --color-brand-500: #667085;
+  --color-brand-600: #475467;
+  --color-brand-700: #344054;
+  --color-brand-800: #182230;
+  --color-brand-900: #101828;
+  --color-brand-950: #0c111d;
+
+  --color-utility-brand-50: #f9fafb;
+  --color-utility-brand-100: #f2f4f7;
+  --color-utility-brand-200: #eaecf0;
+  --color-utility-brand-400: #98a2b3;
+  --color-utility-brand-500: #667085;
+  --color-utility-brand-700: #344054;
+
+  --color-utility-purple-50: #f4f3ff;
+  --color-utility-purple-100: #e0ddff;
+  --color-utility-purple-200: #bdb4fe;
+  --color-utility-purple-400: #9b8afb;
+  --color-utility-purple-500: #7a5af8;
+  --color-utility-purple-700: #5925dc;
 
   --color-utility-green-50: #ecfdf3;
   --color-utility-green-100: #d1fadf;
@@ -92,11 +113,11 @@
   --color-utility-blue-500: #2e90fa;
   --color-utility-blue-700: #175cd3;
 
-  --color-fg-brand-primary: #6938ef;
-  --color-fg-brand-primary_alt: #9b8afb;
-  --color-fg-brand-secondary: #5925dc;
-  --color-fg-brand-secondary_alt: #7a5af8;
-  --color-fg-brand-secondary_hover: #4a1fb8;
+  --color-fg-brand-primary: #101828;
+  --color-fg-brand-primary_alt: #667085;
+  --color-fg-brand-secondary: #344054;
+  --color-fg-brand-secondary_alt: #475467;
+  --color-fg-brand-secondary_hover: #182230;
   --color-fg-secondary: #344054;
   --color-fg-secondary_hover: #182230;
   --color-fg-quaternary: #667085;
@@ -104,8 +125,15 @@
   --color-fg-error-primary: #d92d20;
   --color-fg-error-secondary: #f04438;
   --color-fg-white: #ffffff;
+  --color-bg-primary: #ffffff;
+  --color-border-primary: rgba(16, 24, 40, 0.08);
+  --color-border-secondary: rgba(16, 24, 40, 0.12);
+  --color-border-brand: #344054;
+  --color-border-error: rgba(240, 68, 56, 0.28);
+  --color-border-error_subtle: rgba(240, 68, 56, 0.16);
+  --color-primary-25: #fcfcfd;
   --color-bg-tertiary: #eaecf0;
-  --color-brand-tertiary: #7a5af8;
+  --color-brand-tertiary: #475467;
 }
 
 :root {
@@ -124,16 +152,24 @@
   --ui-bg-active: #f9fafb;
   --ui-bg-overlay: rgba(16, 24, 40, 0.64);
 
-  /* ── Brand background tokens ─────────────────────────────────── */
-  --ui-bg-brand: #6938ef;              /* primary interactive purple */
-  --ui-bg-brand-hover: #5925dc;
-  --ui-bg-brand-primary: #f4f3ff;      /* light brand bg */
-  --ui-bg-brand-primary-alt: #ebe9fe;
-  --ui-bg-brand-secondary: #e0ddff;
-  --ui-bg-brand-solid: #6938ef;
-  --ui-bg-brand-solid-hover: #5925dc;
-  --ui-bg-brand-section: #2f1d6e;      /* deep brand for CTA sections */
-  --ui-bg-brand-section-subtle: #f9f8ff;  /* very light brand tint for hero-like sections */
+  /* ── Brand background tokens: monochrome identity ────────────── */
+  --ui-bg-brand: #101828;
+  --ui-bg-brand-hover: #182230;
+  --ui-bg-brand-primary: #f9fafb;
+  --ui-bg-brand-primary-alt: #f2f4f7;
+  --ui-bg-brand-secondary: #eaecf0;
+  --ui-bg-brand-solid: #101828;
+  --ui-bg-brand-solid-hover: #182230;
+  --ui-bg-brand-section: #0c111d;
+  --ui-bg-brand-section-subtle: #f9fafb;
+
+  /* Purple is now an accent, not the brand system. */
+  --ui-accent-purple-bg: #f4f3ff;
+  --ui-accent-purple-bg-hover: #e0ddff;
+  --ui-accent-purple-border: #bdb4fe;
+  --ui-accent-purple-fg: #5925dc;
+  --ui-accent-purple-fg-hover: #4a1fb8;
+  --ui-accent-purple-solid: #7a5af8;
 
   /* ── Status background tokens ────────────────────────────────── */
   --ui-bg-error: #fef3f2;
@@ -155,15 +191,15 @@
 
   /* Text on solid brand backgrounds (for bg-brand-solid / bg-brand-section) */
   --ui-text-primary-on-brand: #ffffff;
-  --ui-text-secondary-on-brand: #e0ddff;
-  --ui-text-tertiary-on-brand: #bdb4fe;
-  --ui-text-quaternary-on-brand: #9b8afb;
+  --ui-text-secondary-on-brand: #eaecf0;
+  --ui-text-tertiary-on-brand: #d0d5dd;
+  --ui-text-quaternary-on-brand: #98a2b3;
 
   /* Brand-tinted text (for use on light backgrounds) */
-  --ui-text-brand-primary: #4a1fb8;
-  --ui-text-brand-secondary: #5925dc;
-  --ui-text-brand-tertiary: #6938ef;
-  --ui-text-brand-tertiary-alt: #7a5af8;
+  --ui-text-brand-primary: #101828;
+  --ui-text-brand-secondary: #344054;
+  --ui-text-brand-tertiary: #475467;
+  --ui-text-brand-tertiary-alt: #667085;
 
   /* Semantic status text */
   --ui-text-error-primary: #b42318;
@@ -179,10 +215,10 @@
   --ui-fg-quaternary: #98a2b3;
   --ui-fg-quaternary-hover: #667085;
   --ui-fg-white: #ffffff;
-  --ui-fg-brand-primary: #6938ef;
-  --ui-fg-brand-primary-alt: #9b8afb;
-  --ui-fg-brand-secondary: #5925dc;
-  --ui-fg-brand-secondary-alt: #7a5af8;
+  --ui-fg-brand-primary: #101828;
+  --ui-fg-brand-primary-alt: #667085;
+  --ui-fg-brand-secondary: #344054;
+  --ui-fg-brand-secondary-alt: #475467;
   --ui-fg-error-primary: #d92d20;
   --ui-fg-error-secondary: #f04438;
   --ui-fg-warning-primary: #dc6803;
@@ -195,12 +231,12 @@
   --ui-border-secondary: rgba(16, 24, 40, 0.12);
   --ui-border-secondary-alt: rgba(16, 24, 40, 0.16);
   --ui-border-tertiary: rgba(16, 24, 40, 0.04);
-  --ui-border-brand: #7a5af8;
-  --ui-border-brand-alt: #7a5af8;
+  --ui-border-brand: #344054;
+  --ui-border-brand-alt: #667085;
   --ui-border-error: rgba(240, 68, 56, 0.28);
   --ui-border-error-subtle: rgba(240, 68, 56, 0.16);
-  --ui-focus-ring: #bdb4fe;
-  --ui-brand-ring: #7a5af8;
+  --ui-focus-ring: #98a2b3;
+  --ui-brand-ring: #344054;
   --ui-error-ring: #f04438;
 
   /* ── Shadows ─────────────────────────────────────────────────── */

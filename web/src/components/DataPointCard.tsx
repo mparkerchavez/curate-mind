@@ -69,8 +69,8 @@ export default function DataPointCard({
       className={cn(
         "rounded-3xl border bg-primary p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition-all",
         variant === "counter" ? "border-utility-yellow-200 bg-warning-primary" : "border-secondary",
-        isHighlighted && "border-brand ring-2 ring-brand",
-        isCited && "border-brand bg-brand-primary",
+        isHighlighted && "border-accent-purple ring-2 ring-accent-purple",
+        isCited && "border-accent-purple bg-accent-purple",
       )}
     >
       <div className="flex flex-wrap items-center gap-2">
@@ -84,7 +84,7 @@ export default function DataPointCard({
           </Badge>
         ) : null}
         {isCited ? (
-          <Badge type="color" size="sm" color="brand">
+          <Badge type="color" size="sm" color="purple">
             Cited in answer
           </Badge>
         ) : null}

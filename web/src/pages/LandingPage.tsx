@@ -75,8 +75,8 @@ export default function LandingPage() {
 
   return (
     <div className="bg-primary">
-      {/* Hero — subtle brand tint band (bg-brand-section_subtle) for the
-          "colorful but readable" opening beat UUI prescribes. The hero
+      {/* Hero — quiet neutral band (bg-brand-section_subtle) for a
+          focused opening beat. The hero
           carries the dual proposition (working research base + open
           method) and two CTAs into the rest of the page. */}
       <section className="bg-brand-section_subtle">
@@ -119,7 +119,7 @@ export default function LandingPage() {
       </section>
 
       {/* Example position + methodology teaser on clean white
-          (bg-primary). Brand-tinted hero above, white middle content,
+          (bg-primary). Neutral hero above, white middle content,
           off-white themes below, dark coda at the bottom. */}
       <div className="bg-primary py-14 lg:py-16">
         <div className="mx-auto max-w-6xl px-6">
@@ -210,7 +210,7 @@ export default function LandingPage() {
       {/* Open source coda — renders its own bg-brand-section dark band */}
       <OpenSourceSection />
 
-      {/* Footer — same deep brand as the open source section, with a
+      {/* Footer — same dark neutral band as the open source section, with a
           hair-thin light divider inside so the seam is still readable. */}
       <footer className="bg-brand-section">
         <div className="mx-auto flex max-w-4xl flex-col items-center gap-2 border-t border-white/10 px-6 py-8 text-center text-sm text-tertiary_on-brand sm:flex-row sm:justify-between sm:text-left">

@@ -10,7 +10,7 @@ import { GITHUB_URL } from "@/config/homepage";
  * ignore it; builders who get this far find an invitation to take the
  * system for themselves.
  *
- * Uses UUI's bg-brand-section (deep violet) and the on-brand text
+ * Uses UUI's bg-brand-section (dark neutral) and the on-brand text
  * tokens so it pairs cohesively with the footer to form a single
  * dark bottom zone.
  */
@@ -33,7 +33,7 @@ export function OpenSourceSection() {
         <div className="mt-6 flex flex-wrap items-center justify-center gap-4">
           <Button
             size="md"
-            color="primary"
+            color="secondary"
             iconLeading={GitHubIcon}
             iconTrailing={ArrowRight}
             href={GITHUB_URL}

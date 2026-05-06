@@ -1,5 +1,6 @@
 import type { ComponentProps, ComponentPropsWithRef, ReactNode } from "react";
 import { Children, createContext, isValidElement, useContext } from "react";
+import { FileIcon } from "@untitledui/file-icons";
 import { SearchLg } from "@untitledui/icons";
 import { FeaturedIcon as FeaturedIconbase } from "@/components/foundations/featured-icon/featured-icon";
 import type { BackgroundPatternProps } from "@/components/shared-assets/background-patterns";
@@ -40,6 +41,19 @@ const Illustration = ({ type = "cloud", color = "gray", size = "lg", ...props }:
             size={rootSize === "sm" ? "sm" : rootSize === "md" ? "md" : size}
             className={cx("z-10", props.className)}
         />
+    );
+};
+
+interface FileTypeIconProps extends ComponentPropsWithRef<"div"> {
+    type?: ComponentProps<typeof FileIcon>["type"];
+    theme?: ComponentProps<typeof FileIcon>["variant"];
+}
+
+const FileTypeIcon = ({ type = "folder", theme = "solid", ...props }: FileTypeIconProps) => {
+    return (
+        <div {...props} className={cx("relative z-10 flex rounded-full bg-linear-to-b from-neutral-50 to-neutral-200 p-8", props.className)}>
+            <FileIcon type={type} variant={theme} className="size-10 drop-shadow-sm" />
+        </div>
     );
 };
 
@@ -308,6 +322,7 @@ const EmptyState = Root as typeof Root & {
     Description: typeof Description;
     Illustration: typeof Illustration;
     FeaturedIcon: typeof FeaturedIcon;
+    FileTypeIcon: typeof FileTypeIcon;
     AvatarRadius: typeof AvatarRadius;
     AvatarRow: typeof AvatarRow;
     AvatarGrid: typeof AvatarGrid;
@@ -320,6 +335,7 @@ EmptyState.Content = Content;
 EmptyState.Description = Description;
 EmptyState.Illustration = Illustration;
 EmptyState.FeaturedIcon = FeaturedIcon;
+EmptyState.FileTypeIcon = FileTypeIcon;
 EmptyState.AvatarRadius = AvatarRadius;
 EmptyState.AvatarRow = AvatarRow;
 EmptyState.AvatarGrid = AvatarGrid;

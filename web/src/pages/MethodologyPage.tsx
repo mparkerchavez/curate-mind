@@ -28,7 +28,7 @@ export default function MethodologyPage() {
 
   return (
     <div className="bg-primary">
-      {/* Hero on brand-tinted band, matching home page treatment */}
+      {/* Hero on a neutral band, matching home page treatment */}
       <section className="bg-brand-section_subtle">
         <div className="mx-auto max-w-3xl px-6 pt-8 pb-12 text-center lg:pb-16">
           <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
@@ -312,7 +312,7 @@ export default function MethodologyPage() {
         </div>
       </section>
 
-      {/* Footer — same deep brand as open source section on home page */}
+      {/* Footer — same dark neutral band as open source section on home page */}
       <footer className="mt-16 bg-brand-section">
         <div className="mx-auto flex max-w-4xl flex-col items-center gap-2 border-t border-white/10 px-6 py-8 text-center text-sm text-tertiary_on-brand sm:flex-row sm:justify-between sm:text-left">
           <p>
@@ -470,7 +470,7 @@ function DataPointExample({
         <Badge type="color" size="sm" color="gray">
           {label}
         </Badge>
-        <Badge type="color" size="sm" color="brand">
+        <Badge type="color" size="sm" color="purple">
           {evidenceType}
         </Badge>
         <span className="inline-flex items-center gap-1 rounded-full bg-success-primary px-2 py-0.5 text-xs font-medium text-success-primary">

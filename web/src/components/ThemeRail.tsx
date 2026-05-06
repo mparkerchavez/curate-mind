@@ -8,7 +8,7 @@ import { cn } from "@/lib/cn";
 
 const STATUS_DOT: Record<string, string> = {
   emerging: "bg-warning-solid",
-  active: "bg-brand-solid",
+  active: "bg-accent-purple-solid",
   established: "bg-success-solid",
   evolved: "bg-utility-blue-500",
   retired: "bg-error-solid",

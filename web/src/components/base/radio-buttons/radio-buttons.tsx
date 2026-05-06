@@ -27,7 +27,7 @@ export const RadioButtonBase = ({ className, isFocusVisible, isSelected, isDisab
             className={cx(
                 "flex size-4 shrink-0 cursor-pointer appearance-none items-center justify-center rounded-full bg-primary ring-1 ring-primary ring-inset",
                 size === "md" && "size-5",
-                isSelected && "bg-brand-solid ring-brand-solid",
+                isSelected && "bg-brand-solid ring-brand",
                 isDisabled && "cursor-not-allowed opacity-50",
                 isDisabled && !isSelected && "bg-tertiary",
                 isFocusVisible && "outline-2 outline-offset-2 outline-focus-ring",

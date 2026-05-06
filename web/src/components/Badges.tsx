@@ -7,7 +7,7 @@ type Confidence = "emerging" | "active" | "established" | "strong" | "moderate" 
 
 const STATUS_COLORS = {
   emerging: "warning",
-  active: "brand",
+  active: "purple",
   established: "success",
   evolved: "blue",
   retired: "error",
@@ -19,11 +19,11 @@ const CONFIDENCE_COLORS = {
   suggestive: "gray",
 } as const;
 
-const EVIDENCE_COLORS: Record<string, "brand" | "gray" | "warning" | "success"> = {
-  statistic: "brand",
+const EVIDENCE_COLORS: Record<string, "purple" | "gray" | "warning" | "success"> = {
+  statistic: "purple",
   framework: "success",
   prediction: "warning",
-  "case-study": "brand",
+  "case-study": "purple",
   observation: "gray",
   recommendation: "success",
 };

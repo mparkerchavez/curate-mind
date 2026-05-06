@@ -74,6 +74,18 @@
   background-color: var(--ui-bg-brand-section-subtle);
 }
 
+@utility bg-accent-purple {
+  background-color: var(--ui-accent-purple-bg);
+}
+
+@utility bg-accent-purple_hover {
+  background-color: var(--ui-accent-purple-bg-hover);
+}
+
+@utility bg-accent-purple-solid {
+  background-color: var(--ui-accent-purple-solid);
+}
+
 @utility bg-error-primary {
   background-color: var(--ui-bg-error);
 }
@@ -170,6 +182,14 @@
   color: var(--ui-text-brand-tertiary-alt);
 }
 
+@utility text-accent-purple {
+  color: var(--ui-accent-purple-fg);
+}
+
+@utility text-accent-purple_hover {
+  color: var(--ui-accent-purple-fg-hover);
+}
+
 /* Semantic status text */
 @utility text-error-primary {
   color: var(--ui-text-error-primary);
@@ -213,6 +233,10 @@
   color: var(--ui-fg-brand-secondary);
 }
 
+@utility fg-accent-purple {
+  color: var(--ui-accent-purple-fg);
+}
+
 /* ── Border utilities ────────────────────────────────────────── */
 
 @utility border-primary {
@@ -237,6 +261,10 @@
 
 @utility border-brand_alt {
   border-color: var(--ui-border-brand-alt);
+}
+
+@utility border-accent-purple {
+  border-color: var(--ui-accent-purple-border);
 }
 
 @utility border-error {
@@ -265,6 +293,10 @@
 
 @utility ring-brand {
   --tw-ring-color: var(--ui-brand-ring);
+}
+
+@utility ring-accent-purple {
+  --tw-ring-color: var(--ui-accent-purple-border);
 }
 
 @utility outline-focus-ring {
@@ -311,8 +343,8 @@ body,
 
 body {
   background:
-    radial-gradient(circle at top left, rgba(105, 56, 239, 0.08), transparent 28%),
-    linear-gradient(180deg, #f8fafc 0%, #eef2f6 100%);
+    radial-gradient(circle at top left, rgba(16, 24, 40, 0.06), transparent 28%),
+    linear-gradient(180deg, #ffffff 0%, #f2f4f7 100%);
   color: var(--ui-text-primary);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;

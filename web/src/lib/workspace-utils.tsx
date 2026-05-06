@@ -267,14 +267,14 @@ export function renderAnswerBlocks(
     if (cur.startsWith("> ")) {
       const ql: string[] = [];
       while (i < lines.length && lines[i].trim().startsWith("> ")) { ql.push(lines[i].trim().replace(/^>\s?/, "")); i++; }
-      blocks.push(<blockquote key={`q-${i}`} className="rounded-2xl border border-utility-brand-200 bg-utility-brand-50 px-4 py-3 text-sm leading-7 text-slate-700">{renderInline(ql.join(" "), citationMap, onCitationClick, options)}</blockquote>);
+      blocks.push(<blockquote key={`q-${i}`} className="rounded-2xl border border-secondary bg-secondary px-4 py-3 text-sm leading-7 text-slate-700">{renderInline(ql.join(" "), citationMap, onCitationClick, options)}</blockquote>);
       continue;
     }
 
     if (/^[-*]\s+/.test(cur)) {
       const items: string[] = [];
       while (i < lines.length && /^[-*]\s+/.test(lines[i].trim())) { items.push(lines[i].trim().replace(/^[-*]\s+/, "")); i++; }
-      blocks.push(<ul key={`ul-${i}`} className="space-y-3">{items.map((it, j) => <li key={j} className="flex items-start gap-3"><span className="mt-3 size-1.5 rounded-full bg-utility-brand-500" /><span>{renderInline(it, citationMap, onCitationClick, options)}</span></li>)}</ul>);
+      blocks.push(<ul key={`ul-${i}`} className="space-y-3">{items.map((it, j) => <li key={j} className="flex items-start gap-3"><span className="mt-3 size-1.5 rounded-full bg-brand-solid" /><span>{renderInline(it, citationMap, onCitationClick, options)}</span></li>)}</ul>);
       continue;
     }
 

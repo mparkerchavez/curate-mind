@@ -11,7 +11,7 @@ import { cx } from "@/utils/cx";
 const TONE_DOT: Record<LegendRow["tone"], string> = {
   emerald: "bg-success-solid",
   amber: "bg-warning-solid",
-  brand: "bg-brand-solid",
+  purple: "bg-accent-purple-solid",
   gray: "bg-fg-quaternary",
   warning: "bg-warning-solid",
   blue: "bg-utility-blue-500",
