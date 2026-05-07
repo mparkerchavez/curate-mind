@@ -164,7 +164,7 @@ function PrimaryNav({ pathname }: { pathname: string }) {
         Methodology
       </NavItem>
       <NavItem to="/backend" isActive={isBackendActive}>
-        Data Model
+        Explore Database
       </NavItem>
       <a
         href={GITHUB_URL}

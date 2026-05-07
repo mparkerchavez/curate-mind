@@ -320,14 +320,14 @@ export default function BackendPage() {
           <div className="px-8 py-7">
             <div className="max-w-3xl">
               <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
-                Data model
+                Explore database
               </p>
               <h1 className="mt-2 text-display-xs font-semibold tracking-[-0.01em] text-primary">
                 Inside the knowledge base
               </h1>
               <p className="mt-3 text-sm leading-6 text-tertiary">
-                Every source, claim, tag, position, and observation in the demo dataset, exported from Convex.
-                Source text, verification quotes, file pointers, vectors, and hashes are omitted from this public snapshot.
+                Every position and citation in Ask is built from the records here. Open any row to see the claims it
+                stands on, the sources those claims came from, and the tags that connect it to ideas across themes.
               </p>
             </div>
           </div>
@@ -482,7 +482,7 @@ function BackendHeader() {
             Methodology
           </Link>
           <Link to="/backend" className="text-sm font-medium text-primary">
-            Data Model
+            Explore Database
           </Link>
           <a
             href={GITHUB_URL}
