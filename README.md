@@ -8,6 +8,8 @@ Curate Mind ingests sources you collect, runs them through a four-pass extractio
 
 [curatemind.io](https://curatemind.io) shows what the system produces after a full extraction cycle on February 2026 AI research. It is a snapshot of the methodology, not a continuously updating feed.
 
+The `web/` directory contains the source for curatemind.io. It is included for transparency, not designed to be redeployed against your own Convex project. The frontend has demo-specific assumptions baked in: a hardcoded flagship position, AI-strategy-specific copy, and a single-deployment configuration. A configurable Reader frontend is on the roadmap; for v1, the MCP server is the interface.
+
 ## How it works
 
 1. You drop markdown files into the repo (one source per file).

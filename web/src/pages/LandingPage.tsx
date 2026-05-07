@@ -3,6 +3,7 @@ import { ArrowDown, ArrowRight } from "@untitledui/icons";
 import { Badge } from "@/components/base/badges/badges";
 import { Button } from "@/components/base/buttons/button";
 import { ExamplePromptChips } from "@/components/ExamplePromptChips";
+import { GitHubIcon } from "@/components/GitHubIcon";
 import { HeroAskInput } from "@/components/HeroAskInput";
 import { LivePositionDemo } from "@/components/LivePositionDemo";
 import { OpenSourceSection } from "@/components/OpenSourceSection";
@@ -12,6 +13,7 @@ import {
   EXAMPLE_PROMPTS,
   FLAGSHIP_POSITION_ID,
   GITHUB_URL,
+  SETUP_GUIDE_URL,
 } from "@/config/homepage";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { navigateWithTransition } from "@/utils/navigateWithTransition";
@@ -82,44 +84,47 @@ export default function LandingPage() {
         <div className="cm-hero-vignette absolute inset-0" aria-hidden="true" />
         <div className="relative mx-auto max-w-4xl px-6 pt-12 pb-16 text-center lg:pt-16 lg:pb-24">
           <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
-            Feb 2026 &middot; Research ongoing &middot; Open source
+            February 2026 research &middot; Open source
           </p>
-          <h1 className="mx-auto mt-20 max-w-3xl text-display-lg font-semibold tracking-[-0.025em] text-primary">
-            A working research base on AI strategy. An open-source method
-            for building your&nbsp;own.
+          <h1 className="mx-auto mt-4 max-w-3xl text-display-lg font-semibold tracking-[-0.025em] text-primary">
+            An open-source MCP server for research you can&nbsp;trust.
           </h1>
-          <p className="mx-auto mt-5 max-w-2xl text-base leading-8 text-tertiary">
-            178 sources distilled into traceable positions by one
-            researcher. Read the positions, trace every claim, or fork the
-            method on GitHub.
+          <p className="mx-auto mt-5 max-w-xl text-base leading-8 text-tertiary">
+            Demoed on 178 sources of February 2026 AI strategy, with
+            every claim linked back to a verbatim quote and the original
+            source. Read the positions, trace the evidence, or run the
+            system yourself.
           </p>
 
           {/* Two CTAs: anchor-scroll to the themes grid, and link to the
               methodology page. The GitHub link stays in the nav and the
               open-source coda. */}
-          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <div className="mt-14 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Button
               size="lg"
               color="primary"
-              href="#themes"
+              href="#how-it-works"
               iconTrailing={ArrowDown}
             >
-              Read the positions
+              See how it works
             </Button>
             <Button
               size="lg"
               color="secondary"
-              href="/methodology"
+              href={GITHUB_URL}
+              target="_blank"
+              rel="noreferrer noopener"
+              iconLeading={GitHubIcon}
               iconTrailing={ArrowRight}
             >
-              Learn the methodology
+              View on GitHub
             </Button>
           </div>
         </div>
       </section>
 
       {/* Example position + methodology teaser on a dark canvas. */}
-      <div className="bg-primary py-14 lg:py-16">
+      <div id="how-it-works" className="scroll-mt-16 bg-primary py-14 lg:py-16">
         <div className="mx-auto max-w-6xl px-6">
           <div className="mx-auto max-w-3xl text-center">
             <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
@@ -129,7 +134,7 @@ export default function LandingPage() {
               How claims, evidence, and sources connect.
             </h2>
             <p className="mt-3 text-base leading-7 text-tertiary">
-              Ask anything, and your answer traces back the same way.
+              Every answer cites the data points and sources behind it.
             </p>
           </div>
           <div className="mt-10">
@@ -141,7 +146,7 @@ export default function LandingPage() {
               page's primary action. */}
           <div className="mx-auto mt-16 max-w-3xl text-center">
             <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
-              Try the experience
+              Try a question
             </p>
             <h2 className="mt-3 text-2xl font-semibold tracking-[-0.01em] text-primary">
               Ask your own question.
@@ -177,7 +182,7 @@ export default function LandingPage() {
                 Research themes
               </p>
               <h2 className="mt-2 text-xl font-semibold text-primary">
-                Explore by thread
+                Browse the themes
               </h2>
               <p className="mt-2 text-sm text-tertiary">
                 Drawing from 178 sources &middot; 1,561 data points &middot;{" "}
@@ -206,7 +211,7 @@ export default function LandingPage() {
       {/* Open source coda — renders its own bg-brand-section dark band */}
       <OpenSourceSection />
 
-      <SiteFooter links={[{ label: "Methodology", to: "/methodology" }, { label: "GitHub", href: GITHUB_URL }]} />
+      <SiteFooter links={[{ label: "Setup guide", href: SETUP_GUIDE_URL }, { label: "GitHub", href: GITHUB_URL }]} />
     </div>
   );
 }

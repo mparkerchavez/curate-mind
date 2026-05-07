@@ -11,6 +11,11 @@
  *  section, the methodology page, the footer, and the mobile redirect. */
 export const GITHUB_URL = "https://github.com/mparkerchavez/curate-mind";
 
+/** Direct link to the setup guide on GitHub. Surfaced in the footer so
+ *  builders landing on any internal page have a one-click path to the
+ *  "how do I run this myself" docs without bouncing through the repo root. */
+export const SETUP_GUIDE_URL = `${GITHUB_URL}/blob/main/docs/setup-guide.md`;
+
 /** The Research Position rendered in the live Position demo on both
  *  the home page and the methodology page.
  *

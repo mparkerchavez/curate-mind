@@ -27,12 +27,12 @@ export function OpenSourceSection() {
 
       <div className="relative mx-auto max-w-3xl px-6 py-16 text-center lg:px-8 lg:py-20">
         <h2 className="text-2xl font-semibold tracking-[-0.01em] text-primary_on-section">
-          Fork the whole system. Build your own.
+          Run the whole system on your own research.
         </h2>
         <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-secondary_on-section">
-          Curate Mind is open source. The front end you just used is one
-          piece of it. The full system includes everything needed to curate
-          your own research base, on any topic you care about.
+          Curate Mind is open source. You get the MCP server, five Claude
+          skills, and the Convex schema that runs the four-pass pipeline.
+          Bring your own sources, bring your own domain.
         </p>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-4">
           <Button

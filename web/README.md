@@ -1,5 +1,7 @@
 # Curate Mind — Web Frontend
 
+> **Scope note.** This directory is the source for [curatemind.io](https://curatemind.io), included for transparency. It is not designed to be redeployed against your own Convex project. Demo-specific assumptions are baked in: a hardcoded flagship position, AI-strategy-specific hero and theme copy, and a configuration tied to one Convex deployment. A configurable Reader frontend is planned for a future release. For v1, the MCP server in `mcp/` is the interface, and you query the foundation through Claude, Codex, or any MCP-compatible chat app. The technical notes below cover running the demo locally for development on this site.
+
 A React + Vite + Tailwind 4 explorer for the Curate Mind Convex backend. The UI now runs as a single three-column workspace: the main reading pane, a persistent evidence pane, and a context-aware chat pane that writes answers back into the main canvas.
 
 ## Run locally
