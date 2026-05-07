@@ -1,46 +1,8 @@
-import { Component, type ReactNode } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/api";
 import { LoadingIndicator } from "@/components/application/loading-indicator/loading-indicator";
 import { OpenSourceSection } from "@/components/OpenSourceSection";
 import { SiteFooter } from "@/components/SiteFooter";
-
-// ── Error boundary (catches Convex query failures) ────────────
-
-class QueryErrorBoundary extends Component<
-  { children: ReactNode },
-  { error: string | null }
-> {
-  state = { error: null };
-  static getDerivedStateFromError(err: unknown) {
-    return {
-      error: err instanceof Error ? err.message : "An unexpected error occurred.",
-    };
-  }
-  render() {
-    if (this.state.error) {
-      return (
-        <div className="mx-auto max-w-4xl px-6 py-10">
-          <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
-            Error
-          </p>
-          <h1 className="mt-2 text-lg font-semibold text-primary">
-            Could not load backend data
-          </h1>
-          <p className="mt-2 text-sm text-tertiary">{this.state.error}</p>
-          <p className="mt-4 text-sm text-tertiary">
-            If the Convex functions are not yet deployed, run{" "}
-            <code className="rounded bg-secondary px-1.5 py-0.5 font-mono text-xs">
-              npx convex deploy
-            </code>{" "}
-            in the project shell and reload.
-          </p>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
 
 // ── Type helpers ─────────────────────────────────────────────
 
@@ -465,7 +427,7 @@ function MentalModelsSection({ data }: { data: any }) {
 
 // ── Page ──────────────────────────────────────────────────────
 
-function BackendPageInner() {
+export default function BackendPage() {
   const data = useQuery(api.backend.getBackendSummary);
 
   const entityCount = data
@@ -571,14 +533,6 @@ function BackendPageInner() {
       <OpenSourceSection />
       <SiteFooter />
     </div>
-  );
-}
-
-export default function BackendPage() {
-  return (
-    <QueryErrorBoundary>
-      <BackendPageInner />
-    </QueryErrorBoundary>
   );
 }
 
