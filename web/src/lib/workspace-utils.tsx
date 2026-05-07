@@ -5,7 +5,7 @@ import { CITATION_LEGEND } from "@/lib/legend-copy";
 
 /* ── Shared types ── */
 
-export type RouteKind = "home" | "themes" | "theme" | "position" | "source" | "ask";
+export type RouteKind = "home" | "themes" | "theme" | "position" | "source" | "ask" | "backend";
 
 export type ChatCitation = {
   label: string;
@@ -220,6 +220,7 @@ export function getRouteKind(pathname: string): RouteKind {
   if (pathname.startsWith("/themes/")) return "theme";
   if (pathname.startsWith("/sources/")) return "source";
   if (pathname === "/ask") return "ask";
+  if (pathname === "/backend") return "backend";
   return "home";
 }
 

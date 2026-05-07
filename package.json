@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite --config web/vite.config.ts --host 0.0.0.0 --port 5000",
     "build": "vite build --config web/vite.config.ts",
+    "export:backend-snapshot": "node scripts/export-backend-snapshot.mjs",
     "preview": "vite preview --config web/vite.config.ts --host 0.0.0.0 --port 5000",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

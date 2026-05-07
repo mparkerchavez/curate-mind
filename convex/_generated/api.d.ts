@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as backend from "../backend.js";
 import type * as chat from "../chat.js";
 import type * as dataPoints from "../dataPoints.js";
 import type * as mentalModels from "../mentalModels.js";
@@ -27,6 +28,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  backend: typeof backend;
   chat: typeof chat;
   dataPoints: typeof dataPoints;
   mentalModels: typeof mentalModels;

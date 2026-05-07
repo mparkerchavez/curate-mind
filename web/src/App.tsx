@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { MobileRedirect } from "./components/MobileRedirect";
 import { ProjectProvider } from "./ProjectContext";
 import { WorkspaceProvider } from "./contexts/WorkspaceContext";
@@ -12,6 +12,7 @@ import PositionPage from "./pages/PositionPage";
 import PositionRedirect from "./components/PositionRedirect";
 import SourcePage from "./pages/SourcePage";
 import AskPage from "./pages/AskPage";
+import BackendPage from "./pages/backend-page";
 
 const DESKTOP_MEDIA_QUERY = "(min-width: 1024px)";
 
@@ -37,11 +38,16 @@ function useIsDesktop(): boolean {
 
 export default function App() {
   const isDesktop = useIsDesktop();
+  const location = useLocation();
 
   // Skip the providers and router on small viewports: the data fetches
   // are wasted effort if the visitor is never going to see the app.
   if (!isDesktop) {
     return <MobileRedirect />;
+  }
+
+  if (location.pathname === "/backend") {
+    return <BackendPage />;
   }
 
   return (
