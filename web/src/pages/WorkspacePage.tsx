@@ -4,7 +4,6 @@ import {
   Compass01,
   File02,
   HomeLine,
-  LayersThree01,
   MessageChatCircle,
   SearchLg,
 } from "@untitledui/icons";
@@ -19,6 +18,7 @@ import { Badge, BadgeWithDot } from "@/components/base/badges/badges";
 import { Button } from "@/components/base/buttons/button";
 import { TextAreaBase } from "@/components/base/textarea/textarea";
 import { ConfidenceBadge, StatusBadge } from "@/components/Badges";
+import { CurateMindMark } from "@/components/CurateMindMark";
 import DataPointCard, { type DataPointForCard } from "@/components/DataPointCard";
 import SourceBadge from "@/components/SourceBadge";
 import { useProject } from "@/ProjectContext";
@@ -495,9 +495,7 @@ function WorkspaceHeader({
     <header className="sticky top-4 z-20 rounded-[28px] border border-white/60 bg-white/90 px-4 py-4 shadow-[var(--ui-shell-shadow)] backdrop-blur lg:px-5">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div className="flex items-start gap-4">
-          <div className="flex size-12 items-center justify-center rounded-2xl bg-brand-solid text-white shadow-xs-skeuomorphic">
-            <LayersThree01 className="size-6" />
-          </div>
+          <CurateMindMark className="size-12 text-primary" />
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <Badge type="color" size="sm" color="brand">

@@ -1,6 +1,7 @@
 import { type ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { ChevronRight, LayersThree01 } from "@untitledui/icons";
+import { ChevronRight } from "@untitledui/icons";
+import { CurateMindMark } from "@/components/CurateMindMark";
 import EvidencePanel from "@/components/EvidencePanel";
 import { GitHubIcon } from "@/components/GitHubIcon";
 import { ThemeModeControl } from "@/components/ThemeModeControl";
@@ -40,9 +41,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
         <div className="flex items-center gap-3">
           {/* Logo + home link */}
           <Link to="/" className="flex shrink-0 items-center gap-2.5">
-            <div className="flex size-8 items-center justify-center rounded-lg bg-brand-solid text-primary_on-brand shadow-xs-skeuomorphic">
-              <LayersThree01 className="size-4" />
-            </div>
+            <CurateMindMark className="size-8 text-primary" />
             <span className="text-base font-semibold tracking-[-0.02em] text-primary">
               Curate Mind
             </span>

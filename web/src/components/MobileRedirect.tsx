@@ -1,4 +1,4 @@
-import { LayersThree01 } from "@untitledui/icons";
+import { CurateMindMark } from "@/components/CurateMindMark";
 import { GitHubIcon } from "@/components/GitHubIcon";
 import { GITHUB_URL } from "@/config/homepage";
 
@@ -17,9 +17,7 @@ export function MobileRedirect() {
     <div className="flex min-h-screen flex-col items-center justify-center bg-primary px-6 py-12 text-center">
       {/* Primary: come back on desktop */}
       <div className="flex flex-col items-center">
-        <div className="flex size-12 items-center justify-center rounded-xl bg-brand-solid text-primary_on-brand shadow-xs-skeuomorphic">
-          <LayersThree01 className="size-6" />
-        </div>
+        <CurateMindMark className="size-12 text-primary" />
         <h1 className="mt-6 text-2xl font-semibold tracking-[-0.01em] text-primary">
           Come back on desktop.
         </h1>
