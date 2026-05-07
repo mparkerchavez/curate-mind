@@ -150,6 +150,7 @@ function PrimaryNav({ pathname }: { pathname: string }) {
   const isThemesActive = pathname.startsWith("/themes");
   const isAskActive = pathname === "/ask";
   const isMethodologyActive = pathname === "/methodology";
+  const isBackendActive = pathname === "/backend";
 
   return (
     <nav className="flex items-center gap-7">
@@ -161,6 +162,9 @@ function PrimaryNav({ pathname }: { pathname: string }) {
       </NavItem>
       <NavItem to="/methodology" isActive={isMethodologyActive}>
         Methodology
+      </NavItem>
+      <NavItem to="/backend" isActive={isBackendActive}>
+        Data Model
       </NavItem>
       <a
         href={GITHUB_URL}

@@ -12,6 +12,7 @@ import PositionPage from "./pages/PositionPage";
 import PositionRedirect from "./components/PositionRedirect";
 import SourcePage from "./pages/SourcePage";
 import AskPage from "./pages/AskPage";
+import BackendPage from "./pages/backend-page";
 
 const DESKTOP_MEDIA_QUERY = "(min-width: 1024px)";
 
@@ -58,6 +59,7 @@ export default function App() {
             {/* Legacy flat URL redirects to the nested shape. */}
             <Route path="/positions/:positionId" element={<PositionRedirect />} />
             <Route path="/sources/:sourceId" element={<SourcePage />} />
+            <Route path="/backend" element={<BackendPage />} />
             {/* Legacy routes redirect */}
             <Route path="/browse" element={<Navigate to="/" replace />} />
             <Route path="*" element={<Navigate to="/" replace />} />
