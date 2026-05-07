@@ -28,10 +28,11 @@ export default function MethodologyPage() {
 
   return (
     <div className="bg-primary">
-      {/* Hero on the same dark grid language as the home page. */}
+      {/* Hero on the same grid and color-wash language as the home page. */}
       <section className="relative overflow-hidden border-b border-secondary bg-brand-section_subtle">
         <div className="absolute inset-x-8 top-0 bottom-0 border-x border-secondary opacity-80" aria-hidden="true" />
         <div className="cm-grid-surface absolute inset-x-8 top-0 h-full opacity-60" aria-hidden="true" />
+        <div className="cm-hero-vignette absolute inset-0" aria-hidden="true" />
         <div className="relative mx-auto max-w-3xl px-6 pt-12 pb-16 text-center lg:pt-16 lg:pb-20">
           <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
             Methodology
@@ -316,20 +317,20 @@ export default function MethodologyPage() {
 
       {/* Footer — same dark neutral band as open source section on home page */}
       <footer className="mt-16 bg-brand-section">
-        <div className="mx-auto flex max-w-4xl flex-col items-center gap-2 border-t border-white/10 px-6 py-8 text-center text-sm text-tertiary_on-brand sm:flex-row sm:justify-between sm:text-left">
+        <div className="mx-auto flex max-w-4xl flex-col items-center gap-2 border-t border-white/10 px-6 py-8 text-center text-sm text-tertiary_on-section sm:flex-row sm:justify-between sm:text-left">
           <p>
             Curate Mind &middot; built by Maicol Parker-Chavez &middot;{" "}
             {new Date().getFullYear()}
           </p>
           <div className="flex items-center gap-5">
-            <Link to="/" className="transition hover:text-primary_on-brand">
+            <Link to="/" className="transition hover:text-primary_on-section">
               Home
             </Link>
             <a
               href={GITHUB_URL}
               target="_blank"
               rel="noreferrer noopener"
-              className="transition hover:text-primary_on-brand"
+              className="transition hover:text-primary_on-section"
             >
               GitHub
             </a>

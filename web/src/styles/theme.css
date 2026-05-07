@@ -191,11 +191,17 @@
   --ui-text-quaternary: #737373;
   --ui-text-placeholder: #737373;
 
-  /* Text on solid brand backgrounds (for bg-brand-solid / bg-brand-section) */
+  /* Text on solid brand controls (for bg-brand-solid buttons/icons) */
   --ui-text-primary-on-brand: #050505;
   --ui-text-secondary-on-brand: #262626;
   --ui-text-tertiary-on-brand: #525252;
   --ui-text-quaternary-on-brand: #737373;
+
+  /* Text on dark section bands (for bg-brand-section/footer/coda) */
+  --ui-text-primary-on-section: #fafafa;
+  --ui-text-secondary-on-section: #d4d4d4;
+  --ui-text-tertiary-on-section: #a3a3a3;
+  --ui-text-quaternary-on-section: #737373;
 
   /* Brand-tinted text (for use on light backgrounds) */
   --ui-text-brand-primary: #ffffff;
@@ -300,6 +306,10 @@
   --ui-text-secondary-on-brand: #eaecf0;
   --ui-text-tertiary-on-brand: #d0d5dd;
   --ui-text-quaternary-on-brand: #98a2b3;
+  --ui-text-primary-on-section: #ffffff;
+  --ui-text-secondary-on-section: #eaecf0;
+  --ui-text-tertiary-on-section: #d0d5dd;
+  --ui-text-quaternary-on-section: #98a2b3;
   --ui-text-brand-primary: #101828;
   --ui-text-brand-secondary: #344054;
   --ui-text-brand-tertiary: #475467;

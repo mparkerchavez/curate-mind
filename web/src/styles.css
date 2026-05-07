@@ -152,7 +152,7 @@
   color: var(--ui-text-placeholder);
 }
 
-/* Text on solid brand backgrounds (e.g. bg-brand-section, bg-brand-solid) */
+/* Text on solid brand controls (e.g. bg-brand-solid buttons/icons) */
 @utility text-primary_on-brand {
   color: var(--ui-text-primary-on-brand);
 }
@@ -167,6 +167,23 @@
 
 @utility text-quaternary_on-brand {
   color: var(--ui-text-quaternary-on-brand);
+}
+
+/* Text on dark section bands (e.g. bg-brand-section footer/coda) */
+@utility text-primary_on-section {
+  color: var(--ui-text-primary-on-section);
+}
+
+@utility text-secondary_on-section {
+  color: var(--ui-text-secondary-on-section);
+}
+
+@utility text-tertiary_on-section {
+  color: var(--ui-text-tertiary-on-section);
+}
+
+@utility text-quaternary_on-section {
+  color: var(--ui-text-quaternary-on-section);
 }
 
 /* Brand-tinted text (for use on light backgrounds) */
@@ -348,10 +365,11 @@
 
 .cm-hero-vignette {
   background:
-    radial-gradient(circle at 50% 68%, rgba(255, 255, 255, 0.14), transparent 8rem),
-    radial-gradient(circle at 36% 72%, rgba(83, 177, 253, 0.14), transparent 18rem),
-    radial-gradient(circle at 64% 72%, rgba(249, 112, 102, 0.12), transparent 18rem),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 55%);
+    radial-gradient(circle at 50% 42%, rgba(122, 90, 248, 0.28), transparent 16rem),
+    radial-gradient(circle at 28% 68%, rgba(247, 144, 9, 0.32), transparent 22rem),
+    radial-gradient(circle at 72% 68%, rgba(18, 183, 106, 0.3), transparent 22rem),
+    radial-gradient(circle at 50% 82%, rgba(255, 255, 255, 0.16), transparent 18rem),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent 70%);
 }
 
 [data-theme="light"] .cm-grid-surface {
@@ -362,10 +380,80 @@
 
 [data-theme="light"] .cm-hero-vignette {
   background:
-    radial-gradient(circle at 50% 68%, rgba(16, 24, 40, 0.08), transparent 8rem),
-    radial-gradient(circle at 36% 72%, rgba(253, 176, 34, 0.22), transparent 18rem),
-    radial-gradient(circle at 64% 72%, rgba(50, 213, 131, 0.2), transparent 18rem),
-    linear-gradient(180deg, rgba(16, 24, 40, 0.04), transparent 55%);
+    radial-gradient(circle at 50% 42%, rgba(122, 90, 248, 0.2), transparent 16rem),
+    radial-gradient(circle at 28% 70%, rgba(247, 144, 9, 0.28), transparent 23rem),
+    radial-gradient(circle at 72% 70%, rgba(18, 183, 106, 0.26), transparent 23rem),
+    radial-gradient(circle at 50% 84%, rgba(255, 255, 255, 0.7), transparent 19rem),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.46), rgba(255, 255, 255, 0.08) 70%);
+}
+
+.cm-artifact-frame {
+  background: linear-gradient(180deg, #0b0b0b 0%, #050505 100%);
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 28px 96px rgba(0, 0, 0, 0.82),
+    0 0 80px rgba(255, 255, 255, 0.07);
+}
+
+.cm-artifact-primary-pane {
+  background:
+    radial-gradient(circle at 18% 0%, rgba(122, 90, 248, 0.08), transparent 18rem),
+    linear-gradient(180deg, #0a0a0a 0%, #060606 100%);
+}
+
+.cm-artifact-secondary-pane,
+.cm-artifact-panel-bar {
+  background: #101010;
+}
+
+.cm-artifact-divider {
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.cm-ask-input {
+  background: #0b0b0b;
+  border-color: rgba(255, 255, 255, 0.16);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 18px 48px rgba(0, 0, 0, 0.58),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.cm-prompt-chip {
+  background: #080808;
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+[data-theme="light"] .cm-artifact-frame {
+  background: #ffffff;
+  border-color: rgba(16, 24, 40, 0.12);
+  box-shadow:
+    0 0 0 1px rgba(16, 24, 40, 0.03),
+    0 30px 96px rgba(16, 24, 40, 0.18);
+}
+
+[data-theme="light"] .cm-artifact-primary-pane,
+[data-theme="light"] .cm-artifact-secondary-pane,
+[data-theme="light"] .cm-artifact-panel-bar {
+  background: #ffffff;
+}
+
+[data-theme="light"] .cm-artifact-divider {
+  border-color: rgba(16, 24, 40, 0.12);
+}
+
+[data-theme="light"] .cm-ask-input {
+  background: #ffffff;
+  border-color: rgba(16, 24, 40, 0.16);
+  box-shadow:
+    0 0 0 1px rgba(16, 24, 40, 0.02),
+    0 12px 32px rgba(16, 24, 40, 0.12);
+}
+
+[data-theme="light"] .cm-prompt-chip {
+  background: #ffffff;
+  border-color: rgba(16, 24, 40, 0.14);
 }
 
 html,

@@ -10,9 +10,9 @@ import { GITHUB_URL } from "@/config/homepage";
  * ignore it; builders who get this far find an invitation to take the
  * system for themselves.
  *
- * Uses UUI's bg-brand-section (dark neutral) and the on-brand text
- * tokens so it pairs cohesively with the footer to form a single
- * dark bottom zone.
+ * Uses UUI's bg-brand-section (dark neutral) and section text tokens
+ * so it pairs cohesively with the footer to form a single bottom zone
+ * in both light and dark mode.
  */
 
 export function OpenSourceSection() {
@@ -22,10 +22,10 @@ export function OpenSourceSection() {
       className="bg-brand-section"
     >
       <div className="mx-auto max-w-3xl px-6 py-16 text-center lg:px-8 lg:py-20">
-        <h2 className="text-2xl font-semibold tracking-[-0.01em] text-primary_on-brand">
+        <h2 className="text-2xl font-semibold tracking-[-0.01em] text-primary_on-section">
           Fork the whole system. Build your own.
         </h2>
-        <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-secondary_on-brand">
+        <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-secondary_on-section">
           Curate Mind is open source. The front end you just used is one
           piece of it. The full system includes everything needed to curate
           your own research base, on any topic you care about.
@@ -44,7 +44,7 @@ export function OpenSourceSection() {
           </Button>
           <Link
             to="/methodology"
-            className="text-sm font-medium text-tertiary_on-brand transition hover:text-primary_on-brand"
+            className="text-sm font-medium text-tertiary_on-section transition hover:text-primary_on-section"
           >
             Read the methodology
           </Link>

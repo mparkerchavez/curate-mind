@@ -167,13 +167,13 @@ export function LivePositionDemo({ positionId }: LivePositionDemoProps) {
       {/* Mini-app container — fixed total height, flex column so the
           footer bar always stays pinned at the bottom. */}
       <div
-        className="flex flex-col overflow-hidden rounded-3xl border border-secondary bg-primary shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_24px_80px_rgba(0,0,0,0.55)]"
+        className="cm-artifact-frame flex flex-col overflow-hidden rounded-3xl border"
         style={{ height: CONTAINER_HEIGHT }}
       >
         {/* Content area: two independently scrolling columns */}
         <div className="grid min-h-0 flex-1 lg:grid-cols-[3fr_2fr]">
           {/* Position column */}
-          <div ref={positionColRef} className="overflow-y-auto px-8 py-7">
+          <div ref={positionColRef} className="cm-artifact-primary-pane overflow-y-auto px-8 py-7">
             {theme?.title ? (
               <button
                 type="button"
@@ -213,10 +213,10 @@ export function LivePositionDemo({ positionId }: LivePositionDemoProps) {
           {/* Evidence column */}
           <aside
             aria-label="Evidence"
-            className="flex min-h-0 flex-col border-secondary bg-secondary_subtle lg:border-l"
+            className="cm-artifact-secondary-pane cm-artifact-divider flex min-h-0 flex-col lg:border-l"
           >
             {/* Evidence panel header */}
-            <div className="flex shrink-0 items-center justify-between border-b border-secondary bg-primary px-5 py-3">
+            <div className="cm-artifact-panel-bar cm-artifact-divider flex shrink-0 items-center justify-between border-b px-5 py-3">
               <p className="text-sm font-semibold text-primary">Evidence</p>
               <Badge type="color" size="sm" color="gray">
                 {totalEvidenceCount}
@@ -237,7 +237,7 @@ export function LivePositionDemo({ positionId }: LivePositionDemoProps) {
                     : "text-quaternary";
                 return (
                   <section key={section.key}>
-                    <div className="sticky top-0 z-10 border-y border-secondary bg-primary px-5 py-3">
+                    <div className="cm-artifact-panel-bar cm-artifact-divider sticky top-0 z-10 border-y px-5 py-3">
                       <div className="flex items-center justify-between">
                         <p
                           className={cn(
@@ -288,7 +288,7 @@ export function LivePositionDemo({ positionId }: LivePositionDemoProps) {
         </div>
 
         {/* Footer bar: pinned, always visible */}
-        <div className="flex shrink-0 items-center justify-between border-t border-secondary bg-primary px-6 py-4">
+        <div className="cm-artifact-panel-bar cm-artifact-divider flex shrink-0 items-center justify-between border-t px-6 py-4">
           <p className="text-xs text-tertiary">
             Same interaction you get in answers and full positions.
           </p>
@@ -312,7 +312,7 @@ function LoadingSkeleton() {
   return (
     <section aria-hidden="true">
       <div
-        className="flex animate-pulse flex-col overflow-hidden rounded-3xl border border-secondary bg-primary shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_24px_80px_rgba(0,0,0,0.55)]"
+        className="cm-artifact-frame flex animate-pulse flex-col overflow-hidden rounded-3xl border"
         style={{ height: CONTAINER_HEIGHT }}
       >
         <div className="grid min-h-0 flex-1 lg:grid-cols-[3fr_2fr]">

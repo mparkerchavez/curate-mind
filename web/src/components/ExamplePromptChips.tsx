@@ -26,7 +26,7 @@ export function ExamplePromptChips({ prompts, onSelect, disabled }: ExamplePromp
           type="button"
           onClick={() => onSelect(prompt)}
           disabled={disabled}
-          className="rounded-full border border-secondary bg-primary px-3.5 py-1.5 text-sm text-secondary transition hover:border-brand hover:bg-brand-primary disabled:opacity-50"
+          className="cm-prompt-chip rounded-full border px-3.5 py-1.5 text-sm text-secondary transition hover:border-brand hover:bg-brand-primary disabled:opacity-50"
         >
           {prompt}
         </button>
