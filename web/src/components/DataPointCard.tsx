@@ -70,7 +70,7 @@ export default function DataPointCard({
       className={cn(
         "rounded-3xl border p-5 transition-all",
         !hasSemanticSurface && "cm-surface-raised",
-        variant === "counter" ? "border-utility-yellow-200 bg-warning-primary" : "border-secondary",
+        variant === "counter" ? "border-warning bg-warning-primary" : "border-secondary",
         isHighlighted && "border-accent-purple ring-2 ring-accent-purple",
         isCited && "border-accent-purple bg-accent-purple",
       )}

@@ -177,9 +177,11 @@
   --ui-bg-error: rgba(240, 68, 56, 0.14);
   --ui-bg-error-solid: #f04438;
   --ui-bg-error-solid-hover: #d92d20;
-  --ui-bg-warning: rgba(247, 144, 9, 0.16);
+  --ui-bg-warning: #30220b;
+  --ui-bg-warning-hover: #3a2a0e;
   --ui-bg-warning-solid: #f79009;
-  --ui-bg-success: rgba(18, 183, 106, 0.14);
+  --ui-bg-success: #102b1d;
+  --ui-bg-success-hover: #123823;
   --ui-bg-success-solid: #12b76a;
 
   /* ── Text tokens ─────────────────────────────────────────────── */
@@ -243,6 +245,8 @@
   --ui-border-brand-alt: rgba(255, 255, 255, 0.48);
   --ui-border-error: rgba(249, 112, 102, 0.36);
   --ui-border-error-subtle: rgba(249, 112, 102, 0.22);
+  --ui-border-warning: rgba(254, 200, 75, 0.46);
+  --ui-border-success: rgba(50, 213, 131, 0.46);
   --ui-focus-ring: rgba(255, 255, 255, 0.72);
   --ui-brand-ring: rgba(255, 255, 255, 0.72);
   --ui-error-ring: #f04438;
@@ -292,8 +296,10 @@
   --ui-bg-error-solid: #d92d20;
   --ui-bg-error-solid-hover: #b42318;
   --ui-bg-warning: #fffaeb;
+  --ui-bg-warning-hover: #fef0c7;
   --ui-bg-warning-solid: #f79009;
   --ui-bg-success: #ecfdf3;
+  --ui-bg-success-hover: #dcfae6;
   --ui-bg-success-solid: #12b76a;
   --ui-text-primary: #101828;
   --ui-text-secondary: #344054;
@@ -343,6 +349,8 @@
   --ui-border-brand-alt: #667085;
   --ui-border-error: rgba(240, 68, 56, 0.28);
   --ui-border-error-subtle: rgba(240, 68, 56, 0.16);
+  --ui-border-warning: rgba(220, 104, 3, 0.3);
+  --ui-border-success: rgba(2, 122, 72, 0.24);
   --ui-focus-ring: #98a2b3;
   --ui-brand-ring: #344054;
   --ui-error-ring: #f04438;

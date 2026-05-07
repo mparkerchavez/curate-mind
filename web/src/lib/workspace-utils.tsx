@@ -455,8 +455,8 @@ export function renderInline(
           className={cn(
             "mx-0.5 inline-flex items-center rounded-full border px-2 py-0 text-[0.7rem] font-semibold leading-5 outline-hidden transition",
             t.isCounter
-              ? "border-utility-yellow-200 bg-warning-primary text-warning-primary hover:bg-utility-yellow-100"
-              : "border-utility-green-200 bg-success-primary text-success-primary hover:bg-utility-green-100",
+              ? "border-warning bg-warning-primary text-warning-primary hover:bg-warning-primary_hover"
+              : "border-success bg-success-primary text-success-primary hover:bg-success-primary_hover",
           )}
           onClick={() => onCitationClick(t.dpId!)}
         >
@@ -480,10 +480,10 @@ export function renderInline(
     const tintClass = isCounter
       ? isHighlighted
         ? "rounded px-0.5 bg-warning-primary"
-        : "rounded px-0.5 transition-colors group-hover/claim:bg-warning-primary"
+        : "rounded px-0.5 transition-colors group-hover/claim:bg-warning-primary_hover"
       : isHighlighted
         ? "rounded px-0.5 bg-success-primary"
-        : "rounded px-0.5 transition-colors group-hover/claim:bg-success-primary";
+        : "rounded px-0.5 transition-colors group-hover/claim:bg-success-primary_hover";
     output.push(
       <span
         key={k()}

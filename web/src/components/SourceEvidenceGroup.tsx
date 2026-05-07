@@ -155,7 +155,12 @@ export default function SourceEvidenceGroup({
                 className={cn(
                   "flex items-baseline gap-4 rounded-lg py-1.5 transition-colors",
                   isHighlighted ? (isCounter ? "-mx-2 bg-warning-primary px-2" : "-mx-2 bg-success-primary px-2") : "",
-                  isClickable && !isHighlighted ? "cursor-pointer hover:bg-secondary_hover -mx-2 px-2" : "",
+                  isClickable && !isHighlighted
+                    ? cn(
+                        "cursor-pointer -mx-2 px-2",
+                        isCounter ? "hover:bg-warning-primary_hover" : "hover:bg-success-primary_hover",
+                      )
+                    : "",
                 )}
                 onClick={isClickable ? () => onClaimClick(claim._id) : undefined}
               >

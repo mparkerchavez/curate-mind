@@ -102,12 +102,20 @@
   background-color: var(--ui-bg-warning);
 }
 
+@utility bg-warning-primary_hover {
+  background-color: var(--ui-bg-warning-hover);
+}
+
 @utility bg-warning-solid {
   background-color: var(--ui-bg-warning-solid);
 }
 
 @utility bg-success-primary {
   background-color: var(--ui-bg-success);
+}
+
+@utility bg-success-primary_hover {
+  background-color: var(--ui-bg-success-hover);
 }
 
 @utility bg-success-solid {
@@ -296,6 +304,14 @@
   border-color: var(--ui-border-error-subtle);
 }
 
+@utility border-warning {
+  border-color: var(--ui-border-warning);
+}
+
+@utility border-success {
+  border-color: var(--ui-border-success);
+}
+
 @utility ring-primary {
   --tw-ring-color: var(--ui-border-primary);
 }
@@ -360,6 +376,13 @@
   background-image:
     linear-gradient(to right, rgba(255, 255, 255, 0.08) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+  background-size: 5.5rem 5.5rem;
+}
+
+.cm-section-grid-surface {
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.1) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
   background-size: 5.5rem 5.5rem;
 }
 
