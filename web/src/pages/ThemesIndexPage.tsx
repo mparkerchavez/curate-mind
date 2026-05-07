@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { Badge } from "@/components/base/badges/badges";
+import { OpenSourceSection } from "@/components/OpenSourceSection";
 import { SiteFooter } from "@/components/SiteFooter";
 import { ThemeCard } from "@/components/ThemeCard";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
@@ -67,7 +68,8 @@ export default function ThemesIndexPage() {
         </div>
       </section>
 
-      <SiteFooter className="mt-8" />
+      <OpenSourceSection />
+      <SiteFooter />
     </div>
   );
 }

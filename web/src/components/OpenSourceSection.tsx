@@ -19,9 +19,13 @@ export function OpenSourceSection() {
   return (
     <section
       aria-label="Open source"
-      className="bg-brand-section"
+      className="relative overflow-hidden border-t border-secondary bg-brand-section"
     >
-      <div className="mx-auto max-w-3xl px-6 py-16 text-center lg:px-8 lg:py-20">
+      <div className="absolute inset-x-8 top-0 bottom-0 border-x border-white/10 opacity-70" aria-hidden="true" />
+      <div className="cm-grid-surface absolute inset-x-8 top-0 h-full opacity-40" aria-hidden="true" />
+      <div className="cm-coda-vignette absolute inset-0" aria-hidden="true" />
+
+      <div className="relative mx-auto max-w-3xl px-6 py-16 text-center lg:px-8 lg:py-20">
         <h2 className="text-2xl font-semibold tracking-[-0.01em] text-primary_on-section">
           Fork the whole system. Build your own.
         </h2>

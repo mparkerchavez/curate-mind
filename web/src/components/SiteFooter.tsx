@@ -27,12 +27,8 @@ const DEFAULT_LINKS: FooterLink[] = [
 
 export function SiteFooter({ className, links = DEFAULT_LINKS }: SiteFooterProps) {
   return (
-    <footer className={cn("relative overflow-hidden border-t border-secondary bg-brand-section", className)}>
-      <div className="absolute inset-x-8 top-0 bottom-0 border-x border-white/10 opacity-70" aria-hidden="true" />
-      <div className="cm-grid-surface absolute inset-x-8 top-0 h-full opacity-40" aria-hidden="true" />
-      <div className="cm-footer-vignette absolute inset-0" aria-hidden="true" />
-
-      <div className="relative mx-auto flex max-w-4xl flex-col items-center gap-2 px-6 py-8 text-center text-sm text-tertiary_on-section sm:flex-row sm:justify-between sm:text-left">
+    <footer className={cn("border-t border-secondary bg-brand-section", className)}>
+      <div className="mx-auto flex max-w-4xl flex-col items-center gap-2 px-6 py-8 text-center text-sm text-tertiary_on-section sm:flex-row sm:justify-between sm:text-left">
         <p>
           Curate Mind &middot; built by Maicol Parker-Chavez &middot;{" "}
           {new Date().getFullYear()}
