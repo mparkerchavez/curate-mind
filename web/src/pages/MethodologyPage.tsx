@@ -1,9 +1,9 @@
-import { Link } from "react-router-dom";
 import { ArrowRight, ArrowUpRight } from "@untitledui/icons";
 import { Badge } from "@/components/base/badges/badges";
 import { Button } from "@/components/base/buttons/button";
 import { GitHubIcon } from "@/components/GitHubIcon";
 import { LivePositionDemo } from "@/components/LivePositionDemo";
+import { SiteFooter } from "@/components/SiteFooter";
 import { FLAGSHIP_POSITION_ID, GITHUB_URL } from "@/config/homepage";
 
 /**
@@ -315,28 +315,7 @@ export default function MethodologyPage() {
         </div>
       </section>
 
-      {/* Footer — same dark neutral band as open source section on home page */}
-      <footer className="mt-16 bg-brand-section">
-        <div className="mx-auto flex max-w-4xl flex-col items-center gap-2 border-t border-white/10 px-6 py-8 text-center text-sm text-tertiary_on-section sm:flex-row sm:justify-between sm:text-left">
-          <p>
-            Curate Mind &middot; built by Maicol Parker-Chavez &middot;{" "}
-            {new Date().getFullYear()}
-          </p>
-          <div className="flex items-center gap-5">
-            <Link to="/" className="transition hover:text-primary_on-section">
-              Home
-            </Link>
-            <a
-              href={GITHUB_URL}
-              target="_blank"
-              rel="noreferrer noopener"
-              className="transition hover:text-primary_on-section"
-            >
-              GitHub
-            </a>
-          </div>
-        </div>
-      </footer>
+      <SiteFooter className="mt-16" links={[{ label: "Home", to: "/" }, { label: "GitHub", href: GITHUB_URL }]} />
     </div>
   );
 }

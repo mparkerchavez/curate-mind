@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { Badge } from "@/components/base/badges/badges";
+import { SiteFooter } from "@/components/SiteFooter";
 import { ThemeCard } from "@/components/ThemeCard";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 
@@ -33,8 +34,8 @@ export default function ThemesIndexPage() {
   }, [allPositions]);
 
   return (
-    <div className="bg-secondary py-10 lg:py-14">
-      <section className="mx-auto max-w-4xl px-6">
+    <div className="bg-primary">
+      <section className="mx-auto max-w-4xl px-6 py-10 lg:py-14">
         <div className="flex items-end justify-between gap-4">
           <div>
             <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
@@ -65,6 +66,8 @@ export default function ThemesIndexPage() {
           ))}
         </div>
       </section>
+
+      <SiteFooter className="mt-8" />
     </div>
   );
 }

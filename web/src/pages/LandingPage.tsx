@@ -1,5 +1,4 @@
 import { useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
 import { ArrowDown, ArrowRight } from "@untitledui/icons";
 import { Badge } from "@/components/base/badges/badges";
 import { Button } from "@/components/base/buttons/button";
@@ -7,6 +6,7 @@ import { ExamplePromptChips } from "@/components/ExamplePromptChips";
 import { HeroAskInput } from "@/components/HeroAskInput";
 import { LivePositionDemo } from "@/components/LivePositionDemo";
 import { OpenSourceSection } from "@/components/OpenSourceSection";
+import { SiteFooter } from "@/components/SiteFooter";
 import { ThemeCard } from "@/components/ThemeCard";
 import {
   EXAMPLE_PROMPTS,
@@ -206,32 +206,7 @@ export default function LandingPage() {
       {/* Open source coda — renders its own bg-brand-section dark band */}
       <OpenSourceSection />
 
-      {/* Footer — same dark neutral band as the open source section, with a
-          hair-thin light divider inside so the section boundary stays readable. */}
-      <footer className="bg-brand-section">
-        <div className="mx-auto flex max-w-4xl flex-col items-center gap-2 border-t border-white/10 px-6 py-8 text-center text-sm text-tertiary_on-section sm:flex-row sm:justify-between sm:text-left">
-          <p>
-            Curate Mind &middot; built by Maicol Parker-Chavez &middot;{" "}
-            {new Date().getFullYear()}
-          </p>
-          <div className="flex items-center gap-5">
-            <Link
-              to="/methodology"
-              className="transition hover:text-primary_on-section"
-            >
-              Methodology
-            </Link>
-            <a
-              href={GITHUB_URL}
-              target="_blank"
-              rel="noreferrer noopener"
-              className="transition hover:text-primary_on-section"
-            >
-              GitHub
-            </a>
-          </div>
-        </div>
-      </footer>
+      <SiteFooter links={[{ label: "Methodology", to: "/methodology" }, { label: "GitHub", href: GITHUB_URL }]} />
     </div>
   );
 }

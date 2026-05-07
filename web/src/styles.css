@@ -372,6 +372,23 @@
     linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent 70%);
 }
 
+.cm-footer-vignette {
+  background:
+    radial-gradient(circle at 50% 58%, rgba(122, 90, 248, 0.28), transparent 16rem),
+    radial-gradient(circle at 28% 32%, rgba(247, 144, 9, 0.32), transparent 22rem),
+    radial-gradient(circle at 72% 32%, rgba(18, 183, 106, 0.3), transparent 22rem),
+    radial-gradient(circle at 50% 18%, rgba(255, 255, 255, 0.16), transparent 18rem),
+    linear-gradient(0deg, rgba(255, 255, 255, 0.06), transparent 70%);
+}
+
+.cm-ask-vignette {
+  background:
+    radial-gradient(circle at 50% 22%, rgba(122, 90, 248, 0.16), transparent 26rem),
+    radial-gradient(circle at 24% 58%, rgba(247, 144, 9, 0.16), transparent 28rem),
+    radial-gradient(circle at 76% 58%, rgba(18, 183, 106, 0.16), transparent 28rem),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 52%);
+}
+
 .cm-surface {
   background: var(--ui-bg-secondary);
   border-color: var(--ui-border-secondary);
@@ -436,6 +453,23 @@
     radial-gradient(circle at 72% 70%, rgba(18, 183, 106, 0.26), transparent 23rem),
     radial-gradient(circle at 50% 84%, rgba(255, 255, 255, 0.7), transparent 19rem),
     linear-gradient(180deg, rgba(255, 255, 255, 0.46), rgba(255, 255, 255, 0.08) 70%);
+}
+
+[data-theme="light"] .cm-footer-vignette {
+  background:
+    radial-gradient(circle at 50% 58%, rgba(122, 90, 248, 0.2), transparent 16rem),
+    radial-gradient(circle at 28% 30%, rgba(247, 144, 9, 0.28), transparent 23rem),
+    radial-gradient(circle at 72% 30%, rgba(18, 183, 106, 0.26), transparent 23rem),
+    radial-gradient(circle at 50% 16%, rgba(255, 255, 255, 0.7), transparent 19rem),
+    linear-gradient(0deg, rgba(255, 255, 255, 0.46), rgba(255, 255, 255, 0.08) 70%);
+}
+
+[data-theme="light"] .cm-ask-vignette {
+  background:
+    radial-gradient(circle at 50% 24%, rgba(122, 90, 248, 0.12), transparent 28rem),
+    radial-gradient(circle at 22% 62%, rgba(247, 144, 9, 0.16), transparent 30rem),
+    radial-gradient(circle at 78% 62%, rgba(18, 183, 106, 0.14), transparent 30rem),
+    linear-gradient(180deg, rgba(16, 24, 40, 0.035), transparent 56%);
 }
 
 [data-theme="light"] .cm-surface {
