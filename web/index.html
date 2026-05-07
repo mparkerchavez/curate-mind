@@ -8,6 +8,22 @@
       name="description"
       content="A research curation system tracking AI strategy, adoption, and enterprise transformation. Browse positions, follow the lineage from claim to source, or ask grounded questions."
     />
+    <script>
+      (() => {
+        const key = "curate-mind-theme-mode";
+        const stored = window.localStorage.getItem(key);
+        const mode = ["system", "dark", "light"].includes(stored) ? stored : "dark";
+        const resolved =
+          mode === "system"
+            ? window.matchMedia("(prefers-color-scheme: dark)").matches
+              ? "dark"
+              : "light"
+            : mode;
+        document.documentElement.dataset.themeMode = mode;
+        document.documentElement.dataset.theme = resolved;
+        document.documentElement.style.colorScheme = resolved;
+      })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -15,7 +31,7 @@
       rel="stylesheet"
     />
   </head>
-  <body class="bg-paper text-ink">
+  <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

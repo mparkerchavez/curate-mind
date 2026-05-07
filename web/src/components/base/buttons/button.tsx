@@ -54,11 +54,11 @@ export const styles = sortCx({
     colors: {
         primary: {
             root: [
-                "bg-brand-solid text-white shadow-xs-skeuomorphic ring-1 ring-transparent ring-inset hover:bg-brand-solid_hover data-loading:bg-brand-solid_hover",
+                "bg-brand-solid text-primary_on-brand shadow-xs-skeuomorphic ring-1 ring-transparent ring-inset hover:bg-brand-solid_hover data-loading:bg-brand-solid_hover",
                 // Inner border gradient
                 "before:absolute before:inset-px before:border before:border-white/12 before:mask-b-from-0%",
                 // Icon styles
-                "*:data-icon:text-white/60 hover:*:data-icon:text-white/70",
+                "*:data-icon:text-primary_on-brand hover:*:data-icon:text-secondary_on-brand",
             ].join(" "),
         },
         secondary: {

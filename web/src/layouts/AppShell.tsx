@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { ChevronRight, LayersThree01 } from "@untitledui/icons";
 import EvidencePanel from "@/components/EvidencePanel";
 import { GitHubIcon } from "@/components/GitHubIcon";
+import { ThemeModeControl } from "@/components/ThemeModeControl";
 import ThemeRail from "@/components/ThemeRail";
 import { GITHUB_URL } from "@/config/homepage";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
@@ -171,6 +172,7 @@ function PrimaryNav({ pathname }: { pathname: string }) {
         <GitHubIcon className="size-4" />
         GitHub
       </a>
+      <ThemeModeControl />
     </nav>
   );
 }
@@ -197,4 +199,3 @@ function NavItem({
     </Link>
   );
 }
-

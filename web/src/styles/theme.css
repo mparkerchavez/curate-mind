@@ -113,37 +113,153 @@
   --color-utility-blue-500: #2e90fa;
   --color-utility-blue-700: #175cd3;
 
-  --color-fg-brand-primary: #101828;
-  --color-fg-brand-primary_alt: #667085;
-  --color-fg-brand-secondary: #344054;
-  --color-fg-brand-secondary_alt: #475467;
-  --color-fg-brand-secondary_hover: #182230;
-  --color-fg-secondary: #344054;
-  --color-fg-secondary_hover: #182230;
-  --color-fg-quaternary: #667085;
-  --color-fg-quaternary_hover: #475467;
-  --color-fg-error-primary: #d92d20;
-  --color-fg-error-secondary: #f04438;
+  --color-alpha-black: #000000;
+  --color-alpha-white: #ffffff;
+  --color-fg-brand-primary: #ffffff;
+  --color-fg-brand-primary_alt: #d4d4d4;
+  --color-fg-brand-secondary: #e5e5e5;
+  --color-fg-brand-secondary_alt: #a3a3a3;
+  --color-fg-brand-secondary_hover: #ffffff;
+  --color-fg-secondary: #d4d4d4;
+  --color-fg-secondary_hover: #ffffff;
+  --color-fg-quaternary: #737373;
+  --color-fg-quaternary_hover: #a3a3a3;
+  --color-fg-error-primary: #f97066;
+  --color-fg-error-secondary: #fda29b;
   --color-fg-white: #ffffff;
-  --color-bg-primary: #ffffff;
-  --color-border-primary: rgba(16, 24, 40, 0.08);
-  --color-border-secondary: rgba(16, 24, 40, 0.12);
-  --color-border-brand: #344054;
-  --color-border-error: rgba(240, 68, 56, 0.28);
-  --color-border-error_subtle: rgba(240, 68, 56, 0.16);
-  --color-primary-25: #fcfcfd;
-  --color-bg-tertiary: #eaecf0;
-  --color-brand-tertiary: #475467;
+  --color-bg-primary: #050505;
+  --color-border-primary: rgba(255, 255, 255, 0.12);
+  --color-border-secondary: rgba(255, 255, 255, 0.08);
+  --color-border-brand: rgba(255, 255, 255, 0.72);
+  --color-border-error: rgba(249, 112, 102, 0.36);
+  --color-border-error_subtle: rgba(249, 112, 102, 0.22);
+  --color-primary-25: #0a0a0a;
+  --color-bg-tertiary: #171717;
+  --color-brand-tertiary: #a3a3a3;
 }
 
 :root {
-  color-scheme: light;
+  color-scheme: dark;
 
   /* ── Background tokens ────────────────────────────────────────── */
+  --ui-bg-primary: #050505;
+  --ui-bg-primary-hover: #111111;
+  --ui-bg-primary-alt: #171717;
+  --ui-bg-secondary: #0a0a0a;
+  --ui-bg-secondary-hover: #171717;
+  --ui-bg-secondary-alt: #111111;
+  --ui-bg-secondary-subtle: #0d0d0d;
+  --ui-bg-tertiary: #171717;
+  --ui-bg-quaternary: #262626;
+  --ui-bg-active: #171717;
+  --ui-bg-overlay: rgba(0, 0, 0, 0.72);
+
+  /* ── Brand background tokens: monochrome identity ────────────── */
+  --ui-bg-brand: #fafafa;
+  --ui-bg-brand-hover: #e5e5e5;
+  --ui-bg-brand-primary: #171717;
+  --ui-bg-brand-primary-alt: #262626;
+  --ui-bg-brand-secondary: #404040;
+  --ui-bg-brand-solid: #fafafa;
+  --ui-bg-brand-solid-hover: #e5e5e5;
+  --ui-bg-brand-section: #000000;
+  --ui-bg-brand-section-subtle: #050505;
+
+  /* Purple is now an accent, not the brand system. */
+  --ui-accent-purple-bg: rgba(122, 90, 248, 0.18);
+  --ui-accent-purple-bg-hover: rgba(122, 90, 248, 0.26);
+  --ui-accent-purple-border: rgba(155, 138, 251, 0.58);
+  --ui-accent-purple-fg: #bdb4fe;
+  --ui-accent-purple-fg-hover: #e0ddff;
+  --ui-accent-purple-solid: #9b8afb;
+
+  /* ── Status background tokens ────────────────────────────────── */
+  --ui-bg-error: rgba(240, 68, 56, 0.14);
+  --ui-bg-error-solid: #f04438;
+  --ui-bg-error-solid-hover: #d92d20;
+  --ui-bg-warning: rgba(247, 144, 9, 0.16);
+  --ui-bg-warning-solid: #f79009;
+  --ui-bg-success: rgba(18, 183, 106, 0.14);
+  --ui-bg-success-solid: #12b76a;
+
+  /* ── Text tokens ─────────────────────────────────────────────── */
+  --ui-text-primary: #fafafa;
+  --ui-text-secondary: #d4d4d4;
+  --ui-text-secondary-hover: #ffffff;
+  --ui-text-tertiary: #a3a3a3;
+  --ui-text-tertiary-hover: #d4d4d4;
+  --ui-text-quaternary: #737373;
+  --ui-text-placeholder: #737373;
+
+  /* Text on solid brand backgrounds (for bg-brand-solid / bg-brand-section) */
+  --ui-text-primary-on-brand: #050505;
+  --ui-text-secondary-on-brand: #262626;
+  --ui-text-tertiary-on-brand: #525252;
+  --ui-text-quaternary-on-brand: #737373;
+
+  /* Brand-tinted text (for use on light backgrounds) */
+  --ui-text-brand-primary: #ffffff;
+  --ui-text-brand-secondary: #e5e5e5;
+  --ui-text-brand-tertiary: #d4d4d4;
+  --ui-text-brand-tertiary-alt: #a3a3a3;
+
+  /* Semantic status text */
+  --ui-text-error-primary: #fda29b;
+  --ui-text-warning-primary: #fec84b;
+  --ui-text-success-primary: #32d583;
+
+  /* ── Foreground (icon) tokens ────────────────────────────────── */
+  --ui-fg-primary: #fafafa;
+  --ui-fg-secondary: #d4d4d4;
+  --ui-fg-secondary-hover: #ffffff;
+  --ui-fg-tertiary: #a3a3a3;
+  --ui-fg-tertiary-hover: #d4d4d4;
+  --ui-fg-quaternary: #737373;
+  --ui-fg-quaternary-hover: #a3a3a3;
+  --ui-fg-white: #ffffff;
+  --ui-fg-brand-primary: #ffffff;
+  --ui-fg-brand-primary-alt: #d4d4d4;
+  --ui-fg-brand-secondary: #e5e5e5;
+  --ui-fg-brand-secondary-alt: #a3a3a3;
+  --ui-fg-error-primary: #f97066;
+  --ui-fg-error-secondary: #fda29b;
+  --ui-fg-warning-primary: #fec84b;
+  --ui-fg-warning-secondary: #f79009;
+  --ui-fg-success-primary: #32d583;
+  --ui-fg-success-secondary: #12b76a;
+
+  /* ── Border tokens ───────────────────────────────────────────── */
+  --ui-border-primary: rgba(255, 255, 255, 0.12);
+  --ui-border-secondary: rgba(255, 255, 255, 0.08);
+  --ui-border-secondary-alt: rgba(255, 255, 255, 0.18);
+  --ui-border-tertiary: rgba(255, 255, 255, 0.05);
+  --ui-border-brand: rgba(255, 255, 255, 0.72);
+  --ui-border-brand-alt: rgba(255, 255, 255, 0.48);
+  --ui-border-error: rgba(249, 112, 102, 0.36);
+  --ui-border-error-subtle: rgba(249, 112, 102, 0.22);
+  --ui-focus-ring: rgba(255, 255, 255, 0.72);
+  --ui-brand-ring: rgba(255, 255, 255, 0.72);
+  --ui-error-ring: #f04438;
+
+  /* ── Shadows ─────────────────────────────────────────────────── */
+  --ui-shadow-xs-skeuomorphic:
+    0 1px 2px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.04);
+  --ui-shadow-skeuomorphic:
+    0 1px 2px rgba(0, 0, 0, 0.5),
+    0 12px 28px rgba(0, 0, 0, 0.28),
+    0 0 0 1px rgba(255, 255, 255, 0.04);
+  --ui-shell-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.5),
+    0 24px 48px rgba(0, 0, 0, 0.36);
+}
+
+[data-theme="light"] {
+  color-scheme: light;
   --ui-bg-primary: #ffffff;
   --ui-bg-primary-hover: #f9fafb;
   --ui-bg-primary-alt: #f2f4f7;
-  --ui-bg-secondary: #f9fafb;          /* section-alternation contrast */
+  --ui-bg-secondary: #f9fafb;
   --ui-bg-secondary-hover: #f2f4f7;
   --ui-bg-secondary-alt: #f8fafc;
   --ui-bg-secondary-subtle: #fcfcfd;
@@ -151,8 +267,6 @@
   --ui-bg-quaternary: #eaecf0;
   --ui-bg-active: #f9fafb;
   --ui-bg-overlay: rgba(16, 24, 40, 0.64);
-
-  /* ── Brand background tokens: monochrome identity ────────────── */
   --ui-bg-brand: #101828;
   --ui-bg-brand-hover: #182230;
   --ui-bg-brand-primary: #f9fafb;
@@ -162,16 +276,12 @@
   --ui-bg-brand-solid-hover: #182230;
   --ui-bg-brand-section: #0c111d;
   --ui-bg-brand-section-subtle: #f9fafb;
-
-  /* Purple is now an accent, not the brand system. */
   --ui-accent-purple-bg: #f4f3ff;
   --ui-accent-purple-bg-hover: #e0ddff;
   --ui-accent-purple-border: #bdb4fe;
   --ui-accent-purple-fg: #5925dc;
   --ui-accent-purple-fg-hover: #4a1fb8;
   --ui-accent-purple-solid: #7a5af8;
-
-  /* ── Status background tokens ────────────────────────────────── */
   --ui-bg-error: #fef3f2;
   --ui-bg-error-solid: #d92d20;
   --ui-bg-error-solid-hover: #b42318;
@@ -179,8 +289,6 @@
   --ui-bg-warning-solid: #f79009;
   --ui-bg-success: #ecfdf3;
   --ui-bg-success-solid: #12b76a;
-
-  /* ── Text tokens ─────────────────────────────────────────────── */
   --ui-text-primary: #101828;
   --ui-text-secondary: #344054;
   --ui-text-secondary-hover: #182230;
@@ -188,25 +296,17 @@
   --ui-text-tertiary-hover: #475467;
   --ui-text-quaternary: #98a2b3;
   --ui-text-placeholder: #98a2b3;
-
-  /* Text on solid brand backgrounds (for bg-brand-solid / bg-brand-section) */
   --ui-text-primary-on-brand: #ffffff;
   --ui-text-secondary-on-brand: #eaecf0;
   --ui-text-tertiary-on-brand: #d0d5dd;
   --ui-text-quaternary-on-brand: #98a2b3;
-
-  /* Brand-tinted text (for use on light backgrounds) */
   --ui-text-brand-primary: #101828;
   --ui-text-brand-secondary: #344054;
   --ui-text-brand-tertiary: #475467;
   --ui-text-brand-tertiary-alt: #667085;
-
-  /* Semantic status text */
   --ui-text-error-primary: #b42318;
   --ui-text-warning-primary: #b54708;
   --ui-text-success-primary: #027a48;
-
-  /* ── Foreground (icon) tokens ────────────────────────────────── */
   --ui-fg-primary: #101828;
   --ui-fg-secondary: #344054;
   --ui-fg-secondary-hover: #182230;
@@ -225,8 +325,6 @@
   --ui-fg-warning-secondary: #f79009;
   --ui-fg-success-primary: #027a48;
   --ui-fg-success-secondary: #12b76a;
-
-  /* ── Border tokens ───────────────────────────────────────────── */
   --ui-border-primary: rgba(16, 24, 40, 0.08);
   --ui-border-secondary: rgba(16, 24, 40, 0.12);
   --ui-border-secondary-alt: rgba(16, 24, 40, 0.16);
@@ -238,8 +336,6 @@
   --ui-focus-ring: #98a2b3;
   --ui-brand-ring: #344054;
   --ui-error-ring: #f04438;
-
-  /* ── Shadows ─────────────────────────────────────────────────── */
   --ui-shadow-xs-skeuomorphic:
     0 1px 2px rgba(16, 24, 40, 0.06),
     0 0 0 1px rgba(16, 24, 40, 0.02);

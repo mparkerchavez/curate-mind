@@ -28,13 +28,15 @@ export default function MethodologyPage() {
 
   return (
     <div className="bg-primary">
-      {/* Hero on a neutral band, matching home page treatment */}
-      <section className="bg-brand-section_subtle">
-        <div className="mx-auto max-w-3xl px-6 pt-8 pb-12 text-center lg:pb-16">
+      {/* Hero on the same dark grid language as the home page. */}
+      <section className="relative overflow-hidden border-b border-secondary bg-brand-section_subtle">
+        <div className="absolute inset-x-8 top-0 bottom-0 border-x border-secondary opacity-80" aria-hidden="true" />
+        <div className="cm-grid-surface absolute inset-x-8 top-0 h-full opacity-60" aria-hidden="true" />
+        <div className="relative mx-auto max-w-3xl px-6 pt-12 pb-16 text-center lg:pt-16 lg:pb-20">
           <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
             Methodology
           </p>
-          <h1 className="mx-auto mt-5 max-w-2xl text-display-lg font-semibold tracking-[-0.025em] text-primary">
+          <h1 className="mx-auto mt-16 max-w-2xl text-display-lg font-semibold tracking-[-0.025em] text-primary">
             A verifiable research base, built one source at a time.
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-secondary">
@@ -355,7 +357,7 @@ function FlowCard({
     <li className="flex-1">
       <a
         href={href}
-        className="group flex h-full flex-col items-start gap-2 rounded-2xl border border-secondary bg-primary px-5 py-5 text-left shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition duration-150 ease-linear hover:-translate-y-0.5 hover:border-brand hover:shadow-[0_6px_16px_rgba(16,24,40,0.08)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+        className="group flex h-full flex-col items-start gap-2 rounded-2xl border border-secondary bg-secondary px-5 py-5 text-left transition duration-150 ease-linear hover:-translate-y-0.5 hover:border-brand hover:bg-secondary_hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
       >
         <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-brand-secondary">
           Step {step}
@@ -465,7 +467,7 @@ function DataPointExample({
   tags: string[];
 }) {
   return (
-    <article className="overflow-hidden rounded-2xl border border-secondary bg-primary p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+    <article className="overflow-hidden rounded-2xl border border-secondary bg-secondary p-5">
       <div className="flex flex-wrap items-center gap-2">
         <Badge type="color" size="sm" color="gray">
           {label}
@@ -531,7 +533,7 @@ function LegendChip({
  */
 function VersionTimeline() {
   return (
-    <div className="my-2 overflow-hidden rounded-2xl border border-secondary bg-primary shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+    <div className="my-2 overflow-hidden rounded-2xl border border-secondary bg-secondary">
       <div className="border-b border-secondary bg-secondary_subtle px-5 py-3">
         <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
           Version history

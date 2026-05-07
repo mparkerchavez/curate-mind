@@ -129,7 +129,7 @@ export const InputDateBase = ({
                     <AriaDateSegment
                         segment={segment}
                         className={cx(
-                            "rounded px-0.5 text-primary tabular-nums caret-transparent focus:bg-brand-solid focus:font-medium focus:text-white focus:outline-hidden",
+                            "rounded px-0.5 text-primary tabular-nums caret-transparent focus:bg-brand-solid focus:font-medium focus:text-primary_on-brand focus:outline-hidden",
                             // The placeholder segment.
                             segment.isPlaceholder && "text-placeholder uppercase",
                             // The separator "/" segment.

@@ -118,6 +118,10 @@
   background-color: var(--ui-bg-overlay);
 }
 
+@utility bg-primary_on-brand {
+  background-color: var(--ui-text-primary-on-brand);
+}
+
 /* ── Text utilities ──────────────────────────────────────────── */
 
 @utility text-primary {
@@ -335,6 +339,35 @@
   max-width: 80rem;
 }
 
+.cm-grid-surface {
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+  background-size: 5.5rem 5.5rem;
+}
+
+.cm-hero-vignette {
+  background:
+    radial-gradient(circle at 50% 68%, rgba(255, 255, 255, 0.14), transparent 8rem),
+    radial-gradient(circle at 36% 72%, rgba(83, 177, 253, 0.14), transparent 18rem),
+    radial-gradient(circle at 64% 72%, rgba(249, 112, 102, 0.12), transparent 18rem),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 55%);
+}
+
+[data-theme="light"] .cm-grid-surface {
+  background-image:
+    linear-gradient(to right, rgba(16, 24, 40, 0.07) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(16, 24, 40, 0.07) 1px, transparent 1px);
+}
+
+[data-theme="light"] .cm-hero-vignette {
+  background:
+    radial-gradient(circle at 50% 68%, rgba(16, 24, 40, 0.08), transparent 8rem),
+    radial-gradient(circle at 36% 72%, rgba(253, 176, 34, 0.22), transparent 18rem),
+    radial-gradient(circle at 64% 72%, rgba(50, 213, 131, 0.2), transparent 18rem),
+    linear-gradient(180deg, rgba(16, 24, 40, 0.04), transparent 55%);
+}
+
 html,
 body,
 #root {
@@ -343,11 +376,18 @@ body,
 
 body {
   background:
-    radial-gradient(circle at top left, rgba(16, 24, 40, 0.06), transparent 28%),
-    linear-gradient(180deg, #ffffff 0%, #f2f4f7 100%);
+    radial-gradient(circle at 50% -10%, rgba(255, 255, 255, 0.08), transparent 30rem),
+    linear-gradient(180deg, #050505 0%, #000000 100%);
   color: var(--ui-text-primary);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
+}
+
+[data-theme="light"] body,
+body:has([data-theme="light"]) {
+  background:
+    radial-gradient(circle at top left, rgba(16, 24, 40, 0.06), transparent 28%),
+    linear-gradient(180deg, #ffffff 0%, #f2f4f7 100%);
 }
 
 a,
@@ -371,5 +411,5 @@ button:disabled {
 }
 
 ::selection {
-  background: rgba(105, 56, 239, 0.16);
+  background: rgba(155, 138, 251, 0.32);
 }

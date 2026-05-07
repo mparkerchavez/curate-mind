@@ -34,7 +34,7 @@ export const RadioButtonBase = ({ className, isFocusVisible, isSelected, isDisab
                 className,
             )}
         >
-            <div className={cx("size-1.5 rounded-full bg-fg-white opacity-0 transition-inherit-all", size === "md" && "size-2", isSelected && "opacity-100")} />
+            <div className={cx("size-1.5 rounded-full bg-primary_on-brand opacity-0 transition-inherit-all", size === "md" && "size-2", isSelected && "opacity-100")} />
         </div>
     );
 };

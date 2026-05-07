@@ -75,16 +75,17 @@ export default function LandingPage() {
 
   return (
     <div className="bg-primary">
-      {/* Hero — quiet neutral band (bg-brand-section_subtle) for a
-          focused opening beat. The hero
-          carries the dual proposition (working research base + open
-          method) and two CTAs into the rest of the page. */}
-      <section className="bg-brand-section_subtle">
-        <div className="mx-auto max-w-4xl px-6 pt-8 pb-12 text-center lg:pb-16">
+      {/* Hero — Vercel-inspired dark grid with restrained light and
+          semantic color held for the research surfaces below. */}
+      <section className="relative overflow-hidden border-b border-secondary bg-brand-section_subtle">
+        <div className="absolute inset-x-8 top-0 bottom-0 border-x border-secondary opacity-80" aria-hidden="true" />
+        <div className="cm-grid-surface absolute inset-x-8 top-0 h-full opacity-70" aria-hidden="true" />
+        <div className="cm-hero-vignette absolute inset-x-0 bottom-0 h-2/3" aria-hidden="true" />
+        <div className="relative mx-auto max-w-4xl px-6 pt-12 pb-16 text-center lg:pt-16 lg:pb-24">
           <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
             Feb 2026 &middot; Research ongoing &middot; Open source
           </p>
-          <h1 className="mx-auto mt-5 max-w-3xl text-display-lg font-semibold tracking-[-0.025em] text-primary">
+          <h1 className="mx-auto mt-20 max-w-3xl text-display-lg font-semibold tracking-[-0.025em] text-primary">
             A working research base on AI strategy. An open-source method
             for building your&nbsp;own.
           </h1>
@@ -118,9 +119,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Example position + methodology teaser on clean white
-          (bg-primary). Neutral hero above, white middle content,
-          off-white themes below, dark coda at the bottom. */}
+      {/* Example position + methodology teaser on a dark canvas. */}
       <div className="bg-primary py-14 lg:py-16">
         <div className="mx-auto max-w-6xl px-6">
           <div className="mx-auto max-w-3xl text-center">
@@ -170,10 +169,8 @@ export default function LandingPage() {
         </div>
       </div>
 
-      {/* Themes grid on off-white (bg-secondary) — breaks up the white
-          middle content and separates visually from the dark coda.
-          Anchor target for the hero's "Read the positions" CTA. */}
-      <div id="themes" className="scroll-mt-16 bg-secondary py-14 lg:py-16">
+      {/* Themes grid on a slightly raised dark band. */}
+      <div id="themes" className="scroll-mt-16 border-y border-secondary bg-secondary py-14 lg:py-16">
         <section className="mx-auto max-w-4xl px-6">
           <div className="flex items-end justify-between">
             <div>

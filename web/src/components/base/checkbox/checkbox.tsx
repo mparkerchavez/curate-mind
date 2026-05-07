@@ -29,7 +29,7 @@ export const CheckboxBase = ({ className, isSelected, isDisabled, isIndeterminat
                 viewBox="0 0 14 14"
                 fill="none"
                 className={cx(
-                    "pointer-events-none absolute h-3 w-2.5 text-fg-white opacity-0 transition-inherit-all",
+                    "pointer-events-none absolute h-3 w-2.5 text-primary_on-brand opacity-0 transition-inherit-all",
                     size === "md" && "size-3.5",
                     isIndeterminate && "opacity-100",
                 )}
@@ -42,7 +42,7 @@ export const CheckboxBase = ({ className, isSelected, isDisabled, isIndeterminat
                 viewBox="0 0 14 14"
                 fill="none"
                 className={cx(
-                    "pointer-events-none absolute size-3 text-fg-white opacity-0 transition-inherit-all",
+                    "pointer-events-none absolute size-3 text-primary_on-brand opacity-0 transition-inherit-all",
                     size === "md" && "size-3.5",
                     isSelected && !isIndeterminate && "opacity-100",
                 )}

@@ -33,7 +33,7 @@ export function OpenSourceSection() {
         <div className="mt-6 flex flex-wrap items-center justify-center gap-4">
           <Button
             size="md"
-            color="secondary"
+            color="primary"
             iconLeading={GitHubIcon}
             iconTrailing={ArrowRight}
             href={GITHUB_URL}

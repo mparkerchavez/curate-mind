@@ -165,11 +165,9 @@ export function LivePositionDemo({ positionId }: LivePositionDemoProps) {
   return (
     <section aria-label="Live position demo">
       {/* Mini-app container — fixed total height, flex column so the
-          footer bar always stays pinned at the bottom. Elevated shadow
-          makes the container pop against the tinted section backdrop
-          the parent supplies. */}
+          footer bar always stays pinned at the bottom. */}
       <div
-        className="flex flex-col overflow-hidden rounded-3xl border border-secondary bg-primary shadow-[0_8px_24px_rgba(16,24,40,0.08)]"
+        className="flex flex-col overflow-hidden rounded-3xl border border-secondary bg-primary shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_24px_80px_rgba(0,0,0,0.55)]"
         style={{ height: CONTAINER_HEIGHT }}
       >
         {/* Content area: two independently scrolling columns */}
@@ -314,7 +312,7 @@ function LoadingSkeleton() {
   return (
     <section aria-hidden="true">
       <div
-        className="flex animate-pulse flex-col overflow-hidden rounded-3xl border border-secondary bg-primary shadow-[0_8px_24px_rgba(16,24,40,0.08)]"
+        className="flex animate-pulse flex-col overflow-hidden rounded-3xl border border-secondary bg-primary shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_24px_80px_rgba(0,0,0,0.55)]"
         style={{ height: CONTAINER_HEIGHT }}
       >
         <div className="grid min-h-0 flex-1 lg:grid-cols-[3fr_2fr]">

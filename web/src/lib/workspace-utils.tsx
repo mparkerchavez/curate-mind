@@ -253,21 +253,21 @@ export function renderAnswerBlocks(
     const cur = lines[i].trim();
     if (!cur) { i++; continue; }
 
-    if (/^(-{3,}|\*{3,})$/.test(cur)) { blocks.push(<hr key={`r-${i}`} className="border-t border-slate-200" />); i++; continue; }
+    if (/^(-{3,}|\*{3,})$/.test(cur)) { blocks.push(<hr key={`r-${i}`} className="border-t border-secondary" />); i++; continue; }
 
     const hm = cur.match(/^(#{1,3})\s+(.*)$/);
     if (hm) {
       const content = renderInline(hm[2], citationMap, onCitationClick, options);
-      if (hm[1].length === 1) blocks.push(<h1 key={`h-${i}`} className="text-display-xs font-semibold tracking-[-0.02em] text-slate-950">{content}</h1>);
-      else if (hm[1].length === 2) blocks.push(<h2 key={`h-${i}`} className="text-2xl font-semibold tracking-[-0.02em] text-slate-950">{content}</h2>);
-      else blocks.push(<h3 key={`h-${i}`} className="text-xl font-semibold text-slate-950">{content}</h3>);
+      if (hm[1].length === 1) blocks.push(<h1 key={`h-${i}`} className="text-display-xs font-semibold tracking-[-0.02em] text-primary">{content}</h1>);
+      else if (hm[1].length === 2) blocks.push(<h2 key={`h-${i}`} className="text-2xl font-semibold tracking-[-0.02em] text-primary">{content}</h2>);
+      else blocks.push(<h3 key={`h-${i}`} className="text-xl font-semibold text-primary">{content}</h3>);
       i++; continue;
     }
 
     if (cur.startsWith("> ")) {
       const ql: string[] = [];
       while (i < lines.length && lines[i].trim().startsWith("> ")) { ql.push(lines[i].trim().replace(/^>\s?/, "")); i++; }
-      blocks.push(<blockquote key={`q-${i}`} className="rounded-2xl border border-secondary bg-secondary px-4 py-3 text-sm leading-7 text-slate-700">{renderInline(ql.join(" "), citationMap, onCitationClick, options)}</blockquote>);
+      blocks.push(<blockquote key={`q-${i}`} className="rounded-2xl border border-secondary bg-secondary px-4 py-3 text-sm leading-7 text-secondary">{renderInline(ql.join(" "), citationMap, onCitationClick, options)}</blockquote>);
       continue;
     }
 
@@ -329,7 +329,7 @@ export function renderAnswerBlocks(
       if (!c || /^(-{3,}|\*{3,})$/.test(c) || /^#{1,3}\s/.test(c) || /^>\s/.test(c) || /^[-*]\s+/.test(c) || /^\d+\.\s+/.test(c) || isMarkdownTableStart(lines, i)) break;
       pl.push(c); i++;
     }
-    blocks.push(<p key={`p-${i}`} className="text-base leading-8 text-slate-700">{renderInline(pl.join(" "), citationMap, onCitationClick, options)}</p>);
+    blocks.push(<p key={`p-${i}`} className="text-base leading-8 text-secondary">{renderInline(pl.join(" "), citationMap, onCitationClick, options)}</p>);
   }
   return blocks;
 }
@@ -416,8 +416,8 @@ export function renderInline(
 
   const renderNonCitation = (t: Tok): ReactNode => {
     if (t.kind === "text" || t.kind === "terminator") return <span key={k()}>{t.value}</span>;
-    if (t.kind === "bold") return <strong key={k()} className="font-semibold text-slate-950">{t.value}</strong>;
-    if (t.kind === "code") return <code key={k()} className="rounded-md bg-slate-100 px-1.5 py-0.5 font-mono text-[0.95em] text-slate-900">{t.value}</code>;
+    if (t.kind === "bold") return <strong key={k()} className="font-semibold text-primary">{t.value}</strong>;
+    if (t.kind === "code") return <code key={k()} className="rounded-md bg-tertiary px-1.5 py-0.5 font-mono text-[0.95em] text-primary">{t.value}</code>;
     return null;
   };
 

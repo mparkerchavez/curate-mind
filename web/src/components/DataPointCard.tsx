@@ -67,7 +67,7 @@ export default function DataPointCard({
     <article
       id={`evidence-card-${dp._id}`}
       className={cn(
-        "rounded-3xl border bg-primary p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition-all",
+        "rounded-3xl border bg-secondary p-5 transition-all",
         variant === "counter" ? "border-utility-yellow-200 bg-warning-primary" : "border-secondary",
         isHighlighted && "border-accent-purple ring-2 ring-accent-purple",
         isCited && "border-accent-purple bg-accent-purple",
@@ -94,7 +94,7 @@ export default function DataPointCard({
 
       <div className="mt-4">
         <h3 className="text-base font-semibold leading-7 text-primary">{dp.claimText}</h3>
-        <blockquote className="mt-3 rounded-2xl border border-secondary bg-secondary px-4 py-3 text-sm leading-7 text-secondary">
+        <blockquote className="mt-3 rounded-2xl border border-secondary bg-primary px-4 py-3 text-sm leading-7 text-secondary">
           “{dp.anchorQuote}”
         </blockquote>
       </div>

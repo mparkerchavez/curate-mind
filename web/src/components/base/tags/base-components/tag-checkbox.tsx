@@ -28,7 +28,7 @@ export const TagCheckbox = ({ className, isFocused, isSelected, isDisabled, size
                 viewBox="0 0 14 14"
                 fill="none"
                 className={cx(
-                    "pointer-events-none absolute text-fg-white opacity-0 transition-inherit-all",
+                    "pointer-events-none absolute text-primary_on-brand opacity-0 transition-inherit-all",
                     size === "sm" && "size-2.5",
                     size === "md" && "size-3",
                     size === "lg" && "size-3.5",

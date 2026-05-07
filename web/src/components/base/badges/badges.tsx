@@ -7,29 +7,29 @@ import { badgeTypes } from "./badge-types";
 
 export const filledColors: Record<BadgeColors, { root: string; addon: string; addonButton: string }> = {
     gray: {
-        root: "bg-utility-neutral-50 text-utility-neutral-700 ring-utility-neutral-200",
-        addon: "text-utility-neutral-500",
-        addonButton: "hover:bg-utility-neutral-100 text-utility-neutral-400 hover:text-utility-neutral-500",
+        root: "bg-secondary text-tertiary ring-secondary",
+        addon: "text-quaternary",
+        addonButton: "text-quaternary hover:bg-secondary_hover hover:text-tertiary",
     },
     brand: {
-        root: "bg-utility-brand-50 text-utility-brand-700 ring-utility-brand-200",
-        addon: "text-utility-brand-500",
-        addonButton: "hover:bg-utility-brand-100 text-utility-brand-400 hover:text-utility-brand-500",
+        root: "bg-brand-primary text-brand-secondary ring-secondary",
+        addon: "text-brand-tertiary",
+        addonButton: "text-brand-tertiary hover:bg-brand-primary_alt hover:text-brand-secondary",
     },
     error: {
-        root: "bg-utility-red-50 text-utility-red-700 ring-utility-red-200",
-        addon: "text-utility-red-500",
-        addonButton: "hover:bg-utility-red-100 text-utility-red-400 hover:text-utility-red-500",
+        root: "bg-error-primary text-error-primary ring-error_subtle",
+        addon: "text-fg-error-secondary",
+        addonButton: "text-fg-error-secondary hover:bg-error-primary hover:text-fg-error-primary",
     },
     warning: {
-        root: "bg-utility-yellow-50 text-utility-yellow-700 ring-utility-yellow-200",
+        root: "bg-warning-primary text-warning-primary ring-utility-yellow-500/30",
         addon: "text-utility-yellow-500",
-        addonButton: "hover:bg-utility-yellow-100 text-utility-yellow-400 hover:text-utility-yellow-500",
+        addonButton: "text-utility-yellow-500 hover:bg-warning-primary hover:text-warning-primary",
     },
     success: {
-        root: "bg-utility-green-50 text-utility-green-700 ring-utility-green-200",
+        root: "bg-success-primary text-success-primary ring-utility-green-500/30",
         addon: "text-utility-green-500",
-        addonButton: "hover:bg-utility-green-100 text-utility-green-400 hover:text-utility-green-500",
+        addonButton: "text-utility-green-500 hover:bg-success-primary hover:text-success-primary",
     },
     slate: {
         root: "bg-utility-slate-50 text-utility-slate-700 ring-utility-slate-200",
@@ -52,9 +52,9 @@ export const filledColors: Record<BadgeColors, { root: string; addon: string; ad
         addonButton: "hover:bg-utility-indigo-100 text-utility-indigo-400 hover:text-utility-indigo-500",
     },
     purple: {
-        root: "bg-utility-purple-50 text-utility-purple-700 ring-utility-purple-200",
-        addon: "text-utility-purple-500",
-        addonButton: "hover:bg-utility-purple-100 text-utility-purple-400 hover:text-utility-purple-500",
+        root: "bg-accent-purple text-accent-purple ring-accent-purple",
+        addon: "text-accent-purple",
+        addonButton: "text-accent-purple hover:bg-accent-purple_hover hover:text-accent-purple_hover",
     },
     pink: {
         root: "bg-utility-pink-50 text-utility-pink-700 ring-utility-pink-200",

@@ -8,16 +8,32 @@
       name="description"
       content="A research curation system tracking AI strategy, adoption, and enterprise transformation. Browse positions, follow the lineage from claim to source, or ask grounded questions."
     />
+    <script>
+      (() => {
+        const key = "curate-mind-theme-mode";
+        const stored = window.localStorage.getItem(key);
+        const mode = ["system", "dark", "light"].includes(stored) ? stored : "dark";
+        const resolved =
+          mode === "system"
+            ? window.matchMedia("(prefers-color-scheme: dark)").matches
+              ? "dark"
+              : "light"
+            : mode;
+        document.documentElement.dataset.themeMode = mode;
+        document.documentElement.dataset.theme = resolved;
+        document.documentElement.style.colorScheme = resolved;
+      })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
       rel="stylesheet"
     />
-    <script type="module" crossorigin src="/assets/index-D5YCUrZf.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-CDcsxUYV.css">
+    <script type="module" crossorigin src="/assets/index-ifyi4-Wz.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-D2rgi-Es.css">
   </head>
-  <body class="bg-paper text-ink">
+  <body>
     <div id="root"></div>
   </body>
 </html>

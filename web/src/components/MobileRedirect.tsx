@@ -50,7 +50,7 @@ export function MobileRedirect() {
           href={GITHUB_URL}
           target="_blank"
           rel="noreferrer noopener"
-          className="mt-4 inline-flex items-center gap-2 rounded-lg border border-secondary bg-primary px-4 py-2 text-sm font-medium text-secondary shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition hover:border-brand hover:text-primary"
+          className="mt-4 inline-flex items-center gap-2 rounded-lg border border-secondary bg-primary px-4 py-2 text-sm font-medium text-secondary shadow-xs-skeuomorphic transition hover:border-brand hover:text-primary"
         >
           <GitHubIcon className="size-4" />
           View on GitHub
