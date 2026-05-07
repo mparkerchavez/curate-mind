@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowRight,
@@ -47,6 +47,31 @@ type EntityConfig = {
   description: string;
   columns: Array<{ key: string; label: string }>;
   filters?: Array<{ key: string; label: string }>;
+};
+
+type DetailField = {
+  label: string;
+  value: ReactNode;
+};
+
+type NarrativeBlock = {
+  label: string;
+  value: ReactNode;
+};
+
+type DetailRelationship = {
+  label: string;
+  value: any;
+  limit?: number;
+};
+
+type DetailView = {
+  eyebrow: string;
+  title: string;
+  subtitle?: string;
+  summaryFields: DetailField[];
+  narrative: NarrativeBlock[];
+  relationships: DetailRelationship[];
 };
 
 const ENTITY_CONFIGS: EntityConfig[] = [
@@ -482,42 +507,65 @@ function DetailPanel({
     );
   }
 
-  const config = ENTITY_BY_KEY.get(entity)!;
-  const entries = Object.entries(record).filter(([, value]) => !isRelationshipValue(value));
-  const relationships = Object.entries(record).filter(([, value]) => isRelationshipValue(value));
+  const detail = getDetailView(entity, record);
 
   return (
     <aside className="cm-content-panel h-max max-h-[calc(100vh-8rem)] overflow-y-auto rounded-2xl border">
       <div className="border-b border-secondary px-5 py-4">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 text-quaternary">
           <Database01 className="size-5 text-quaternary" />
-          <p className="text-sm font-semibold text-primary">{config.label}</p>
+          <p className="text-xs font-medium uppercase tracking-[0.14em]">{detail.eyebrow}</p>
         </div>
-        <p className="mt-2 break-all font-mono text-xs text-quaternary">{record._id}</p>
+        <h3 className="mt-3 text-lg font-semibold leading-7 tracking-[-0.01em] text-primary">
+          {detail.title}
+        </h3>
+        {detail.subtitle && (
+          <p className="mt-2 text-sm leading-6 text-tertiary">{detail.subtitle}</p>
+        )}
       </div>
 
-      <div className="px-5 py-4">
-        <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">Fields</p>
-        <dl className="mt-3 space-y-3">
-          {entries.map(([key, value]) => (
-            <div key={key}>
-              <dt className="font-mono text-xs text-quaternary">{key}</dt>
-              <dd className="mt-1 text-sm leading-6 text-secondary">{formatDetailValue(value)}</dd>
-            </div>
-          ))}
-        </dl>
+      <div className="space-y-5 px-5 py-4">
+        {detail.summaryFields.length > 0 && (
+          <dl className="grid grid-cols-2 gap-3">
+            {detail.summaryFields.map((field) => (
+              <div key={field.label} className="rounded-xl border border-secondary bg-secondary_subtle px-3 py-2.5">
+                <dt className="text-xs font-medium text-quaternary">{field.label}</dt>
+                <dd className="mt-1 text-sm font-medium leading-5 text-primary">{field.value}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
 
-        {relationships.length > 0 && (
+        {detail.narrative.length > 0 && (
+          <div className="space-y-4">
+            {detail.narrative.map((block) => (
+              <section key={block.label}>
+                <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
+                  {block.label}
+                </p>
+                <div className="mt-2 text-sm leading-6 text-secondary">{block.value}</div>
+              </section>
+            ))}
+          </div>
+        )}
+
+        {detail.relationships.length > 0 && (
           <div className="mt-6 border-t border-secondary pt-4">
             <div className="flex items-center gap-2">
               <GitBranch01 className="size-4 text-quaternary" />
               <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
-                Relationships
+                Connected Records
               </p>
             </div>
             <div className="mt-3 space-y-4">
-              {relationships.map(([key, value]) => (
-                <RelationshipGroup key={key} label={key} value={value} onNavigate={onNavigate} />
+              {detail.relationships.map((relationship) => (
+                <RelationshipGroup
+                  key={relationship.label}
+                  label={relationship.label}
+                  value={relationship.value}
+                  limit={relationship.limit}
+                  onNavigate={onNavigate}
+                />
               ))}
             </div>
           </div>
@@ -530,10 +578,12 @@ function DetailPanel({
 function RelationshipGroup({
   label,
   value,
+  limit = 10,
   onNavigate,
 }: {
   label: string;
   value: any;
+  limit?: number;
   onNavigate: (id: string) => void;
 }) {
   const records = Array.isArray(value) ? value : [value];
@@ -542,9 +592,9 @@ function RelationshipGroup({
 
   return (
     <div>
-      <p className="font-mono text-xs text-quaternary">{label}</p>
+      <p className="text-xs font-medium text-quaternary">{label}</p>
       <div className="mt-2 space-y-2">
-        {linked.slice(0, 12).map((item, index) => {
+        {linked.slice(0, limit).map((item, index) => {
           const record = item.source && item.relationship ? item.source : item;
           const id = record?._id;
           return (
@@ -556,17 +606,349 @@ function RelationshipGroup({
               iconTrailing={id ? ArrowRight : undefined}
               onClick={() => id && onNavigate(id)}
             >
-              {item.relationship ? `${item.relationship}: ` : ""}
+              {item.relationship ? `${humanizeLabel(item.relationship)}: ` : ""}
               {relationshipLabel(record)}
             </Button>
           );
         })}
-        {linked.length > 12 && (
-          <p className="text-xs text-quaternary">{formatNumber(linked.length - 12)} more linked records</p>
+        {linked.length > limit && (
+          <p className="text-xs text-quaternary">{formatNumber(linked.length - limit)} more connections</p>
         )}
       </div>
     </div>
   );
+}
+
+function getDetailView(entity: EntityKey, record: SnapshotRecord): DetailView {
+  const config = ENTITY_BY_KEY.get(entity)!;
+
+  if (entity === "projects") {
+    return {
+      eyebrow: config.label,
+      title: record.name,
+      subtitle: "This project scopes the public demo dataset.",
+      summaryFields: compactFields([
+        field("Created", formatDate(record.createdDate)),
+        field("Sources", countLabel(record.sources, "source")),
+        field("Themes", countLabel(record.themes, "theme")),
+        field("Tags", countLabel(record.tags, "tag")),
+      ]),
+      narrative: compactBlocks([
+        block("Description", readableText(record.description)),
+      ]),
+      relationships: compactRelationships([
+        relationship("Sources in this project", record.sources),
+        relationship("Research themes", record.themes),
+        relationship("Tags", record.tags),
+        relationship("Research lens history", record.researchLens),
+      ]),
+    };
+  }
+
+  if (entity === "sources") {
+    return {
+      eyebrow: config.label,
+      title: record.title,
+      subtitle: sourceSubtitle(record),
+      summaryFields: compactFields([
+        field("Type", humanizeValue(record.sourceType)),
+        field("Tier", record.tier ? `Tier ${record.tier}` : null),
+        field("Status", humanizeValue(record.status)),
+        field("Words", formatNumber(record.wordCount)),
+        field("Published", formatDate(record.publishedDate)),
+        field("Origin", domainFromUrl(record.canonicalUrl) ?? humanizeValue(record.urlAccessibility)),
+      ]),
+      narrative: compactBlocks([
+        block("Why it matters", readableText(record.sourceSynthesis)),
+        block("Intake note", readableText(record.intakeNote)),
+      ]),
+      relationships: compactRelationships([
+        relationship("Project", record.project),
+        relationship("Claims extracted from this source", record.dataPoints, 8),
+        relationship("Mental models from this source", record.mentalModels, 8),
+        relationship("Related sources", record.sourceRelationships, 8),
+      ]),
+    };
+  }
+
+  if (entity === "researchThemes") {
+    return {
+      eyebrow: config.label,
+      title: record.title,
+      subtitle: "A research area that organizes related positions.",
+      summaryFields: compactFields([
+        field("Created", formatDate(record.createdDate)),
+        field("Positions", countLabel(record.positions, "position")),
+      ]),
+      narrative: compactBlocks([
+        block("Theme description", readableText(record.description)),
+      ]),
+      relationships: compactRelationships([
+        relationship("Project", record.project),
+        relationship("Positions in this theme", record.positions),
+      ]),
+    };
+  }
+
+  if (entity === "researchPositions") {
+    return {
+      eyebrow: config.label,
+      title: record.title,
+      subtitle: plainText(record.currentVersion?.currentStance) ?? "A versioned thesis under a research theme.",
+      summaryFields: compactFields([
+        field("Theme", record.theme?.title),
+        field("Confidence", humanizeValue(record.currentVersion?.confidenceLevel)),
+        field("Status", humanizeValue(record.currentVersion?.status)),
+        field("Versions", countLabel(record.versions, "version")),
+      ]),
+      narrative: [],
+      relationships: compactRelationships([
+        relationship("Theme", record.theme),
+        relationship("Current version", record.currentVersion),
+        relationship("Version history", record.versions),
+      ]),
+    };
+  }
+
+  if (entity === "positionVersions") {
+    return {
+      eyebrow: config.label,
+      title: `${record.position?.title ?? "Position"} v${record.versionNumber}`,
+      subtitle: plainText(record.currentStance),
+      summaryFields: compactFields([
+        field("Confidence", humanizeValue(record.confidenceLevel)),
+        field("Status", humanizeValue(record.status)),
+        field("Date", formatDate(record.versionDate)),
+        field("Version", record.versionNumber ? `Version ${record.versionNumber}` : null),
+      ]),
+      narrative: compactBlocks([
+        block("What changed", readableText(record.changeSummary)),
+        block("Open questions", readableList(record.openQuestions)),
+      ]),
+      relationships: compactRelationships([
+        relationship("Position", record.position),
+        relationship("Supporting evidence", record.supportingEvidence, 8),
+        relationship("Counter evidence", record.counterEvidence, 8),
+        relationship("Curator observations", record.curatorObservations, 8),
+        relationship("Mental models", record.mentalModels, 8),
+      ]),
+    };
+  }
+
+  if (entity === "dataPoints") {
+    return {
+      eyebrow: config.label,
+      title: truncate(record.claimText, 120),
+      subtitle: "An atomic claim extracted from a source.",
+      summaryFields: compactFields([
+        field("Evidence", humanizeValue(record.evidenceType)),
+        field("Confidence", humanizeValue(record.confidence)),
+        field("Source", record.source?.title),
+        field("Location", locationLabel(record)),
+        field("Extracted", formatDate(record.extractionDate)),
+        field("Tags", countLabel(record.tags, "tag")),
+      ]),
+      narrative: compactBlocks([
+        block("Claim", readableText(record.claimText)),
+        block("Extraction note", readableText(record.extractionNote)),
+      ]),
+      relationships: compactRelationships([
+        relationship("Source", record.source),
+        relationship("Tags", record.tags),
+        relationship("Related claims", record.relatedDataPoints, 8),
+        relationship("Positions using this claim", record.positions, 8),
+      ]),
+    };
+  }
+
+  if (entity === "tags") {
+    return {
+      eyebrow: config.label,
+      title: record.name,
+      subtitle: "A retrieval label that connects related evidence and ideas.",
+      summaryFields: compactFields([
+        field("Category", humanizeValue(record.category)),
+        field("Slug", record.slug),
+        field("Claims", countLabel(record.dataPoints, "claim")),
+        field("Models", countLabel(record.mentalModels, "model")),
+      ]),
+      narrative: [],
+      relationships: compactRelationships([
+        relationship("Project", record.project),
+        relationship("Claims with this tag", record.dataPoints, 8),
+        relationship("Curator observations", record.curatorObservations, 8),
+        relationship("Mental models", record.mentalModels, 8),
+      ]),
+    };
+  }
+
+  if (entity === "curatorObservations") {
+    return {
+      eyebrow: config.label,
+      title: truncate(record.observationText, 120),
+      subtitle: "A connective insight written by the curator.",
+      summaryFields: compactFields([
+        field("Captured", formatDate(record.capturedDate)),
+        field("Referenced claims", countLabel(record.referencedDataPoints, "claim")),
+        field("Referenced positions", countLabel(record.referencedPositions, "position")),
+        field("Tags", countLabel(record.tags, "tag")),
+      ]),
+      narrative: compactBlocks([
+        block("Observation", readableText(record.observationText)),
+      ]),
+      relationships: compactRelationships([
+        relationship("Referenced claims", record.referencedDataPoints, 8),
+        relationship("Referenced positions", record.referencedPositions, 8),
+        relationship("Tags", record.tags),
+      ]),
+    };
+  }
+
+  if (entity === "mentalModels") {
+    return {
+      eyebrow: config.label,
+      title: record.title,
+      subtitle: plainText(record.description),
+      summaryFields: compactFields([
+        field("Type", humanizeValue(record.modelType)),
+        field("Captured", formatDate(record.capturedDate)),
+        field("Source", record.source?.title),
+        field("Tags", countLabel(record.tags, "tag")),
+      ]),
+      narrative: [],
+      relationships: compactRelationships([
+        relationship("Source", record.source),
+        relationship("Source claim", record.sourceDataPoint),
+        relationship("Tags", record.tags),
+      ]),
+    };
+  }
+
+  return {
+    eyebrow: config.label,
+    title: `Research lens from ${formatDate(record.generatedDate)}`,
+    subtitle: "A generated snapshot of the system perspective used during enrichment.",
+    summaryFields: compactFields([
+      field("Generated", formatDate(record.generatedDate)),
+      field("Trigger", humanizeValue(record.triggeredBy)),
+      field("Current positions", countLabel(record.currentPositions, "position")),
+      field("Open questions", countLabel(record.openQuestions, "question")),
+    ]),
+    narrative: compactBlocks([
+      block("Current positions", readableList(record.currentPositions)),
+      block("Open questions", readableList(record.openQuestions)),
+      block("Surprise signals", readableList(record.surpriseSignals)),
+    ]),
+    relationships: compactRelationships([
+      relationship("Project", record.project),
+    ]),
+  };
+}
+
+function field(label: string, value: ReactNode): DetailField {
+  return { label, value };
+}
+
+function block(label: string, value: ReactNode): NarrativeBlock {
+  return { label, value };
+}
+
+function relationship(label: string, value: any, limit?: number): DetailRelationship {
+  return { label, value, limit };
+}
+
+function compactFields(fields: DetailField[]) {
+  return fields.filter((item) => hasReadableValue(item.value));
+}
+
+function compactBlocks(blocks: NarrativeBlock[]) {
+  return blocks.filter((item) => hasReadableValue(item.value));
+}
+
+function compactRelationships(relationships: DetailRelationship[]) {
+  return relationships.filter((item) => hasRelationshipValue(item.value));
+}
+
+function hasReadableValue(value: ReactNode): boolean {
+  if (value === null || value === undefined || value === false) return false;
+  if (typeof value === "string") return value.trim().length > 0;
+  if (Array.isArray(value)) return value.length > 0;
+  return true;
+}
+
+function hasRelationshipValue(value: any): boolean {
+  if (!value) return false;
+  if (Array.isArray(value)) return value.some(Boolean);
+  return typeof value === "object" && "_id" in value;
+}
+
+function readableText(value: any) {
+  const text = plainText(value);
+  if (!text) return null;
+  return <p className="whitespace-pre-wrap">{text}</p>;
+}
+
+function plainText(value: any) {
+  if (value === null || value === undefined) return null;
+  const text = String(value).replace(/\\n/g, "\n").trim();
+  return text || null;
+}
+
+function readableList(value: any) {
+  if (!Array.isArray(value) || value.length === 0) return null;
+  return (
+    <ul className="space-y-2">
+      {value.map((item, index) => (
+        <li key={`${String(item).slice(0, 32)}-${index}`} className="leading-6">
+          {String(item).replace(/\\n/g, "\n")}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function countLabel(value: any, singular: string) {
+  if (!Array.isArray(value)) return null;
+  const count = value.length;
+  const plural = count === 1 ? singular : `${singular}s`;
+  return `${formatNumber(count)} ${plural}`;
+}
+
+function sourceSubtitle(record: SnapshotRecord) {
+  return [record.publisherName, record.authorName, formatDate(record.publishedDate)]
+    .filter((value) => typeof value === "string" && value.trim().length > 0)
+    .join(" | ");
+}
+
+function locationLabel(record: SnapshotRecord) {
+  const type = humanizeValue(record.locationType);
+  if (!type && !record.locationStart) return null;
+  if (!record.locationStart) return type;
+  if (!type) return record.locationStart;
+  return `${type}: ${record.locationStart}`;
+}
+
+function domainFromUrl(value: any) {
+  if (!value) return null;
+  try {
+    return new URL(String(value)).hostname.replace(/^www\./, "");
+  } catch {
+    return null;
+  }
+}
+
+function humanizeValue(value: any) {
+  if (value === null || value === undefined || value === "") return null;
+  return humanizeLabel(String(value));
+}
+
+function humanizeLabel(value: string) {
+  return value
+    .replace(/[_-]+/g, " ")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .trim()
+    .replace(/\s+/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 function BackendLoading() {
@@ -621,27 +1003,14 @@ function resolvePath(record: any, path: string): any {
   }, record);
 }
 
-function isRelationshipValue(value: any) {
-  if (!value || typeof value !== "object") return false;
-  if (Array.isArray(value)) return value.some((item) => item && typeof item === "object" && "_id" in item);
-  return "_id" in value;
-}
-
 function relationshipLabel(record: any) {
-  return record?.title ?? record?.name ?? record?.slug ?? record?.claimText ?? record?.observationText ?? record?._id ?? "Linked record";
+  return record?.title ?? record?.name ?? record?.slug ?? record?.claimText ?? record?.observationText ?? "Linked record";
 }
 
 function formatCell(value: any) {
   if (value === null || value === undefined || value === "") return <span className="text-quaternary">Not set</span>;
   if (typeof value === "number") return <span className="tabular-nums">{formatNumber(value)}</span>;
   return truncate(String(value), 140);
-}
-
-function formatDetailValue(value: any) {
-  if (value === null || value === undefined || value === "") return <span className="text-quaternary">Not set</span>;
-  if (Array.isArray(value)) return value.length ? value.join(", ") : <span className="text-quaternary">None</span>;
-  if (typeof value === "number") return <span className="tabular-nums">{formatNumber(value)}</span>;
-  return String(value);
 }
 
 function formatNumber(value: number) {
