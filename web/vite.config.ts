@@ -9,6 +9,15 @@ export default defineConfig({
   build: {
     outDir: resolve(__dirname, "../dist"),
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("node_modules")) {
+            return "vendor";
+          }
+        },
+      },
+    },
   },
   resolve: {
     alias: {

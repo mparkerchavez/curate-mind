@@ -1,18 +1,19 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { MobileRedirect } from "./components/MobileRedirect";
 import { ProjectProvider } from "./ProjectContext";
 import { WorkspaceProvider } from "./contexts/WorkspaceContext";
 import AppShell from "./layouts/AppShell";
 import LandingPage from "./pages/LandingPage";
-import MethodologyPage from "./pages/MethodologyPage";
-import ThemesIndexPage from "./pages/ThemesIndexPage";
-import ThemePage from "./pages/ThemePage";
-import PositionPage from "./pages/PositionPage";
 import PositionRedirect from "./components/PositionRedirect";
-import SourcePage from "./pages/SourcePage";
-import AskPage from "./pages/AskPage";
-import BackendPage from "./pages/backend-page";
+
+const MethodologyPage = lazy(() => import("./pages/MethodologyPage"));
+const ThemesIndexPage = lazy(() => import("./pages/ThemesIndexPage"));
+const ThemePage = lazy(() => import("./pages/ThemePage"));
+const PositionPage = lazy(() => import("./pages/PositionPage"));
+const SourcePage = lazy(() => import("./pages/SourcePage"));
+const AskPage = lazy(() => import("./pages/AskPage"));
+const BackendPage = lazy(() => import("./pages/backend-page"));
 
 const DESKTOP_MEDIA_QUERY = "(min-width: 1024px)";
 
@@ -47,27 +48,33 @@ export default function App() {
   }
 
   if (location.pathname === "/backend") {
-    return <BackendPage />;
+    return (
+      <Suspense fallback={null}>
+        <BackendPage />
+      </Suspense>
+    );
   }
 
   return (
     <ProjectProvider>
       <WorkspaceProvider>
         <AppShell>
-          <Routes>
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/methodology" element={<MethodologyPage />} />
-            <Route path="/ask" element={<AskPage />} />
-            <Route path="/themes" element={<ThemesIndexPage />} />
-            <Route path="/themes/:themeId" element={<ThemePage />} />
-            <Route path="/themes/:themeId/positions/:positionId" element={<PositionPage />} />
-            {/* Legacy flat URL redirects to the nested shape. */}
-            <Route path="/positions/:positionId" element={<PositionRedirect />} />
-            <Route path="/sources/:sourceId" element={<SourcePage />} />
-            {/* Legacy routes redirect */}
-            <Route path="/browse" element={<Navigate to="/" replace />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+          <Suspense fallback={null}>
+            <Routes>
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/methodology" element={<MethodologyPage />} />
+              <Route path="/ask" element={<AskPage />} />
+              <Route path="/themes" element={<ThemesIndexPage />} />
+              <Route path="/themes/:themeId" element={<ThemePage />} />
+              <Route path="/themes/:themeId/positions/:positionId" element={<PositionPage />} />
+              {/* Legacy flat URL redirects to the nested shape. */}
+              <Route path="/positions/:positionId" element={<PositionRedirect />} />
+              <Route path="/sources/:sourceId" element={<SourcePage />} />
+              {/* Legacy routes redirect */}
+              <Route path="/browse" element={<Navigate to="/" replace />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Suspense>
         </AppShell>
       </WorkspaceProvider>
     </ProjectProvider>
