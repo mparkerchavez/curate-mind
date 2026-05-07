@@ -4,13 +4,16 @@ import {
   ArrowRight,
   Database01,
   GitBranch01,
+  LinkExternal01,
   SearchLg,
   Table,
 } from "@untitledui/icons";
 import { Badge } from "@/components/base/badges/badges";
 import { Button } from "@/components/base/buttons/button";
 import { InputBase } from "@/components/base/input/input";
+import { Select } from "@/components/base/select/select";
 import { LoadingIndicator } from "@/components/application/loading-indicator/loading-indicator";
+import { Tabs } from "@/components/application/tabs/tabs";
 import { CurateMindMark } from "@/components/CurateMindMark";
 import { GitHubIcon } from "@/components/GitHubIcon";
 import { ThemeModeControl } from "@/components/ThemeModeControl";
@@ -69,6 +72,7 @@ type DetailView = {
   eyebrow: string;
   title: string;
   subtitle?: string;
+  actions?: ReactNode;
   summaryFields: DetailField[];
   narrative: NarrativeBlock[];
   relationships: DetailRelationship[];
@@ -78,7 +82,8 @@ const ENTITY_CONFIGS: EntityConfig[] = [
   {
     key: "projects",
     label: "Projects",
-    description: "Top level containers that scope demo content.",
+    description:
+      "A project scopes everything else: its sources, themes, tags, and the rest of the data on this page. The demo holds one.",
     columns: [
       { key: "name", label: "Name" },
       { key: "description", label: "Description" },
@@ -88,7 +93,8 @@ const ENTITY_CONFIGS: EntityConfig[] = [
   {
     key: "sources",
     label: "Sources",
-    description: "Provenance records for ingested external material.",
+    description:
+      "External material the system ingested, such as articles, papers, talks, podcasts, and videos. Each source becomes the provenance for any claim or model extracted from it.",
     columns: [
       { key: "title", label: "Title" },
       { key: "sourceType", label: "Type" },
@@ -105,8 +111,9 @@ const ENTITY_CONFIGS: EntityConfig[] = [
   },
   {
     key: "researchThemes",
-    label: "Research Themes",
-    description: "Macro areas that organize positions.",
+    label: "Themes",
+    description:
+      "Macro areas of inquiry that group related positions. Themes are how the workspace is organized at the highest level.",
     columns: [
       { key: "title", label: "Title" },
       { key: "description", label: "Description" },
@@ -115,8 +122,9 @@ const ENTITY_CONFIGS: EntityConfig[] = [
   },
   {
     key: "researchPositions",
-    label: "Research Positions",
-    description: "Versioned theses under research themes.",
+    label: "Positions",
+    description:
+      "Versioned theses inside a theme. Each is a claim the curator stands behind, with supporting evidence and a confidence level.",
     columns: [
       { key: "title", label: "Title" },
       { key: "theme.title", label: "Theme" },
@@ -132,7 +140,8 @@ const ENTITY_CONFIGS: EntityConfig[] = [
   {
     key: "positionVersions",
     label: "Position Versions",
-    description: "Append only history for each thesis.",
+    description:
+      "Each time a position changes, the previous version is preserved as a new row. This is the audit trail showing how thinking evolved.",
     columns: [
       { key: "position.title", label: "Position" },
       { key: "versionNumber", label: "Version" },
@@ -148,7 +157,8 @@ const ENTITY_CONFIGS: EntityConfig[] = [
   {
     key: "dataPoints",
     label: "Data Points",
-    description: "Atomic claims extracted from source material.",
+    description:
+      "Atomic claims pulled from sources during extraction. Every claim is anchored to its source so it can be verified later.",
     columns: [
       { key: "claimText", label: "Claim" },
       { key: "evidenceType", label: "Evidence" },
@@ -164,7 +174,8 @@ const ENTITY_CONFIGS: EntityConfig[] = [
   {
     key: "tags",
     label: "Tags",
-    description: "Flat vocabulary for retrieval and trend detection.",
+    description:
+      "Flat vocabulary that connects related claims, observations, and models across sources. Used for retrieval and trend detection.",
     columns: [
       { key: "slug", label: "Slug" },
       { key: "name", label: "Name" },
@@ -175,8 +186,9 @@ const ENTITY_CONFIGS: EntityConfig[] = [
   },
   {
     key: "curatorObservations",
-    label: "Curator Observations",
-    description: "Connective insights written by the curator.",
+    label: "Observations",
+    description:
+      "Notes the curator wrote that connect data points across sources, or that bridge evidence to a position. These are interpretations, not extracted claims.",
     columns: [
       { key: "observationText", label: "Observation" },
       { key: "referencedDataPoints.length", label: "Data Points" },
@@ -187,7 +199,8 @@ const ENTITY_CONFIGS: EntityConfig[] = [
   {
     key: "mentalModels",
     label: "Mental Models",
-    description: "Frameworks, analogies, terms, and principles.",
+    description:
+      "Reusable thinking patterns captured from sources, such as frameworks, analogies, and memorable terms. Stored separately from claims because they describe how concepts get named, not what's true.",
     columns: [
       { key: "title", label: "Name" },
       { key: "modelType", label: "Type" },
@@ -200,7 +213,8 @@ const ENTITY_CONFIGS: EntityConfig[] = [
   {
     key: "researchLens",
     label: "Research Lens",
-    description: "Generated system artifact used by enrichment.",
+    description:
+      "A periodic snapshot of the system's current view: open positions, open questions, and surprise signals. The extraction pipeline reads this when tagging new claims so the system stays coherent over time.",
     columns: [
       { key: "generatedDate", label: "Generated" },
       { key: "triggeredBy", label: "Trigger" },
@@ -213,10 +227,20 @@ const ENTITY_CONFIGS: EntityConfig[] = [
 
 const ENTITY_BY_KEY = new Map(ENTITY_CONFIGS.map((config) => [config.key, config]));
 
+const VISIBLE_ENTITY_KEYS: EntityKey[] = [
+  "researchThemes",
+  "researchPositions",
+  "dataPoints",
+  "sources",
+  "curatorObservations",
+  "mentalModels",
+  "tags",
+];
+
 export default function BackendPage() {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [activeEntity, setActiveEntity] = useState<EntityKey>("sources");
+  const [activeEntity, setActiveEntity] = useState<EntityKey>("researchThemes");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<Record<string, string>>({});
@@ -231,7 +255,7 @@ export default function BackendPage() {
       .then((data: Snapshot) => {
         if (cancelled) return;
         setSnapshot(data);
-        const initial = data.entities.sources?.[0]?._id ?? null;
+        const initial = data.entities.researchThemes?.[0]?._id ?? null;
         setSelectedId(initial);
       })
       .catch((err) => {
@@ -291,77 +315,54 @@ export default function BackendPage() {
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-primary">
       <BackendHeader />
-      <main className="min-h-0 flex-1 overflow-y-auto">
-        <section className="border-b border-secondary bg-secondary_subtle">
-          <div className="mx-auto max-w-7xl px-6 py-8">
-            <div className="flex items-start justify-between gap-6">
-              <div className="max-w-3xl">
-                <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
-                  Backend transparency
-                </p>
-                <h1 className="mt-2 text-display-xs font-semibold tracking-[-0.01em] text-primary lg:text-display-sm">
-                  Static database explorer
-                </h1>
-                <p className="mt-3 text-sm leading-6 text-tertiary">
-                  Browse the readable demo dataset exported from Convex. Source bodies, verification quotes,
-                  file pointers, vectors, and hashes are omitted from this public snapshot.
-                </p>
-              </div>
-              <div className="cm-surface-raised w-72 rounded-2xl border p-4">
-                <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
-                  Snapshot
-                </p>
-                <p className="mt-2 text-sm font-medium text-primary">{snapshot.metadata.projectName}</p>
-                <p className="mt-1 text-xs leading-5 text-tertiary">
-                  Generated {formatDate(snapshot.metadata.generatedAt)}
-                </p>
-              </div>
-            </div>
-            <div className="mt-6 grid gap-3 md:grid-cols-5">
-              {topMetrics(snapshot).map((metric) => (
-                <div key={metric.label} className="cm-surface-raised rounded-xl border px-4 py-3">
-                  <p className="text-xs font-medium uppercase tracking-[0.12em] text-quaternary">
-                    {metric.label}
-                  </p>
-                  <p className="mt-2 text-xl font-semibold text-primary">{formatNumber(metric.value)}</p>
-                </div>
-              ))}
+      <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <section className="border-b border-secondary">
+          <div className="px-8 py-7">
+            <div className="max-w-3xl">
+              <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
+                Data model
+              </p>
+              <h1 className="mt-2 text-display-xs font-semibold tracking-[-0.01em] text-primary">
+                Inside the knowledge base
+              </h1>
+              <p className="mt-3 text-sm leading-6 text-tertiary">
+                Every source, claim, tag, position, and observation in the demo dataset, exported from Convex.
+                Source text, verification quotes, file pointers, vectors, and hashes are omitted from this public snapshot.
+              </p>
             </div>
           </div>
         </section>
 
-        <section className="mx-auto grid max-w-7xl gap-6 px-6 py-6 lg:grid-cols-[260px_minmax(0,1fr)_360px]">
-          <aside className="cm-content-panel h-max rounded-2xl border p-2">
-            <div className="px-3 py-2">
-              <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
-                Entities
-              </p>
-            </div>
-            <nav className="space-y-1">
-              {ENTITY_CONFIGS.map((config) => (
-                <button
-                  key={config.key}
-                  type="button"
-                  onClick={() => selectEntity(config.key)}
-                  className={cn(
-                    "flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm font-medium transition",
-                    activeEntity === config.key
-                      ? "bg-brand-primary_alt text-brand-secondary"
-                      : "text-secondary hover:bg-secondary_hover hover:text-primary",
-                  )}
-                >
-                  <span>{config.label}</span>
-                  <span className="text-xs tabular-nums text-quaternary">
-                    {formatNumber(snapshot.metadata.counts[config.key] ?? 0)}
-                  </span>
-                </button>
-              ))}
-            </nav>
-          </aside>
+        <section>
+          <div className="px-8 pt-5">
+            <Tabs
+              selectedKey={activeEntity}
+              onSelectionChange={(key) => selectEntity(key as EntityKey)}
+            >
+              <Tabs.List type="button-border" size="sm" fullWidth className="!flex-nowrap">
+                {VISIBLE_ENTITY_KEYS.map((key) => {
+                  const config = ENTITY_BY_KEY.get(key)!;
+                  return (
+                    <Tabs.Item
+                      key={config.key}
+                      id={config.key}
+                      label={config.label}
+                      badge={formatNumber(snapshot.metadata.counts[config.key] ?? 0)}
+                      className={({ isSelected }) =>
+                        isSelected ? "bg-quaternary text-primary ring-1 ring-secondary" : ""
+                      }
+                    />
+                  );
+                })}
+              </Tabs.List>
+            </Tabs>
+          </div>
+        </section>
 
-          <div className="min-w-0">
-            <div className="cm-content-panel overflow-hidden rounded-2xl border">
-              <div className="border-b border-secondary px-5 py-4">
+        <section className="flex min-h-0 flex-1 px-8 py-6">
+          <div className="cm-content-panel flex min-h-0 w-full overflow-hidden rounded-2xl border">
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+              <div className="shrink-0 border-b border-secondary px-5 py-4">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <div className="flex items-center gap-2">
@@ -386,30 +387,39 @@ export default function BackendPage() {
                       placeholder={`Search ${activeConfig.label.toLowerCase()}`}
                     />
                   </div>
-                  {activeConfig.filters?.map((filter) => (
-                    <select
-                      key={filter.key}
-                      value={filters[filter.key] ?? ""}
-                      onChange={(event) => {
-                        const value = event.currentTarget.value;
-                        setFilters((current) => ({ ...current, [filter.key]: value }));
-                      }}
-                      className="h-9 rounded-lg border border-secondary bg-primary px-3 text-sm text-secondary shadow-xs outline-brand transition focus:outline-2 focus:outline-offset-2"
-                    >
-                      <option value="">{filter.label}: all</option>
-                      {filterOptions(activeRecords, filter.key).map((option) => (
-                        <option key={option} value={option}>
-                          {filter.label}: {option}
-                        </option>
-                      ))}
-                    </select>
-                  ))}
+                  {activeConfig.filters?.map((filter) => {
+                    const options = filterOptions(activeRecords, filter.key);
+                    const items = [
+                      { id: "__all__", label: `${filter.label}: all` },
+                      ...options.map((option) => ({
+                        id: option,
+                        label: `${filter.label}: ${humanizeLabel(option)}`,
+                      })),
+                    ];
+                    const selectedKey = filters[filter.key] || "__all__";
+                    return (
+                      <div key={filter.key} className="w-56">
+                        <Select
+                          aria-label={`Filter by ${filter.label.toLowerCase()}`}
+                          size="sm"
+                          selectedKey={selectedKey}
+                          onSelectionChange={(key) => {
+                            const next = key === "__all__" || key == null ? "" : String(key);
+                            setFilters((current) => ({ ...current, [filter.key]: next }));
+                          }}
+                          items={items}
+                        >
+                          {(item) => <Select.Item id={item.id}>{item.label}</Select.Item>}
+                        </Select>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
-              <div className="overflow-x-auto">
+              <div className="min-h-0 flex-1 overflow-auto">
                 <table className="w-full text-left text-sm">
-                  <thead className="bg-secondary">
+                  <thead className="sticky top-0 z-10 bg-secondary">
                     <tr className="border-b border-secondary">
                       {activeConfig.columns.map((column) => (
                         <th key={column.key} className="px-5 py-3 text-xs font-medium uppercase tracking-[0.12em] text-quaternary">
@@ -439,13 +449,13 @@ export default function BackendPage() {
                 </table>
               </div>
             </div>
-          </div>
 
-          <DetailPanel
-            record={selectedRecord}
-            entity={selectedId ? idIndex.get(selectedId)?.entity ?? activeEntity : activeEntity}
-            onNavigate={navigateToRecord}
-          />
+            <DetailPanel
+              record={selectedRecord}
+              entity={selectedId ? idIndex.get(selectedId)?.entity ?? activeEntity : activeEntity}
+              onNavigate={navigateToRecord}
+            />
+          </div>
         </section>
       </main>
     </div>
@@ -501,7 +511,7 @@ function DetailPanel({
 }) {
   if (!record) {
     return (
-      <aside className="cm-content-panel h-max rounded-2xl border p-5">
+      <aside className="flex w-[440px] min-h-0 shrink-0 flex-col border-l border-secondary p-5">
         <p className="text-sm text-tertiary">Select a record to inspect its fields and relationships.</p>
       </aside>
     );
@@ -510,7 +520,7 @@ function DetailPanel({
   const detail = getDetailView(entity, record);
 
   return (
-    <aside className="cm-content-panel h-max max-h-[calc(100vh-8rem)] overflow-y-auto rounded-2xl border">
+    <aside className="flex w-[440px] min-h-0 shrink-0 flex-col overflow-y-auto border-l border-secondary">
       <div className="border-b border-secondary px-5 py-4">
         <div className="flex items-center gap-2 text-quaternary">
           <Database01 className="size-5 text-quaternary" />
@@ -522,6 +532,7 @@ function DetailPanel({
         {detail.subtitle && (
           <p className="mt-2 text-sm leading-6 text-tertiary">{detail.subtitle}</p>
         )}
+        {detail.actions && <div className="mt-4">{detail.actions}</div>}
       </div>
 
       <div className="space-y-5 px-5 py-4">
@@ -650,6 +661,18 @@ function getDetailView(entity: EntityKey, record: SnapshotRecord): DetailView {
       eyebrow: config.label,
       title: record.title,
       subtitle: sourceSubtitle(record),
+      actions: record.canonicalUrl ? (
+        <Button
+          href={record.canonicalUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          size="sm"
+          color="secondary"
+          iconTrailing={LinkExternal01}
+        >
+          Open original
+        </Button>
+      ) : null,
       summaryFields: compactFields([
         field("Type", humanizeValue(record.sourceType)),
         field("Tier", record.tier ? `Tier ${record.tier}` : null),
@@ -663,7 +686,6 @@ function getDetailView(entity: EntityKey, record: SnapshotRecord): DetailView {
         block("Intake note", readableText(record.intakeNote)),
       ]),
       relationships: compactRelationships([
-        relationship("Project", record.project),
         relationship("Claims extracted from this source", record.dataPoints, 8),
         relationship("Mental models from this source", record.mentalModels, 8),
         relationship("Related sources", record.sourceRelationships, 8),
@@ -684,7 +706,6 @@ function getDetailView(entity: EntityKey, record: SnapshotRecord): DetailView {
         block("Theme description", readableText(record.description)),
       ]),
       relationships: compactRelationships([
-        relationship("Project", record.project),
         relationship("Positions in this theme", record.positions),
       ]),
     };
@@ -699,13 +720,15 @@ function getDetailView(entity: EntityKey, record: SnapshotRecord): DetailView {
         field("Theme", record.theme?.title),
         field("Confidence", humanizeValue(record.currentVersion?.confidenceLevel)),
         field("Status", humanizeValue(record.currentVersion?.status)),
-        field("Versions", countLabel(record.versions, "version")),
+        field(
+          "Version",
+          record.currentVersion?.versionNumber ? `Version ${record.currentVersion.versionNumber}` : null,
+        ),
+        field("Last updated", formatDate(record.currentVersion?.versionDate)),
       ]),
       narrative: [],
       relationships: compactRelationships([
         relationship("Theme", record.theme),
-        relationship("Current version", record.currentVersion),
-        relationship("Version history", record.versions),
       ]),
     };
   }
@@ -774,7 +797,6 @@ function getDetailView(entity: EntityKey, record: SnapshotRecord): DetailView {
       ]),
       narrative: [],
       relationships: compactRelationships([
-        relationship("Project", record.project),
         relationship("Claims with this tag", record.dataPoints, 8),
         relationship("Curator observations", record.curatorObservations, 8),
         relationship("Mental models", record.mentalModels, 8),
@@ -974,16 +996,6 @@ function BackendError({ message }: { message: string }) {
   );
 }
 
-function topMetrics(snapshot: Snapshot) {
-  return [
-    { label: "Sources", value: snapshot.metadata.counts.sources },
-    { label: "Claims", value: snapshot.metadata.counts.dataPoints },
-    { label: "Tags", value: snapshot.metadata.counts.tags },
-    { label: "Positions", value: snapshot.metadata.counts.researchPositions },
-    { label: "Models", value: snapshot.metadata.counts.mentalModels },
-  ];
-}
-
 function filterOptions(records: SnapshotRecord[], key: string) {
   return Array.from(
     new Set(records.map((record) => resolvePath(record, key)).filter((value) => value !== null && value !== undefined && value !== "")),
@@ -1010,7 +1022,14 @@ function relationshipLabel(record: any) {
 function formatCell(value: any) {
   if (value === null || value === undefined || value === "") return <span className="text-quaternary">Not set</span>;
   if (typeof value === "number") return <span className="tabular-nums">{formatNumber(value)}</span>;
+  if (typeof value === "string" && looksLikeDate(value)) return formatDate(value);
   return truncate(String(value), 140);
+}
+
+const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+
+function looksLikeDate(value: string) {
+  return ISO_DATE_PATTERN.test(value);
 }
 
 function formatNumber(value: number) {
