@@ -6,11 +6,10 @@
  * Uses stdio transport for local Claude Desktop integration.
  *
  * Required environment variables:
- *   CONVEX_URL          — Convex deployment URL
- *   OPENAI_API_KEY      — OpenAI API key (for embeddings)
- *   JINA_API_KEY        — Jina API key (for URL fetching)
- *   SUPADATA_API_KEY    — Supadata API key (for scraping/transcripts)
- *   CURATE_MIND_PATH    — Path to the curate-mind folder on your machine
+ *   CONVEX_URL          Convex deployment URL
+ *   OPENAI_API_KEY      OpenAI API key (for embeddings)
+ *   SUPADATA_API_KEY    Supadata API key (for scraping/transcripts)
+ *   CURATE_MIND_PATH    Path to the curate-mind folder on your machine
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -41,7 +40,6 @@ async function main(): Promise<void> {
   // Optional but recommended
   const optional = [
     "OPENAI_API_KEY",
-    "JINA_API_KEY",
     "SUPADATA_API_KEY",
     "CURATE_MIND_PATH",
   ];

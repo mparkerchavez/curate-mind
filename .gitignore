@@ -18,12 +18,18 @@ Curate_Mind_Outside_In_Audit_2026-03-17.md
 Curate_Mind_Post_Migration_Audit_2026-03-26.md
 Implementation_Plan.md
 AGENTS.md
+CoP_Planning_Brief.md
+
+# Local tooling output
+.claude/
+.playwright-mcp/
 
 # Credentials and environment
 .env.*.local
 
 # Dependencies and build output
 node_modules/
+dist/
 mcp/dist/
 tmp/
 .venv/

@@ -1,4 +1,8 @@
 /**
+ * This file is retained for reference but is no longer used.
+ * Supadata (supadata.ts) replaced Jina for URL fetching and
+ * YouTube transcripts.
+ *
  * Jina URL fetching for Curate Mind.
  *
  * Fetches a public URL through Jina's reader API and returns
