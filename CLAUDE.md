@@ -31,8 +31,8 @@ The foundation is a set of persistent, append-only entities in Convex (Data Poin
 ## Key Files (Read These First)
 
 - `Architecture_Spec.md` — Complete architecture: entities, schema, extraction pipeline, MCP tools, migration path
-- `Implementation_Plan.md` — Step-by-step build plan with progress tracker
 - `Design_Decisions_Log.md` — Why decisions were made (not just what). Read this when you hit a judgment call during implementation.
+- `PRD.md` — Product requirements, v1 scope, definition of done, and agent alignment rules.
 
 ---
 
@@ -90,7 +90,7 @@ After extraction waves, data points need to be connected to Research Positions. 
 
 - **Research Persona (Maicol):** Curates sources, runs extraction pipeline, writes observations. Full MCP access.
 - **Analyst Persona (Maicol):** Queries knowledge base for analysis. Full progressive disclosure access (Layers 1-4).
-- **Reader Persona (Others):** Queries knowledge base externally. Layers 1-2 only. No verbatim quotes, no original source text. Phase 2 priority.
+- **Reader Persona (Others):** Queries knowledge base externally via the web frontend at curatemind.io. Layers 1-2 only. No verbatim quotes, no original source text. The web app is the Reader interface.
 
 ---
 
@@ -99,8 +99,36 @@ After extraction waves, data points need to be connected to Research Positions. 
 - **Database:** Convex (new project, separate from CRIS)
 - **MCP Server:** Node.js + @modelcontextprotocol/sdk (stdio transport)
 - **Embeddings:** OpenAI text-embedding-3-small (1536 dimensions)
-- **URL Fetching / Transcripts:** Supadata (`@supadata/js`) for web scraping and YouTube transcripts. Jina remains in the codebase only as a temporary compatibility path until intake tool migration is complete.
+- **URL Fetching / Transcripts:** Supadata (`@supadata/js`) for web scraping and YouTube transcripts. `mcp/src/lib/jina.ts` remains in the codebase for reference but is no longer used by intake tools — migration to Supadata is complete.
+- **Frontend:** React + Vite, served at curatemind.io. Desktop-only (redirects mobile at &lt;1024px). See Web Frontend section below.
 - **Credentials:** Copy `.env.example` to `.env.local` and fill in your keys. Never commit `.env.local`.
+
+---
+
+## Web Frontend
+
+The frontend (`web/`) is a live demo site at curatemind.io. It serves two purposes: (1) a public-facing demo showing Maicol's February 2026 research, and (2) an open-source methodology showcase for GitHub visitors. The MCP is still the primary research interface — the frontend is the Reader interface.
+
+**Current pages and routes:**
+
+| Route | Page | Purpose |
+|-------|------|---------|
+| `/` | `LandingPage` | Hero with ask input, theme cards, live position demo |
+| `/methodology` | `MethodologyPage` | Explains the research system and extraction pipeline |
+| `/ask` | `AskPage` | AI chat interface querying the knowledge base |
+| `/themes` | `ThemesIndexPage` | All research themes |
+| `/themes/:themeId` | `ThemePage` | Positions within a theme |
+| `/themes/:themeId/positions/:positionId` | `PositionPage` | Full position detail with evidence |
+| `/sources/:sourceId` | `SourcePage` | Source metadata and extracted data points |
+
+**Key contexts:**
+- `ProjectProvider` — resolves the active Convex project ID
+- `WorkspaceProvider` — loads themes, positions, and handles AI queries; wraps all routes
+
+**Notes for agents:**
+- `WorkspacePage.tsx` exists in `web/src/pages/` but is not in the router. Do not delete it without explicit instruction — treat as reserved.
+- File naming: new files in `components/base/`, `components/application/`, `components/foundations/`, and `components/shared-assets/` use kebab-case (Untitled UI convention). Existing top-level components in `components/` are PascalCase (legacy). New top-level components should use kebab-case going forward.
+- Do not add new pages or components unless explicitly asked.
 
 ---
 
@@ -113,7 +141,7 @@ The project owner is a citizen developer. The project owner works with Claude (C
 ## What NOT to Do
 
 - Do not create maintained deliverable documents (weekly learnings, synthesis docs, talking points files). Everything is generated on demand.
-- Do not build a frontend unless explicitly asked. The MCP is the primary interface.
+- Do not add new frontend pages or components unless explicitly asked. The frontend is in a defined state — additions require explicit instruction.
 - Do not add delete mutations to Convex. This is append-only.
 - Do not load the Research Lens during Pass 1 or Pass 2. Only Pass 3 (enrichment) uses it.
 - Do not assign tags during Pass 1 extraction. Tags are assigned in Pass 3 with a holistic view of all DPs.
