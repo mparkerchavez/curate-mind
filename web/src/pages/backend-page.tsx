@@ -661,18 +661,7 @@ function getDetailView(entity: EntityKey, record: SnapshotRecord): DetailView {
       eyebrow: config.label,
       title: record.title,
       subtitle: sourceSubtitle(record),
-      actions: record.canonicalUrl ? (
-        <Button
-          href={record.canonicalUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          size="sm"
-          color="secondary"
-          iconTrailing={LinkExternal01}
-        >
-          Open original
-        </Button>
-      ) : null,
+      actions: sourceLinkPanel(record),
       summaryFields: compactFields([
         field("Type", humanizeValue(record.sourceType)),
         field("Tier", record.tier ? `Tier ${record.tier}` : null),
@@ -879,6 +868,52 @@ function relationship(label: string, value: any, limit?: number): DetailRelation
   return { label, value, limit };
 }
 
+function sourceLinkPanel(record: SnapshotRecord) {
+  if (!record.canonicalUrl) {
+    return (
+      <div className="rounded-xl border border-secondary bg-secondary_subtle px-3 py-3">
+        <p className="text-xs font-medium uppercase tracking-[0.12em] text-quaternary">
+          Public link
+        </p>
+        <p className="mt-1 text-sm text-tertiary">No public link captured for this source.</p>
+      </div>
+    );
+  }
+
+  const domain = domainFromUrl(record.canonicalUrl);
+
+  return (
+    <div className="rounded-xl border border-secondary bg-secondary_subtle px-3 py-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-medium uppercase tracking-[0.12em] text-quaternary">
+            Public link
+          </p>
+          {domain && <p className="mt-1 text-sm font-medium text-primary">{domain}</p>}
+        </div>
+        <Button
+          href={record.canonicalUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          size="xs"
+          color="secondary"
+          iconTrailing={LinkExternal01}
+        >
+          Open
+        </Button>
+      </div>
+      <a
+        href={record.canonicalUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mt-2 block break-all text-xs leading-5 text-brand-secondary hover:text-brand-secondary_hover"
+      >
+        {record.canonicalUrl}
+      </a>
+    </div>
+  );
+}
+
 function compactFields(fields: DetailField[]) {
   return fields.filter((item) => hasReadableValue(item.value));
 }
@@ -912,7 +947,7 @@ function readableText(value: any) {
 
 function plainText(value: any) {
   if (value === null || value === undefined) return null;
-  const text = String(value).replace(/\\n/g, "\n").trim();
+  const text = decodeHtmlEntities(String(value).replace(/\\n/g, "\n")).trim();
   return text || null;
 }
 
@@ -922,7 +957,7 @@ function readableList(value: any) {
     <ul className="space-y-2">
       {value.map((item, index) => (
         <li key={`${String(item).slice(0, 32)}-${index}`} className="leading-6">
-          {String(item).replace(/\\n/g, "\n")}
+          {plainText(item)}
         </li>
       ))}
     </ul>
@@ -937,8 +972,7 @@ function countLabel(value: any, singular: string) {
 }
 
 function sourceSubtitle(record: SnapshotRecord) {
-  return [record.publisherName, record.authorName, formatDate(record.publishedDate)]
-    .filter((value) => typeof value === "string" && value.trim().length > 0)
+  return uniqueValues([plainText(record.publisherName), plainText(record.authorName)])
     .join(" | ");
 }
 
@@ -965,7 +999,7 @@ function humanizeValue(value: any) {
 }
 
 function humanizeLabel(value: string) {
-  return value
+  return decodeHtmlEntities(value)
     .replace(/[_-]+/g, " ")
     .replace(/([a-z])([A-Z])/g, "$1 $2")
     .trim()
@@ -1016,14 +1050,45 @@ function resolvePath(record: any, path: string): any {
 }
 
 function relationshipLabel(record: any) {
-  return record?.title ?? record?.name ?? record?.slug ?? record?.claimText ?? record?.observationText ?? "Linked record";
+  return plainText(record?.title ?? record?.name ?? record?.slug ?? record?.claimText ?? record?.observationText) ?? "Linked record";
 }
 
 function formatCell(value: any) {
   if (value === null || value === undefined || value === "") return <span className="text-quaternary">Not set</span>;
   if (typeof value === "number") return <span className="tabular-nums">{formatNumber(value)}</span>;
   if (typeof value === "string" && looksLikeDate(value)) return formatDate(value);
-  return truncate(String(value), 140);
+  return truncate(decodeHtmlEntities(String(value)), 140);
+}
+
+function uniqueValues(values: Array<string | null>) {
+  const seen = new Set<string>();
+  return values.filter((value): value is string => {
+    if (!value || seen.has(value)) return false;
+    seen.add(value);
+    return true;
+  });
+}
+
+function decodeHtmlEntities(value: string) {
+  const namedEntities: Record<string, string> = {
+    amp: "&",
+    apos: "'",
+    gt: ">",
+    lt: "<",
+    nbsp: " ",
+    quot: '"',
+  };
+
+  return value.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (match, entity: string) => {
+    const normalized = entity.toLowerCase();
+    if (normalized.startsWith("#x")) {
+      return String.fromCodePoint(Number.parseInt(normalized.slice(2), 16));
+    }
+    if (normalized.startsWith("#")) {
+      return String.fromCodePoint(Number.parseInt(normalized.slice(1), 10));
+    }
+    return namedEntities[normalized] ?? match;
+  });
 }
 
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
@@ -1037,10 +1102,19 @@ function formatNumber(value: number) {
 }
 
 function formatDate(value: string) {
+  if (DATE_ONLY_PATTERN.test(value)) {
+    const [year, month, day] = value.split("-").map(Number);
+    return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(
+      new Date(year, month - 1, day),
+    );
+  }
+
   const parsed = Date.parse(value);
   if (Number.isNaN(parsed)) return value;
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(new Date(parsed));
 }
+
+const DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 function truncate(value: string, length: number) {
   if (value.length <= length) return value;
