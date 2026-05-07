@@ -62,12 +62,14 @@ export default function DataPointCard({
 
   const resolvedLabel =
     label ?? (typeof index === "number" ? `DP ${String(index + 1).padStart(2, "0")}` : "DP");
+  const hasSemanticSurface = variant === "counter" || isCited;
 
   return (
     <article
       id={`evidence-card-${dp._id}`}
       className={cn(
-        "rounded-3xl border bg-secondary p-5 transition-all",
+        "rounded-3xl border p-5 transition-all",
+        !hasSemanticSurface && "cm-surface-raised",
         variant === "counter" ? "border-utility-yellow-200 bg-warning-primary" : "border-secondary",
         isHighlighted && "border-accent-purple ring-2 ring-accent-purple",
         isCited && "border-accent-purple bg-accent-purple",
@@ -94,13 +96,13 @@ export default function DataPointCard({
 
       <div className="mt-4">
         <h3 className="text-base font-semibold leading-7 text-primary">{dp.claimText}</h3>
-        <blockquote className="mt-3 rounded-2xl border border-secondary bg-primary px-4 py-3 text-sm leading-7 text-secondary">
+        <blockquote className="cm-surface-recessed mt-3 rounded-2xl border px-4 py-3 text-sm leading-7 text-secondary">
           “{dp.anchorQuote}”
         </blockquote>
       </div>
 
       {dp.extractionNote ? (
-        <div className="mt-4 rounded-2xl border border-secondary bg-secondary_subtle px-4 py-3">
+        <div className="cm-surface-recessed mt-4 rounded-2xl border px-4 py-3">
           <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
             Curator note
           </p>

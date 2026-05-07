@@ -267,7 +267,7 @@ export function renderAnswerBlocks(
     if (cur.startsWith("> ")) {
       const ql: string[] = [];
       while (i < lines.length && lines[i].trim().startsWith("> ")) { ql.push(lines[i].trim().replace(/^>\s?/, "")); i++; }
-      blocks.push(<blockquote key={`q-${i}`} className="rounded-2xl border border-secondary bg-secondary px-4 py-3 text-sm leading-7 text-secondary">{renderInline(ql.join(" "), citationMap, onCitationClick, options)}</blockquote>);
+      blocks.push(<blockquote key={`q-${i}`} className="cm-surface-raised rounded-2xl border px-4 py-3 text-sm leading-7 text-secondary">{renderInline(ql.join(" "), citationMap, onCitationClick, options)}</blockquote>);
       continue;
     }
 
@@ -295,7 +295,7 @@ export function renderAnswerBlocks(
         i++;
       }
       blocks.push(
-        <div key={`tbl-${start}`} className="overflow-x-auto rounded-lg border border-secondary">
+        <div key={`tbl-${start}`} className="cm-surface-raised overflow-x-auto rounded-lg border">
           <table className="min-w-full divide-y divide-secondary text-left text-sm">
             <thead className="bg-secondary">
               <tr>
@@ -306,7 +306,7 @@ export function renderAnswerBlocks(
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-secondary bg-primary">
+            <tbody className="divide-y divide-secondary bg-secondary_subtle">
               {rows.map((row, r) => (
                 <tr key={r}>
                   {row.map((cell, c) => (

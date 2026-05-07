@@ -115,27 +115,27 @@
 
   --color-alpha-black: #000000;
   --color-alpha-white: #ffffff;
-  --color-fg-brand-primary: #ffffff;
-  --color-fg-brand-primary_alt: #d4d4d4;
-  --color-fg-brand-secondary: #e5e5e5;
-  --color-fg-brand-secondary_alt: #a3a3a3;
-  --color-fg-brand-secondary_hover: #ffffff;
-  --color-fg-secondary: #d4d4d4;
-  --color-fg-secondary_hover: #ffffff;
-  --color-fg-quaternary: #737373;
-  --color-fg-quaternary_hover: #a3a3a3;
-  --color-fg-error-primary: #f97066;
-  --color-fg-error-secondary: #fda29b;
-  --color-fg-white: #ffffff;
-  --color-bg-primary: #050505;
-  --color-border-primary: rgba(255, 255, 255, 0.12);
-  --color-border-secondary: rgba(255, 255, 255, 0.08);
-  --color-border-brand: rgba(255, 255, 255, 0.72);
-  --color-border-error: rgba(249, 112, 102, 0.36);
-  --color-border-error_subtle: rgba(249, 112, 102, 0.22);
-  --color-primary-25: #0a0a0a;
-  --color-bg-tertiary: #171717;
-  --color-brand-tertiary: #a3a3a3;
+  --color-fg-brand-primary: var(--ui-fg-brand-primary);
+  --color-fg-brand-primary_alt: var(--ui-fg-brand-primary-alt);
+  --color-fg-brand-secondary: var(--ui-fg-brand-secondary);
+  --color-fg-brand-secondary_alt: var(--ui-fg-brand-secondary-alt);
+  --color-fg-brand-secondary_hover: var(--ui-fg-secondary-hover);
+  --color-fg-secondary: var(--ui-fg-secondary);
+  --color-fg-secondary_hover: var(--ui-fg-secondary-hover);
+  --color-fg-quaternary: var(--ui-fg-quaternary);
+  --color-fg-quaternary_hover: var(--ui-fg-quaternary-hover);
+  --color-fg-error-primary: var(--ui-fg-error-primary);
+  --color-fg-error-secondary: var(--ui-fg-error-secondary);
+  --color-fg-white: var(--ui-fg-white);
+  --color-bg-primary: var(--ui-bg-primary);
+  --color-border-primary: var(--ui-border-primary);
+  --color-border-secondary: var(--ui-border-secondary);
+  --color-border-brand: var(--ui-border-brand);
+  --color-border-error: var(--ui-border-error);
+  --color-border-error_subtle: var(--ui-border-error-subtle);
+  --color-primary-25: var(--ui-bg-secondary);
+  --color-bg-tertiary: var(--ui-bg-tertiary);
+  --color-brand-tertiary: var(--ui-text-brand-tertiary);
 }
 
 :root {
@@ -143,23 +143,23 @@
 
   /* ── Background tokens ────────────────────────────────────────── */
   --ui-bg-primary: #050505;
-  --ui-bg-primary-hover: #111111;
+  --ui-bg-primary-hover: #121212;
   --ui-bg-primary-alt: #171717;
-  --ui-bg-secondary: #0a0a0a;
-  --ui-bg-secondary-hover: #171717;
-  --ui-bg-secondary-alt: #111111;
-  --ui-bg-secondary-subtle: #0d0d0d;
-  --ui-bg-tertiary: #171717;
-  --ui-bg-quaternary: #262626;
-  --ui-bg-active: #171717;
+  --ui-bg-secondary: #0e0e0e;
+  --ui-bg-secondary-hover: #191919;
+  --ui-bg-secondary-alt: #151515;
+  --ui-bg-secondary-subtle: #121212;
+  --ui-bg-tertiary: #1d1d1d;
+  --ui-bg-quaternary: #2a2a2a;
+  --ui-bg-active: #1a1a1a;
   --ui-bg-overlay: rgba(0, 0, 0, 0.72);
 
   /* ── Brand background tokens: monochrome identity ────────────── */
   --ui-bg-brand: #fafafa;
   --ui-bg-brand-hover: #e5e5e5;
-  --ui-bg-brand-primary: #171717;
-  --ui-bg-brand-primary-alt: #262626;
-  --ui-bg-brand-secondary: #404040;
+  --ui-bg-brand-primary: #1a1a1a;
+  --ui-bg-brand-primary-alt: #252525;
+  --ui-bg-brand-secondary: #3a3a3a;
   --ui-bg-brand-solid: #fafafa;
   --ui-bg-brand-solid-hover: #e5e5e5;
   --ui-bg-brand-section: #000000;
@@ -184,12 +184,12 @@
 
   /* ── Text tokens ─────────────────────────────────────────────── */
   --ui-text-primary: #fafafa;
-  --ui-text-secondary: #d4d4d4;
+  --ui-text-secondary: #e2e2e2;
   --ui-text-secondary-hover: #ffffff;
-  --ui-text-tertiary: #a3a3a3;
-  --ui-text-tertiary-hover: #d4d4d4;
-  --ui-text-quaternary: #737373;
-  --ui-text-placeholder: #737373;
+  --ui-text-tertiary: #b8b8b8;
+  --ui-text-tertiary-hover: #e2e2e2;
+  --ui-text-quaternary: #8f8f8f;
+  --ui-text-placeholder: #8a8a8a;
 
   /* Text on solid brand controls (for bg-brand-solid buttons/icons) */
   --ui-text-primary-on-brand: #050505;
@@ -199,15 +199,15 @@
 
   /* Text on dark section bands (for bg-brand-section/footer/coda) */
   --ui-text-primary-on-section: #fafafa;
-  --ui-text-secondary-on-section: #d4d4d4;
-  --ui-text-tertiary-on-section: #a3a3a3;
-  --ui-text-quaternary-on-section: #737373;
+  --ui-text-secondary-on-section: #e2e2e2;
+  --ui-text-tertiary-on-section: #b8b8b8;
+  --ui-text-quaternary-on-section: #8f8f8f;
 
   /* Brand-tinted text (for use on light backgrounds) */
   --ui-text-brand-primary: #ffffff;
-  --ui-text-brand-secondary: #e5e5e5;
-  --ui-text-brand-tertiary: #d4d4d4;
-  --ui-text-brand-tertiary-alt: #a3a3a3;
+  --ui-text-brand-secondary: #ededed;
+  --ui-text-brand-tertiary: #dcdcdc;
+  --ui-text-brand-tertiary-alt: #b8b8b8;
 
   /* Semantic status text */
   --ui-text-error-primary: #fda29b;
@@ -216,17 +216,17 @@
 
   /* ── Foreground (icon) tokens ────────────────────────────────── */
   --ui-fg-primary: #fafafa;
-  --ui-fg-secondary: #d4d4d4;
+  --ui-fg-secondary: #e2e2e2;
   --ui-fg-secondary-hover: #ffffff;
-  --ui-fg-tertiary: #a3a3a3;
-  --ui-fg-tertiary-hover: #d4d4d4;
-  --ui-fg-quaternary: #737373;
-  --ui-fg-quaternary-hover: #a3a3a3;
+  --ui-fg-tertiary: #b8b8b8;
+  --ui-fg-tertiary-hover: #e2e2e2;
+  --ui-fg-quaternary: #8f8f8f;
+  --ui-fg-quaternary-hover: #b8b8b8;
   --ui-fg-white: #ffffff;
   --ui-fg-brand-primary: #ffffff;
-  --ui-fg-brand-primary-alt: #d4d4d4;
-  --ui-fg-brand-secondary: #e5e5e5;
-  --ui-fg-brand-secondary-alt: #a3a3a3;
+  --ui-fg-brand-primary-alt: #e2e2e2;
+  --ui-fg-brand-secondary: #ededed;
+  --ui-fg-brand-secondary-alt: #b8b8b8;
   --ui-fg-error-primary: #f97066;
   --ui-fg-error-secondary: #fda29b;
   --ui-fg-warning-primary: #fec84b;
@@ -235,10 +235,10 @@
   --ui-fg-success-secondary: #12b76a;
 
   /* ── Border tokens ───────────────────────────────────────────── */
-  --ui-border-primary: rgba(255, 255, 255, 0.12);
-  --ui-border-secondary: rgba(255, 255, 255, 0.08);
-  --ui-border-secondary-alt: rgba(255, 255, 255, 0.18);
-  --ui-border-tertiary: rgba(255, 255, 255, 0.05);
+  --ui-border-primary: rgba(255, 255, 255, 0.18);
+  --ui-border-secondary: rgba(255, 255, 255, 0.13);
+  --ui-border-secondary-alt: rgba(255, 255, 255, 0.24);
+  --ui-border-tertiary: rgba(255, 255, 255, 0.09);
   --ui-border-brand: rgba(255, 255, 255, 0.72);
   --ui-border-brand-alt: rgba(255, 255, 255, 0.48);
   --ui-border-error: rgba(249, 112, 102, 0.36);

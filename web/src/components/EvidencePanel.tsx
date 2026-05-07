@@ -131,7 +131,7 @@ export default function EvidencePanel() {
   return (
     <div className="flex h-full flex-col">
       {/* Panel header */}
-      <div className="shrink-0 border-b border-secondary px-5 py-3">
+      <div className="cm-surface-raised shrink-0 border-b px-5 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5">
             <h2 className="text-sm font-semibold text-primary">Evidence</h2>
@@ -168,7 +168,7 @@ export default function EvidencePanel() {
               : "text-quaternary";
           return (
             <section key={section.key}>
-              <div className="sticky top-0 z-10 border-y border-secondary bg-primary px-5 py-3">
+              <div className="cm-surface-raised sticky top-0 z-10 border-y px-5 py-3">
                 <div className="flex items-center justify-between">
                   <p
                     className={cn(

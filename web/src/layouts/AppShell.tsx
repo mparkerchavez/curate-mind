@@ -34,7 +34,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const showThemeRail = routeKind === "theme" || routeKind === "position";
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-secondary">
+    <div className="flex h-screen flex-col overflow-hidden bg-primary">
       {/* Header — logo, breadcrumb, primary nav */}
       <header className="shrink-0 border-b border-secondary bg-primary px-4 py-2.5 lg:px-5">
         <div className="flex items-center gap-3">
@@ -78,7 +78,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
         {/* Evidence panel — right side, desktop only, visible when there's evidence.
             Narrower on small laptops (≥1024) and bumps up at ≥1440. */}
         {hasEvidence && (
-          <aside className="hidden shrink-0 overflow-hidden border-l border-secondary bg-primary lg:block lg:w-[400px] 2xl:w-[440px]">
+          <aside className="hidden shrink-0 overflow-hidden border-l border-secondary bg-secondary lg:block lg:w-[400px] 2xl:w-[440px]">
             <EvidencePanel />
           </aside>
         )}

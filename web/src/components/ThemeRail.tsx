@@ -45,7 +45,7 @@ export default function ThemeRail() {
   const activePositionId = positionDetail?._id ? String(positionDetail._id) : undefined;
 
   return (
-    <aside className="hidden h-full shrink-0 overflow-y-auto border-r border-secondary bg-primary lg:block lg:w-60 2xl:w-72">
+    <aside className="hidden h-full shrink-0 overflow-y-auto border-r border-secondary bg-secondary lg:block lg:w-60 2xl:w-72">
       <div className="flex flex-col px-5 py-6">
         {/* Theme header — UUI Select as the primary switcher affordance. */}
         <div>
@@ -115,8 +115,8 @@ export default function ThemeRail() {
                   className={cn(
                     "group relative flex w-full items-start gap-2.5 rounded-md px-2 py-2 text-left transition duration-100 ease-linear",
                     isActive
-                      ? "bg-brand-primary/40"
-                      : "hover:bg-secondary",
+                      ? "cm-surface-raised border border-secondary"
+                      : "border border-transparent hover:bg-secondary_hover",
                   )}
                   aria-current={isActive ? "page" : undefined}
                 >
@@ -134,7 +134,7 @@ export default function ThemeRail() {
                     className={cn(
                       "min-w-0 flex-1 text-sm leading-5",
                       isActive
-                        ? "font-semibold text-brand-secondary"
+                        ? "font-semibold text-primary"
                         : "font-medium text-secondary group-hover:text-primary",
                     )}
                   >

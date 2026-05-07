@@ -80,7 +80,7 @@ export default function AskPage() {
               key={prompt}
               type="button"
               onClick={() => void handleAskQuestion(prompt)}
-              className="group w-full rounded-xl border border-secondary bg-primary px-4 py-3 text-left text-sm leading-6 text-secondary transition hover:border-brand hover:bg-secondary"
+              className="cm-surface-raised group w-full rounded-xl border px-4 py-3 text-left text-sm leading-6 text-secondary transition hover:border-brand hover:bg-secondary_hover"
             >
               <div className="flex items-start justify-between gap-2">
                 <span>{prompt}</span>
@@ -107,7 +107,7 @@ export default function AskPage() {
                 </p>
                 {turn.role === "assistant" ? (
                   <div
-                    className="mt-2 space-y-3 text-sm leading-7 text-secondary"
+                    className="cm-readable-prose mt-2 space-y-3 text-sm leading-7 text-secondary"
                     data-active-answer={activeAnswer === turn.answerState ? "true" : undefined}
                   >
                     {renderAnswerBlocks(
@@ -206,7 +206,7 @@ export default function AskPage() {
               rows={3}
               disabled={pending}
               placeholder="Ask about AI strategy, adoption, agentic workflows..."
-              className="min-h-[4.5rem] resize-none"
+              className="cm-form-surface min-h-[4.5rem] resize-none"
             />
             <div className="mt-2 flex items-center justify-between">
               <p className="text-xs text-tertiary">{"\u2318"}/Ctrl + Enter</p>

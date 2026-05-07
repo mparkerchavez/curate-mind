@@ -65,7 +65,7 @@ export default function PositionPage() {
             {metaBits.join(" \u00b7 ")}
           </p>
         )}
-        <div ref={stanceRef} className="mt-5 space-y-5">
+        <div ref={stanceRef} className="cm-readable-prose mt-5 space-y-5">
           {renderAnswerBlocks(stanceText, citationMap, handleCitationClick, { highlightedDpId: highlightedEvidenceId })}
         </div>
       </header>
@@ -76,7 +76,7 @@ export default function PositionPage() {
           <h2 className="text-lg font-semibold text-primary">Open questions</h2>
           <ul className="mt-3 space-y-2">
             {version.openQuestions.map((q: string) => (
-              <li key={q} className="rounded-xl border border-secondary bg-secondary_subtle px-4 py-3 text-sm leading-7 text-secondary">
+              <li key={q} className="cm-surface-raised rounded-xl border px-4 py-3 text-sm leading-7 text-secondary">
                 {q}
               </li>
             ))}
@@ -90,7 +90,7 @@ export default function PositionPage() {
           <h2 className="text-lg font-semibold text-primary">Curator observations</h2>
           <div className="mt-3 space-y-2">
             {version.observationDetails.map((obs: any) => (
-              <div key={obs._id} className="rounded-xl border border-secondary bg-secondary_subtle px-4 py-4 text-sm leading-7 text-secondary">
+              <div key={obs._id} className="cm-surface-raised rounded-xl border px-4 py-4 text-sm leading-7 text-secondary">
                 {obs.observationText}
               </div>
             ))}
@@ -104,7 +104,7 @@ export default function PositionPage() {
           <h2 className="text-lg font-semibold text-primary">Mental models</h2>
           <div className="mt-3 grid gap-3 md:grid-cols-2">
             {version.mentalModelDetails.map((m: any) => (
-              <div key={m._id} className="rounded-xl border border-secondary bg-secondary_subtle p-4">
+              <div key={m._id} className="cm-surface-raised rounded-xl border p-4">
                 <Badge type="color" size="sm" color="gray">{m.modelType}</Badge>
                 <p className="mt-3 text-base font-semibold text-primary">{m.title}</p>
                 <p className="mt-2 text-sm leading-6 text-tertiary">{m.description}</p>

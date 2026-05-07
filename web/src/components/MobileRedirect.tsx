@@ -14,7 +14,7 @@ import { GITHUB_URL } from "@/config/homepage";
 
 export function MobileRedirect() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-secondary px-6 py-12 text-center">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-primary px-6 py-12 text-center">
       {/* Primary: come back on desktop */}
       <div className="flex flex-col items-center">
         <div className="flex size-12 items-center justify-center rounded-xl bg-brand-solid text-primary_on-brand shadow-xs-skeuomorphic">
@@ -50,7 +50,7 @@ export function MobileRedirect() {
           href={GITHUB_URL}
           target="_blank"
           rel="noreferrer noopener"
-          className="mt-4 inline-flex items-center gap-2 rounded-lg border border-secondary bg-primary px-4 py-2 text-sm font-medium text-secondary shadow-xs-skeuomorphic transition hover:border-brand hover:text-primary"
+          className="cm-surface-raised mt-4 inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium text-secondary transition hover:border-brand hover:text-primary"
         >
           <GitHubIcon className="size-4" />
           View on GitHub

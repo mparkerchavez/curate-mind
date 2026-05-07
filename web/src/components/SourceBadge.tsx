@@ -101,7 +101,7 @@ export default function SourceBadge({
 
   if (compact) {
     return (
-      <div className="rounded-2xl border border-secondary bg-secondary_subtle p-4">
+      <div className="cm-surface-recessed rounded-2xl border p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
@@ -111,7 +111,7 @@ export default function SourceBadge({
               href,
               linkKind,
               className:
-                "mt-1 block text-sm font-semibold leading-6 text-primary hover:text-brand-secondary",
+                "mt-1 block text-sm font-semibold leading-6 text-primary hover:text-primary",
               children: title,
             })}
           </div>
@@ -141,7 +141,7 @@ export default function SourceBadge({
   }
 
   return (
-    <div className="rounded-3xl border border-secondary bg-secondary p-5">
+    <div className="cm-surface-raised rounded-3xl border p-5">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
           <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
@@ -151,7 +151,7 @@ export default function SourceBadge({
             href,
             linkKind,
             className:
-              "mt-1 block text-base font-semibold leading-7 text-primary hover:text-brand-secondary",
+              "mt-1 block text-base font-semibold leading-7 text-primary hover:text-primary",
             children: title,
           })}
 

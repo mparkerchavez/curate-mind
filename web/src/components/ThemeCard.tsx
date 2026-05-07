@@ -31,7 +31,7 @@ export function ThemeCard({ theme, lastUpdatedDate, onOpen }: ThemeCardProps) {
     <button
       type="button"
       onClick={onOpen}
-      className="group overflow-hidden rounded-2xl border border-secondary bg-secondary text-left transition hover:-translate-y-0.5 hover:border-brand hover:bg-secondary_hover hover:shadow-skeuomorphic"
+      className="cm-surface-raised group overflow-hidden rounded-2xl border text-left transition hover:-translate-y-0.5 hover:border-brand hover:bg-secondary_hover hover:shadow-skeuomorphic"
     >
       {/* Card header — matches evidence card header hierarchy */}
       <div className="px-5 pt-5 pb-4">
@@ -44,7 +44,7 @@ export function ThemeCard({ theme, lastUpdatedDate, onOpen }: ThemeCardProps) {
         <p className="mt-3 text-xs leading-5 text-quaternary">{freshness}</p>
       </div>
       {/* Card footer — quiet action link */}
-      <div className="border-t border-tertiary bg-primary/60 px-5 py-3">
+      <div className="cm-surface-recessed border-t px-5 py-3">
         <span className="inline-flex items-center gap-2 text-sm font-semibold text-brand-secondary">
           Explore
           <ArrowRight className="size-4 transition group-hover:translate-x-1" />

@@ -105,7 +105,7 @@ export default function SourceEvidenceGroup({
           internalHref ? (
             <Link
               to={internalHref}
-              className="mt-1.5 block text-sm leading-5 text-secondary hover:text-brand-secondary"
+              className="mt-1.5 block text-sm leading-5 text-secondary hover:text-primary"
             >
               {secondary}
             </Link>
@@ -155,7 +155,7 @@ export default function SourceEvidenceGroup({
                 className={cn(
                   "flex items-baseline gap-4 rounded-lg py-1.5 transition-colors",
                   isHighlighted ? (isCounter ? "-mx-2 bg-warning-primary px-2" : "-mx-2 bg-success-primary px-2") : "",
-                  isClickable && !isHighlighted ? "cursor-pointer hover:bg-secondary -mx-2 px-2" : "",
+                  isClickable && !isHighlighted ? "cursor-pointer hover:bg-secondary_hover -mx-2 px-2" : "",
                 )}
                 onClick={isClickable ? () => onClaimClick(claim._id) : undefined}
               >
@@ -180,7 +180,7 @@ export default function SourceEvidenceGroup({
                 <p
                   className={cn(
                     "flex-1 text-sm leading-7",
-                    isCited ? "text-primary" : "text-secondary",
+                    dimmed ? "text-tertiary" : isCited ? "text-primary" : "text-secondary",
                   )}
                 >
                   {claim.claimText}

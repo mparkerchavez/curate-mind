@@ -358,7 +358,7 @@ function FlowCard({
     <li className="flex-1">
       <a
         href={href}
-        className="group flex h-full flex-col items-start gap-2 rounded-2xl border border-secondary bg-secondary px-5 py-5 text-left transition duration-150 ease-linear hover:-translate-y-0.5 hover:border-brand hover:bg-secondary_hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+        className="cm-surface-raised group flex h-full flex-col items-start gap-2 rounded-2xl border px-5 py-5 text-left transition duration-150 ease-linear hover:-translate-y-0.5 hover:border-brand hover:bg-secondary_hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
       >
         <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-brand-secondary">
           Step {step}
@@ -407,7 +407,7 @@ function Step({
         {title}
       </h2>
       <p className="mt-2 text-base leading-7 text-tertiary">{tagline}</p>
-      <div className="mt-6 space-y-4 text-base leading-7 text-secondary">
+      <div className="cm-readable-prose mt-6 space-y-4 text-base leading-7 text-secondary">
         {children}
       </div>
     </section>
@@ -428,7 +428,7 @@ function ExampleCallout({
   children: React.ReactNode;
 }) {
   return (
-    <aside className="mt-6 rounded-2xl border border-secondary bg-secondary p-5">
+    <aside className="cm-surface-raised mt-6 rounded-2xl border p-5">
       <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
         {label}
       </p>
@@ -468,7 +468,7 @@ function DataPointExample({
   tags: string[];
 }) {
   return (
-    <article className="overflow-hidden rounded-2xl border border-secondary bg-secondary p-5">
+    <article className="cm-surface-raised overflow-hidden rounded-2xl border p-5">
       <div className="flex flex-wrap items-center gap-2">
         <Badge type="color" size="sm" color="gray">
           {label}
@@ -487,14 +487,14 @@ function DataPointExample({
       <h3 className="mt-3 text-base font-semibold leading-7 text-primary">
         {claim}
       </h3>
-      <blockquote className="mt-3 rounded-xl border border-secondary bg-secondary px-4 py-3 text-sm leading-6 text-secondary">
+      <blockquote className="cm-surface-recessed mt-3 rounded-xl border px-4 py-3 text-sm leading-6 text-secondary">
         &ldquo;{anchorQuote}&rdquo;
       </blockquote>
       <div className="mt-3 flex flex-wrap gap-1.5">
         {tags.map((tag) => (
           <span
             key={tag}
-            className="rounded-full border border-secondary bg-primary px-2 py-0.5 text-xs text-tertiary"
+            className="cm-surface-recessed rounded-full border px-2 py-0.5 text-xs text-tertiary"
           >
             #{tag}
           </span>
@@ -534,7 +534,7 @@ function LegendChip({
  */
 function VersionTimeline() {
   return (
-    <div className="my-2 overflow-hidden rounded-2xl border border-secondary bg-secondary">
+    <div className="cm-surface-raised my-2 overflow-hidden rounded-2xl border">
       <div className="border-b border-secondary bg-secondary_subtle px-5 py-3">
         <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
           Version history
