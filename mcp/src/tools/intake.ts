@@ -22,6 +22,7 @@ import { promisify } from "util";
 import { api, asId, convexMutation } from "../lib/convex-client.js";
 import {
   scrapeUrl,
+  extractArticleMetadata,
   getYoutubeTranscript,
   getYoutubeMetadata,
 } from "../lib/supadata.js";
@@ -63,6 +64,17 @@ const TRANSCRIPT_PARAGRAPH_GAP_SECONDS = 6;
 const PDF_EXTRACTION_TIMEOUT_MS = 180_000;
 const PDF_EXTRACTION_MAX_BUFFER_BYTES = 10 * 1024 * 1024;
 const REVIEW_STATUS_FILENAME = "review-status.json";
+
+// Structural headings and phrases that reliably mark the end of article body
+// content. Matched against trimmed lines only. Add new patterns here as you
+// encounter them from additional sites — do NOT add anything that could
+// plausibly appear as a section heading inside a real article.
+const ARTICLE_END_SIGNALS = [
+  /^## related/i,       // "Related Essays", "Related Articles", "Related Posts"
+  /^## comments$/i,
+  /^## responses$/i,
+  /^create a free account to continue reading/i,
+];
 const reviewStatusSchema = z.object({
   ingested: z.array(
     z.object({
@@ -95,6 +107,13 @@ export function registerIntakeTools(server: McpServer): void {
       inputSchema: {
         url: z.string().url().describe("The public URL to fetch"),
         title: z.string().min(1).describe("Source title (used for filename)"),
+        author: z.string().optional().describe("Override author name (skips extraction)"),
+        publisher: z.string().optional().describe("Override publisher name (skips extraction)"),
+        publishedDate: z.string().optional().describe("Override published date in YYYY-MM-DD format (skips extraction)"),
+        sourceType: z.enum([
+          "article", "report", "podcast", "video",
+          "whitepaper", "book", "newsletter", "social", "other",
+        ]).optional().default("article").describe("Type of source (default: article)"),
       },
       annotations: {
         readOnlyHint: false,
@@ -103,7 +122,7 @@ export function registerIntakeTools(server: McpServer): void {
         openWorldHint: true,
       },
     },
-    async ({ url, title }) => {
+    async ({ url, title, author: authorOverride, publisher: publisherOverride, publishedDate: publishedDateOverride, sourceType }) => {
       try {
         const curateMindPath = process.env.CURATE_MIND_PATH;
         if (!curateMindPath) {
@@ -120,33 +139,45 @@ export function registerIntakeTools(server: McpServer): void {
 
         const capturedAt = new Date();
 
-        // Fetch via Supadata
-        const scraped = await scrapeUrl(url);
-        const resolvedTitle = scraped.title.trim() || title;
+        // Fetch content via Supadata and metadata via direct HTML fetch, concurrently.
+        // If the metadata fetch fails for any reason (paywall, network error, etc.)
+        // extractArticleMetadata returns {} so we gracefully fall back to [verify].
+        const [scraped, articleMeta] = await Promise.all([
+          scrapeUrl(url),
+          extractArticleMetadata(url),
+        ]);
+
+        // Caller overrides win; extracted values are the next fallback; [verify] is last resort.
+        const resolvedTitle = articleMeta.title?.trim() || scraped.title.trim() || title;
+        const publisher = publisherOverride?.trim() || articleMeta.publisher?.trim() || "[verify]";
+        const author = authorOverride?.trim() || articleMeta.author?.trim() || "[verify]";
+        const published = publishedDateOverride?.trim()
+          || (articleMeta.publishedDate ? formatPublishedDate(articleMeta.publishedDate) : "[verify]");
+        const type = sourceType ?? "article";
+
         const markdown =
           `# ${resolvedTitle}\n\n` +
           "## Metadata\n" +
-          "* **Publisher:** [verify]\n" +
-          "* **Author:** [verify]\n" +
-          "* **Published:** [verify]\n" +
-          "* **Type:** Article\n" +
+          `* **Publisher:** ${publisher}\n` +
+          `* **Author:** ${author}\n` +
+          `* **Published:** ${published}\n` +
+          `* **Type:** ${type.charAt(0).toUpperCase() + type.slice(1)}\n` +
           `* **URL:** ${url}\n` +
           `* **Captured:** ${formatDateForMetadata(capturedAt)}\n\n` +
           "---\n\n" +
-          scraped.content;
+          trimArticleContent(scraped.content);
 
         // Determine the week folder
         const weekFolder = getWeekFolderPath(curateMindPath, capturedAt);
-
-        // Create directory if it doesn't exist
         if (!existsSync(weekFolder)) {
           await mkdir(weekFolder, { recursive: true });
         }
 
-        // Save the file
+        // Use the publisher name as the source label when we have it — more readable than a domain slug.
+        const sourceLabel = publisher !== "[verify]" ? publisher : getUrlSourceLabel(url);
         const filename =
           `${buildSourceMarkdownFilename({
-            sourceLabel: getUrlSourceLabel(url),
+            sourceLabel,
             title: resolvedTitle,
             capturedAt,
           })}.md`;
@@ -154,6 +185,12 @@ export function registerIntakeTools(server: McpServer): void {
         await writeFile(filePath, markdown, "utf-8");
 
         const wordCount = markdown.split(/\s+/).length;
+
+        const metaReport = [
+          publisher !== "[verify]" ? `Publisher: ${publisher}` : "Publisher: [not found]",
+          author !== "[verify]" ? `Author: ${author}` : "Author: [not found]",
+          published !== "[verify]" ? `Published: ${published}` : "Published: [not found]",
+        ].join("\n");
 
         return {
           content: [
@@ -163,6 +200,7 @@ export function registerIntakeTools(server: McpServer): void {
                 `Fetched and saved to: ${filePath}\n\n` +
                 `Word count: ${wordCount}\n` +
                 `URL: ${url}\n\n` +
+                `Metadata extracted:\n${metaReport}\n\n` +
                 `Next step: Review and clean up the file, then use cm_add_source ` +
                 `with filePath="${filePath}" and reviewed=true to push it to Convex.`,
             },
@@ -1146,6 +1184,38 @@ function formatPublishedDate(publishedDate?: string): string {
   }
 
   return parsed.toISOString().slice(0, 10);
+}
+
+/**
+ * Best-effort cleanup of scraped article markdown. Conservative by design:
+ * when a pattern is ambiguous, the content is left alone.
+ *
+ * Start: drops everything before the first H1 heading (# ...).
+ *        If no H1 exists, nothing is dropped from the top.
+ * End:   drops everything from the first ARTICLE_END_SIGNALS match onward.
+ *        If no signal matches, nothing is dropped from the bottom.
+ *
+ * To handle a new site's footer pattern, add a regex to ARTICLE_END_SIGNALS.
+ */
+function trimArticleContent(content: string): string {
+  const lines = content.split("\n");
+
+  // Find start — first H1 heading; drop everything before it
+  const h1Index = lines.findIndex((line) => /^# /.test(line));
+  const bodyLines = h1Index >= 0 ? lines.slice(h1Index) : lines;
+
+  // Find end — first structural end signal; drop everything from it onward
+  const endIndex = bodyLines.findIndex((line) =>
+    ARTICLE_END_SIGNALS.some((signal) => signal.test(line.trim()))
+  );
+  const trimmedLines = endIndex >= 0 ? bodyLines.slice(0, endIndex) : bodyLines;
+
+  // Remove trailing blank lines left by the trim
+  while (trimmedLines.length > 0 && trimmedLines[trimmedLines.length - 1].trim() === "") {
+    trimmedLines.pop();
+  }
+
+  return trimmedLines.join("\n");
 }
 
 function formatDuration(durationSeconds?: number): string {

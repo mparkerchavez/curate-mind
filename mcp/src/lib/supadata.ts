@@ -21,6 +21,15 @@ export interface ScrapedUrlContent {
   title: string;
   description: string;
   url: string;
+  ogUrl: string;
+}
+
+export interface ArticleMetadata {
+  title?: string;
+  author?: string;
+  publisher?: string;
+  publishedDate?: string;
+  description?: string;
 }
 
 export interface YoutubeMetadata {
@@ -64,6 +73,7 @@ export async function scrapeUrl(url: string): Promise<ScrapedUrlContent> {
     title: result.name,
     description: result.description,
     url: result.url,
+    ogUrl: result.ogUrl,
   };
 }
 
@@ -156,6 +166,166 @@ async function resolveTranscriptResult(
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Fetch a URL's raw HTML and extract article metadata (publisher, author,
+ * published date) from Open Graph tags, JSON-LD, and standard meta tags.
+ *
+ * This is a best-effort, lightweight fetch — if the request fails for any
+ * reason (network error, paywall, timeout), it returns empty metadata so
+ * the caller falls back to [verify] placeholders without crashing.
+ */
+export async function extractArticleMetadata(url: string): Promise<ArticleMetadata> {
+  try {
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent": "CurateMind/1.0 (metadata extraction)",
+        "Accept": "text/html",
+      },
+      redirect: "follow",
+    });
+
+    if (!response.ok) {
+      return {};
+    }
+
+    const html = await response.text();
+    return parseHtmlMetadata(html);
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Parse article metadata from raw HTML using three priority levels:
+ * 1. JSON-LD structured data (most structured, highest priority)
+ * 2. Open Graph meta tags (og:site_name, article:author, etc.)
+ * 3. Standard meta tags and <time> elements (fallback)
+ */
+export function parseHtmlMetadata(html: string): ArticleMetadata {
+  const metadata: ArticleMetadata = {};
+
+  // 1. JSON-LD — highest priority
+  const jsonLdMatches = html.matchAll(
+    /<script\s+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi
+  );
+  for (const match of jsonLdMatches) {
+    try {
+      const data = JSON.parse(match[1]);
+      const items = Array.isArray(data) ? data : [data];
+      for (const item of items) {
+        const type: unknown = item["@type"];
+        const articleTypes = [
+          "Article", "NewsArticle", "BlogPosting",
+          "ScholarlyArticle", "TechArticle", "WebPage",
+        ];
+        if (typeof type !== "string" || !articleTypes.includes(type)) {
+          continue;
+        }
+        if (!metadata.title && item.headline) {
+          metadata.title = String(item.headline);
+        }
+        if (!metadata.author) {
+          metadata.author = resolveJsonLdAuthor(item.author);
+        }
+        if (!metadata.publisher) {
+          metadata.publisher = resolveJsonLdPublisher(item.publisher);
+        }
+        if (!metadata.publishedDate && (item.datePublished || item.dateCreated)) {
+          metadata.publishedDate = String(item.datePublished ?? item.dateCreated);
+        }
+        if (!metadata.description && item.description) {
+          metadata.description = String(item.description);
+        }
+      }
+    } catch {
+      // Malformed JSON-LD — skip and try the next block
+    }
+  }
+
+  // 2. Open Graph / article meta tags
+  if (!metadata.title) {
+    metadata.title =
+      getMetaContent(html, 'property="og:title"') ??
+      getMetaContent(html, "property='og:title'");
+  }
+  if (!metadata.author) {
+    metadata.author =
+      getMetaContent(html, 'property="article:author"') ??
+      getMetaContent(html, "property='article:author'") ??
+      getMetaContent(html, 'name="author"') ??
+      getMetaContent(html, "name='author'");
+  }
+  if (!metadata.publisher) {
+    metadata.publisher =
+      getMetaContent(html, 'property="og:site_name"') ??
+      getMetaContent(html, "property='og:site_name'");
+  }
+  if (!metadata.publishedDate) {
+    metadata.publishedDate =
+      getMetaContent(html, 'property="article:published_time"') ??
+      getMetaContent(html, "property='article:published_time'") ??
+      getMetaContent(html, 'name="date"') ??
+      getMetaContent(html, 'name="publish_date"') ??
+      getMetaContent(html, 'name="publication_date"');
+  }
+  if (!metadata.description) {
+    metadata.description =
+      getMetaContent(html, 'property="og:description"') ??
+      getMetaContent(html, 'name="description"');
+  }
+
+  // 3. Fallback: <time datetime="..."> element
+  if (!metadata.publishedDate) {
+    const timeMatch = html.match(/<time[^>]+datetime=["']([^"']+)["'][^>]*>/i);
+    if (timeMatch) {
+      metadata.publishedDate = timeMatch[1];
+    }
+  }
+
+  return metadata;
+}
+
+function getMetaContent(html: string, attributeMatch: string): string | undefined {
+  const escaped = escapeRegex(attributeMatch);
+  // Attribute order: matched-attr first, content second — and vice versa
+  const pattern = new RegExp(
+    `<meta\\s+[^>]*${escaped}[^>]*content=["']([^"']*?)["'][^>]*/?>` +
+    `|<meta\\s+[^>]*content=["']([^"']*?)["'][^>]*${escaped}[^>]*/?>`,
+    "i"
+  );
+  const match = html.match(pattern);
+  const value = match?.[1] ?? match?.[2];
+  return value?.trim() || undefined;
+}
+
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function resolveJsonLdAuthor(author: unknown): string | undefined {
+  if (!author) return undefined;
+  if (typeof author === "string") return author;
+  if (Array.isArray(author)) {
+    const names = (author as unknown[])
+      .map((a) => resolveJsonLdAuthor(a))
+      .filter((n): n is string => Boolean(n));
+    return names.length > 0 ? names.join(", ") : undefined;
+  }
+  if (typeof author === "object" && author !== null) {
+    return (author as Record<string, unknown>).name as string | undefined;
+  }
+  return undefined;
+}
+
+function resolveJsonLdPublisher(publisher: unknown): string | undefined {
+  if (!publisher) return undefined;
+  if (typeof publisher === "string") return publisher;
+  if (typeof publisher === "object" && publisher !== null) {
+    return (publisher as Record<string, unknown>).name as string | undefined;
+  }
+  return undefined;
 }
 
 function extractYoutubeVideoId(value: string): string | null {
