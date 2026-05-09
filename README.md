@@ -37,8 +37,12 @@ You need a Convex account (free tier works), an OpenAI API key, and Node.js 18 o
 |----------|---------|
 | `CONVEX_URL` | Your Convex deployment URL, from the Convex dashboard. |
 | `OPENAI_API_KEY` | OpenAI key for embeddings (`text-embedding-3-small`). Powers semantic search. |
-| `SUPADATA_API_KEY` | Supadata key for URL scraping and YouTube transcripts. Required for future intake tools, optional for v1 markdown-only ingestion. |
+| `SUPADATA_API_KEY` | Supadata key for URL scraping and YouTube transcripts. Required when testing or using the MCP fetch tools; optional if you only ingest markdown files you create manually. |
 | `CURATE_MIND_PATH` | Absolute path to this repo on your machine. Used by the MCP server when it writes intake files to `sources/`. |
+
+## Future work
+
+The next intake evolution is parked for a future phase: an Intake Inbox frontend for pasting links, reviewing fetched markdown, editing metadata, and approving ingestion, plus a Daily Discovery watchlist for YouTube channels, RSS feeds, sites, newsletters, and other recurring sources. The current priority is validating the MCP intake tools in Claude/Codex first.
 
 ## Get started
 

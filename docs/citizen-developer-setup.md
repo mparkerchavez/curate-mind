@@ -22,7 +22,7 @@ Ask the user these questions one at a time. Do not ask all of them at once. Wait
 2. Do you have Node.js installed? Run `node --version` for them and check the output. They need version 18 or higher. If they do not have it, or the version is too old, guide them to install or upgrade via [nodejs.org](https://nodejs.org).
 3. Do you have a Convex account? If not, walk them to [convex.dev](https://convex.dev) and have them sign up. The free tier is sufficient.
 4. Do you have an OpenAI API key? If not, walk them to [platform.openai.com/api-keys](https://platform.openai.com/api-keys) and have them create one. Tell them to save it somewhere safe, since they will need to paste it later.
-5. Do you have a Supadata API key? If not, walk them to [supadata.ai](https://supadata.ai). This is optional for v1 since the user will be ingesting markdown files directly, but it is good to have ready for the future.
+5. Do you have a Supadata API key? If not, walk them to [supadata.ai](https://supadata.ai). This is optional if the user will only ingest markdown files directly, but required if they want to test URL or YouTube link-to-markdown intake.
 
 Once you have all five answers, confirm with the user: "Great, I have everything I need. Ready to start?" Wait for confirmation before running any commands.
 
@@ -71,7 +71,7 @@ Now walk the user through each of the four variables one at a time. For each one
 
 **OPENAI_API_KEY.** Tell the user: "Paste the OpenAI API key you created earlier. This is what generates the embeddings that power semantic search across your research." Set the value in `.env.local`.
 
-**SUPADATA_API_KEY.** Tell the user: "Paste your Supadata key if you have one. If you skipped this earlier, leave it blank, you can come back to it later." Set the value or leave blank.
+**SUPADATA_API_KEY.** Tell the user: "Paste your Supadata key if you want to test URL or YouTube intake. If you skipped this earlier and only want markdown ingestion for now, leave it blank; you can come back to it later." Set the value or leave blank.
 
 **CURATE_MIND_PATH.** Run `pwd` from the repo root to get the absolute path. Tell the user: "This is the full path to the folder where you cloned Curate Mind. The MCP server uses it when it needs to write files into the `sources/` folder. I am going to set it to: `/Users/yourname/projects/curate-mind` (substituting their real path). Confirm that looks right." Set the value.
 

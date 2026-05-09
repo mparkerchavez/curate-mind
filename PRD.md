@@ -57,8 +57,8 @@ Skills are the orchestration layer. They contain the step-by-step instructions C
 - `extraction.ts` — `cm_extract_source`, `cm_save_data_points`, `cm_enrich_data_point`, `cm_update_data_point_tags`, `cm_save_mental_models`, `cm_update_source_status`
 - `query.ts` — themes, positions, evidence, data points, semantic search, source text, tag trends, position history
 - `synthesis.ts` — `cm_create_theme`, `cm_create_position`, `cm_update_position`, `cm_update_research_lens`, `cm_create_tag`, `cm_generate_embeddings`
-- `intake.ts` (partial) — `cm_add_source`, `cm_add_curator_observation`, `cm_add_mental_model` are functional; `cm_fetch_url` and `cm_fetch_youtube` are incomplete and out of scope for v1
-- `review.ts` — local file review queue; tied to the incomplete automated intake flow, out of scope for v1
+- `intake.ts` (validation phase) — `cm_add_source`, `cm_add_curator_observation`, and `cm_add_mental_model` are functional; `cm_fetch_url`, `cm_fetch_youtube`, and `cm_extract_pdf` exist for two-step local intake and are being manually tested before being treated as production-ready
+- `review.ts` — local file review queue for fetched markdown files; part of the current MCP-based intake validation path
 
 **Convex backend**
 - All seven entity types: Projects, Sources, Data Points, Curator Observations, Mental Models, Research Positions (with append-only versioning), Tags
@@ -83,12 +83,35 @@ Skills are the orchestration layer. They contain the step-by-step instructions C
 
 | Feature | Status |
 |---------|--------|
-| `cm_fetch_url` and `cm_fetch_youtube` (automated URL and YouTube intake) | Planned — future phase. Exist in `intake.ts` but are incomplete. |
-| Intake verification UI and `review.ts` queue tools | Planned — future phase. Tied to the automated intake flow. |
+| Hosted/local Intake Inbox frontend for pasting links, reviewing markdown, editing metadata, and approving ingestion | Future phase. Do not build until the MCP intake tools have been validated in Claude/Codex. |
+| Daily source monitoring for sites, RSS feeds, YouTube channels, newsletters, and other watchlist sources | Future phase. Requires candidate queue, dedupe rules, and scheduled discovery jobs. |
+| Automated site/page crawling beyond explicit user-provided URLs | Future phase. Prefer RSS/YouTube feeds first; use Supadata crawl/scrape only after source-specific behavior is understood. |
 | Reader persona authentication layer | Out of scope |
 | Multi-user or multi-tenant support | Out of scope |
 | Mobile-responsive frontend | Out of scope |
 | Any new maintained deliverable documents | Never in scope |
+
+### Future Work: Intake Inbox and Daily Discovery
+
+This work is intentionally parked until the current MCP intake tools have been tested end-to-end. The future version should be a review-first intake system, not an automatic ingestion pipeline.
+
+**Intake Inbox goals:**
+- Paste a YouTube, article, report, or other source URL
+- Fetch the source into reviewable markdown
+- Show fetch status, saved path, word count, and metadata
+- Let the curator review/edit markdown and metadata before ingestion
+- Approve ingestion into Convex using the same append-only source rules
+
+**Daily Discovery goals:**
+- Maintain a watchlist of YouTube channels, RSS feeds, websites, newsletters, and other recurring sources
+- Check watched sources on a schedule and create candidate source records for new items
+- Keep discovery separate from ingestion: new item -> candidate queue -> fetch markdown -> review -> approve -> source
+- Prefer structured feeds where possible; use crawling/scraping as a fallback for sites without reliable feeds
+
+**Candidate future entities:**
+- `watchedSources`: name, type, URL/feed URL, enabled flag, default tier/source type, last checked timestamp, notes
+- `intakeCandidates`: watched source, title, URL, discovered date, published date, status, dedupe key, fetch error
+- `intakeDrafts`: fetched markdown, parsed metadata, review status, reviewed/approved timestamps, source ID after ingestion
 
 ---
 
@@ -103,7 +126,7 @@ The v1 GitHub release is complete when all of the following are true:
 - [ ] `cm_add_source` successfully ingests a markdown file and stores fullText in Convex
 - [ ] Four-pass extraction pipeline runs without errors on a single source via `cm-deep-extract` or `cm-batch-orchestrator`
 - [ ] `cm_search` returns semantic results (embeddings are generated and stored correctly)
-- [ ] `cm_fetch_url`, `cm_fetch_youtube`, and `review.ts` are clearly marked as incomplete/future-phase — not presented as working features
+- [ ] `cm_fetch_url`, `cm_fetch_youtube`, `cm_extract_pdf`, and `cm_review_queue` have been manually smoke-tested against representative sources before being documented as production-ready intake tools
 
 ### Convex backend
 - [ ] Schema deploys cleanly to a fresh Convex project with no migration errors
@@ -152,7 +175,7 @@ These rules apply to every agent working on this project. Do not deviate without
 
 **Scope — do not build these:**
 - No maintained deliverable documents. Everything is generated on demand.
-- No automated intake tools (URL fetching, YouTube transcripts, verification UI). This is a future phase.
+- No Intake Inbox frontend, watchlist monitor, daily discovery queue, or automatic crawling workflow unless explicitly requested as a future phase.
 - No new Convex projects or databases. One project per environment.
 - Do not modify or reference the CRIS Convex project. It is archived.
 
@@ -189,7 +212,7 @@ curate-mind/                    ← CURATE_MIND_PATH points here
 |----------|---------|
 | `CONVEX_URL` | Convex deployment URL for the user's own project |
 | `OPENAI_API_KEY` | OpenAI key for embeddings (`text-embedding-3-small`) |
-| `SUPADATA_API_KEY` | Supadata key for URL scraping and YouTube transcripts (future intake phase) |
+| `SUPADATA_API_KEY` | Supadata key for URL scraping and YouTube transcripts; required when testing or using MCP fetch tools |
 | `CURATE_MIND_PATH` | Absolute path to the repo root on the user's machine |
 
 Note: `JINA_API_KEY` is referenced in `mcp/src/index.ts` comments but is no longer used. Remove it from the comments before the GitHub release.

@@ -9,7 +9,7 @@ Have these ready before you start:
 - **Node.js 18 or higher.** Check with `node --version`. If you need to upgrade, install via [nodejs.org](https://nodejs.org) or use a version manager like `nvm`.
 - **A Convex account.** Free tier is sufficient. Sign up at [convex.dev](https://convex.dev).
 - **An OpenAI API key.** Used to generate embeddings for semantic search. Create one at [platform.openai.com/api-keys](https://platform.openai.com/api-keys).
-- **A Supadata API key.** Used by future intake tools (URL scraping, YouTube transcripts). Optional for v1, since v1 ingests markdown files directly. Sign up at [supadata.ai](https://supadata.ai) if you want it ready.
+- **A Supadata API key.** Used by the MCP fetch tools for URL scraping and YouTube transcripts. Optional if you only ingest markdown files directly, required if you want to test link-to-markdown intake. Sign up at [supadata.ai](https://supadata.ai) if you want it ready.
 
 ## 2. Clone the repo and install dependencies
 
@@ -53,7 +53,7 @@ Open `.env.local` and fill in each variable.
 
 - **`CONVEX_URL`**: After step 3, open the Convex dashboard at [dashboard.convex.dev](https://dashboard.convex.dev), select your project, and copy the deployment URL. It looks like `https://your-project-name.convex.cloud`.
 - **`OPENAI_API_KEY`**: Paste the key you created on [platform.openai.com/api-keys](https://platform.openai.com/api-keys). Used for embeddings only.
-- **`SUPADATA_API_KEY`**: Paste your Supadata key, or leave it blank for v1 if you only ingest markdown.
+- **`SUPADATA_API_KEY`**: Paste your Supadata key if you want to test URL or YouTube intake. Leave it blank if you only ingest markdown files manually.
 - **`CURATE_MIND_PATH`**: The absolute path to this repo on your machine. The MCP server uses it when intake tools write source files to `sources/`. Run `pwd` from the repo root to get the value, then paste it in. Example: `/Users/yourname/projects/curate-mind`.
 
 Never commit `.env.local`. It is already gitignored.
@@ -161,6 +161,16 @@ Open Claude (Desktop or Code) and confirm the MCP server is connected. Then:
    Or browse the Convex dashboard directly to see the new entities in your database.
 
 If everything works, you have a queryable foundation with one source in it. From here, scale up by adding more markdown files and using `cm-batch-orchestrator` to process them in waves.
+
+### Optional: test link-to-markdown intake
+
+The MCP server also includes intake tools that are currently being validated:
+
+- `cm_fetch_url` fetches a public article/page through Supadata and saves markdown into `sources/`.
+- `cm_fetch_youtube` fetches a YouTube transcript and saves markdown into `sources/`.
+- `cm_review_queue` shows local markdown files that are pending review or already ingested.
+
+These tools follow a two-step workflow: fetch to local markdown first, then review the file before calling `cm_add_source` with `reviewed=true`. A future Intake Inbox frontend and daily source watchlist are planned, but not part of the current setup flow.
 
 ## Folder structure reference
 
