@@ -31,6 +31,9 @@ CoP_Planning_Brief.md
 node_modules/
 dist/
 mcp/dist/
+convex/*.js
+convex/*.d.ts
+convex/*.js.map
 tmp/
 .venv/
 __pycache__/
