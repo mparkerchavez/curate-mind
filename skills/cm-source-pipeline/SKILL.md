@@ -130,9 +130,9 @@ Call `cm_save_source_synthesis` with the sourceId and the synthesis text.
 
 **Job:** Focused re-read of the full source text to identify frameworks, analogies, coined terms, metaphors, and principles. This is a different cognitive task from data point extraction — it requires pattern recognition and synthesis.
 
-### 2.1 Re-read the source
+### 2.1 Use the source text already in context
 
-Call `cm_extract_source` again to get the full text in a clean read. You already have the Pass 1 DP list from step 1.4.
+The `cm_extract_source` response from Pass 1 is already in your context — work from that. Do not call `cm_extract_source` again.
 
 ### 2.2 Scan for mental models
 
