@@ -4,8 +4,9 @@
  * These tools support the three-pass extraction pipeline:
  * - cm_extract_source: Get source text + metadata for the extraction agent
  * - cm_save_data_points: Persist extracted data points to Convex
- * - cm_enrich_data_point: Add Pass 2 enrichment to a data point
- * - cm_update_data_point_tags: Add tags to existing data points (Pass 3)
+ * - cm_enrich_data_points_batch: Add Pass 3 enrichment to a batch of data points
+ * - cm_update_data_points_tags_batch: Add tags to a batch of data points (Pass 3)
+ * - cm_save_source_synthesis: Persist the Pass 1 analytical summary
  * - cm_save_mental_models: Persist mental models flagged during extraction
  * - cm_update_source_status: Mark a source as extracted or failed
  */
@@ -18,7 +19,6 @@ type SourceWithFullText = Exclude<
   typeof api.sources.getSourceWithFullText["_returnType"],
   null
 >;
-type UpdateTagsResult = typeof api.dataPoints.updateTags["_returnType"];
 
 export function registerExtractionTools(server: McpServer): void {
   // ============================================================
@@ -209,29 +209,36 @@ export function registerExtractionTools(server: McpServer): void {
   );
 
   // ============================================================
-  // cm_enrich_data_point — Add Pass 2 enrichment
+  // cm_enrich_data_points_batch — Add Pass 3 enrichment to a batch of DPs
   // ============================================================
   server.registerTool(
-    "cm_enrich_data_point",
+    "cm_enrich_data_points_batch",
     {
-      title: "Enrich Data Point (Pass 2)",
+      title: "Enrich Data Points in Batch (Pass 3)",
       description:
-        "Add Pass 2 enrichment to a data point: confidence signal, extraction " +
-        "note, and related data point links.\n\n" +
+        "Add Pass 3 enrichment to a batch of data points: confidence signal, extraction " +
+        "note, and related data point links. All DP IDs are validated before any writes — " +
+        "if one ID is invalid the entire batch fails and nothing is written. " +
+        "Re-enrichment is allowed and will overwrite existing values.\n\n" +
         "Args:\n" +
-        "  - dataPointId (string): The data point to enrich\n" +
-        "  - confidence (string): strong, moderate, suggestive\n" +
-        "  - extractionNote (string): Why this DP matters, connections to current positions\n" +
-        "  - relatedDataPoints (string[], optional): Related DP IDs within the same source\n\n" +
-        "Returns: Confirmation of enrichment.",
+        "  - enrichments (array): Each item has:\n" +
+        "    - dataPointId (string): The data point to enrich\n" +
+        "    - confidence (string): strong, moderate, suggestive\n" +
+        "    - extractionNote (string): Why this DP matters; connections to positions or open questions\n" +
+        "    - relatedDataPoints (string[], optional): Related DP IDs within the same source\n\n" +
+        "Returns: Array of {dataPointId, success: true} for each enriched DP.",
       inputSchema: {
-        dataPointId: z.string().describe("Data point ID to enrich"),
-        confidence: z.enum(["strong", "moderate", "suggestive"])
-          .describe("Confidence signal"),
-        extractionNote: z.string().min(1)
-          .describe("Why this DP matters; connections to positions or open questions"),
-        relatedDataPoints: z.array(z.string()).optional()
-          .describe("Related DP IDs within the same source (argument chains)"),
+        enrichments: z.array(
+          z.object({
+            dataPointId: z.string().describe("Data point ID to enrich"),
+            confidence: z.enum(["strong", "moderate", "suggestive"])
+              .describe("Confidence signal"),
+            extractionNote: z.string().min(1)
+              .describe("Why this DP matters; connections to positions or open questions. Do not use em dashes."),
+            relatedDataPoints: z.array(z.string()).optional()
+              .describe("Related DP IDs within the same source (argument chains)"),
+          })
+        ).min(1).describe("Array of enrichment operations to apply"),
       },
       annotations: {
         readOnlyHint: false,
@@ -240,15 +247,17 @@ export function registerExtractionTools(server: McpServer): void {
         openWorldHint: false,
       },
     },
-    async (params) => {
+    async ({ enrichments }) => {
       try {
-        await convexMutation(api.dataPoints.enrichDataPoint, {
-          dataPointId: asId<"dataPoints">(params.dataPointId),
-          confidence: params.confidence,
-          extractionNote: params.extractionNote,
-          relatedDataPoints: params.relatedDataPoints?.map((id) =>
-            asId<"dataPoints">(id)
-          ),
+        const result = await convexMutation(api.dataPoints.enrichBatch, {
+          enrichments: enrichments.map((e) => ({
+            dataPointId: asId<"dataPoints">(e.dataPointId),
+            confidence: e.confidence,
+            extractionNote: e.extractionNote,
+            relatedDataPoints: e.relatedDataPoints?.map((id) =>
+              asId<"dataPoints">(id)
+            ),
+          })),
         });
 
         return {
@@ -256,9 +265,8 @@ export function registerExtractionTools(server: McpServer): void {
             {
               type: "text" as const,
               text:
-                `Data point ${params.dataPointId} enriched.\n` +
-                `Confidence: ${params.confidence}\n` +
-                `Extraction note added.`,
+                `Enriched ${result.length} data points.\n` +
+                result.map((r) => `  ${r.dataPointId}: success`).join("\n"),
             },
           ],
         };
@@ -267,7 +275,7 @@ export function registerExtractionTools(server: McpServer): void {
           content: [
             {
               type: "text" as const,
-              text: `Error enriching data point: ${error instanceof Error ? error.message : String(error)}`,
+              text: `Error enriching data points: ${error instanceof Error ? error.message : String(error)}`,
             },
           ],
         };
@@ -276,24 +284,32 @@ export function registerExtractionTools(server: McpServer): void {
   );
 
   // ============================================================
-  // cm_update_data_point_tags — Add tags to existing data points (Pass 3)
+  // cm_update_data_points_tags_batch — Add tags to a batch of DPs (Pass 3)
   // ============================================================
   server.registerTool(
-    "cm_update_data_point_tags",
+    "cm_update_data_points_tags_batch",
     {
-      title: "Update Data Point Tags (Pass 3)",
+      title: "Update Data Point Tags in Batch (Pass 3)",
       description:
-        "Add tags to an existing data point. Used in Pass 3 enrichment when " +
-        "tags are assigned after seeing all DPs from a source holistically. " +
-        "Additive only — does not remove existing tag links.\n\n" +
+        "Add tags to a batch of data points. Used in Pass 3 enrichment when tags " +
+        "are assigned after seeing all DPs from a source holistically. " +
+        "All DP IDs are validated before any writes — if one ID is invalid the entire " +
+        "batch fails and nothing is written. " +
+        "Additive only — does not remove existing tag links. " +
+        "Tag slugs not found in the project vocabulary are skipped (counted in tagsSkipped).\n\n" +
         "Args:\n" +
-        "  - dataPointId (string): The data point to tag\n" +
-        "  - tagSlugs (string[]): Tag slugs to add\n\n" +
-        "Returns: Count of tags added and skipped.",
+        "  - updates (array): Each item has:\n" +
+        "    - dataPointId (string): The data point to tag\n" +
+        "    - tagSlugs (string[]): Tag slugs to add\n\n" +
+        "Returns: Array of {dataPointId, tagsAdded, tagsSkipped} for each DP.",
       inputSchema: {
-        dataPointId: z.string().describe("Data point ID to tag"),
-        tagSlugs: z.array(z.string()).min(1)
-          .describe("Tag slugs to add to this data point"),
+        updates: z.array(
+          z.object({
+            dataPointId: z.string().describe("Data point ID to tag"),
+            tagSlugs: z.array(z.string()).min(1)
+              .describe("Tag slugs to add to this data point"),
+          })
+        ).min(1).describe("Array of tag update operations to apply"),
       },
       annotations: {
         readOnlyHint: false,
@@ -302,23 +318,28 @@ export function registerExtractionTools(server: McpServer): void {
         openWorldHint: false,
       },
     },
-    async (params) => {
+    async ({ updates }) => {
       try {
-        const result: UpdateTagsResult = await convexMutation(
-          api.dataPoints.updateTags,
-          {
-          dataPointId: asId<"dataPoints">(params.dataPointId),
-          tagSlugs: params.tagSlugs,
-          }
-        );
+        const result = await convexMutation(api.dataPoints.updateTagsBatch, {
+          updates: updates.map((u) => ({
+            dataPointId: asId<"dataPoints">(u.dataPointId),
+            tagSlugs: u.tagSlugs,
+          })),
+        });
+
+        const totalAdded = result.reduce((sum, r) => sum + r.tagsAdded, 0);
+        const totalSkipped = result.reduce((sum, r) => sum + r.tagsSkipped, 0);
 
         return {
           content: [
             {
               type: "text" as const,
               text:
-                `Tags updated for ${params.dataPointId}.\n` +
-                `Added: ${result.added}, Skipped: ${result.skipped}`,
+                `Tags updated for ${result.length} data points.\n` +
+                `Total added: ${totalAdded}, Total skipped: ${totalSkipped}\n` +
+                result
+                  .map((r) => `  ${r.dataPointId}: +${r.tagsAdded} added, ${r.tagsSkipped} skipped`)
+                  .join("\n"),
             },
           ],
         };

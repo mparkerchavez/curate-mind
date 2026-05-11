@@ -637,4 +637,62 @@ export function registerQueryTools(server: McpServer): void {
       }
     }
   );
+
+  // ============================================================
+  // cm_get_data_points_batch — Fetch multiple DPs in one call
+  // ============================================================
+  server.registerTool(
+    "cm_get_data_points_batch",
+    {
+      title: "Get Data Points in Batch",
+      description:
+        "Fetch multiple data points by ID in a single call (Layer 3 — Analyst only). " +
+        "Returns the same shape as cm_get_data_point for each ID: full context including " +
+        "verbatim anchor quote, source metadata, and tags. " +
+        "Use this instead of calling cm_get_data_point in a loop — one call replaces N calls. " +
+        "Missing IDs return null in the result array (position is preserved).\n\n" +
+        "Args:\n" +
+        "  - dataPointIds (string[]): The data point IDs to fetch\n\n" +
+        "Returns: Array of data point records (null for any ID not found).",
+      inputSchema: {
+        dataPointIds: z.array(z.string()).min(1)
+          .describe("Array of data point IDs to fetch"),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ dataPointIds }) => {
+      try {
+        const results = await convexQuery(api.dataPoints.getDataPointsBatch, {
+          dataPointIds: dataPointIds.map((id) => asId<"dataPoints">(id)),
+        });
+
+        const found = results.filter(Boolean).length;
+        const missing = results.length - found;
+
+        const text =
+          `Fetched ${found} of ${dataPointIds.length} data points` +
+          (missing > 0 ? ` (${missing} not found — returned as null)` : "") +
+          ".\n\n" +
+          JSON.stringify(results, null, 2);
+
+        return {
+          content: [{ type: "text" as const, text: truncateIfNeeded(text) }],
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+            },
+          ],
+        };
+      }
+    }
+  );
 }

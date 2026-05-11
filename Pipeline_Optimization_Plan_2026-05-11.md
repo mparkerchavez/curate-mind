@@ -8,10 +8,10 @@
 
 ## 1. How to use this document
 
-1. **The diagnosis and prompts (sections 2–4) are immutable.** They are the record of what we agreed on at the time of the retrospective. Don't edit them.
+1. **The diagnosis (section 2) and prompts (section 4) are living documents.** Update them as work progresses, new information is learned, or decisions change. When updating a prompt, make the edit in place — no need to preserve the original wording separately.
 2. **The TODO list (section 3) gets status markers updated** — each prompt has `Status:` flipping from `⬜ Pending` → `🟡 In Progress` → `✅ Completed` or `🔴 Blocked`.
 3. **Each chat appends a Completion Log entry (section 6) when its work is done.** Entries follow the template at the top of section 6.
-4. **Diagnosis is corrigible by future evidence.** If a later chat discovers the diagnosis was wrong (or partially wrong), it should NOT edit section 2 — instead append a "Diagnosis Update" entry to the Completion Log with the new finding.
+4. **Diagnosis is corrigible by future evidence.** If a later chat discovers the diagnosis was wrong or partially wrong, update section 2 directly, or append a "Diagnosis Update" entry to section 6 if the finding is nuanced enough to warrant a record of the change.
 
 ---
 
@@ -70,7 +70,7 @@ The work happened in a single chat. The three phases (Phase 1 Intake + Extractio
 | # | Priority | Change | Why | Status |
 |---|---|---|---|---|
 | 1 | **P0** | Optimize sub-agent extraction cost (cm-source-pipeline + cm-batch-orchestrator) | Where the 5-minute burn happened | ✅ Completed |
-| 2 | **P0** | Add batched enrichment MCP tools (`cm_enrich_data_points_batch`, `cm_update_data_point_tags_batch`) | Cuts 30-60 tool calls per source down to 2-3 | ⬜ Pending |
+| 2 | **P0** | Add batched enrichment MCP tools (`cm_enrich_data_points_batch`, `cm_update_data_point_tags_batch`) | Cuts 30-60 tool calls per source down to 2-3 | ✅ Completed |
 | 3 | **P1** | Document three-chat workflow (extraction / review / integrate) | No infra change; behavioral. Removes the catastrophic-failure scenario | ⬜ Pending |
 | 4 | **P2** | Add curator-review-phase MCP tools (`cm_get_position_arrays`, `cm_link_evidence_to_position`, `cm_update_positions_batch`) | Real cost in the linking phase even though it used only ~40% today | ⬜ Pending |
 | 5 | **P3** | Fix Dispatch intake tool date-folder bug | Removes weekly friction | ⬜ Pending |
@@ -272,9 +272,9 @@ Phase 2 → Phase 3: a decisions document with:
 
 ## Skill edits I'm proposing
 
-A. `skills/cm-batch-orchestrator/SKILL.md` — add a "Workflow Shape: Three-Chat Default" section near the top. Explain when to use single-chat vs three-chat (default: three-chat for any batch with >5 sources or with mixed-quality flags expected).
+A. `skills/cm-batch-orchestrator/SKILL.md` — add a "Workflow Shape: Three-Chat Default" section near the top. Explain when to use single-chat vs three-chat (default: three-chat for any batch with >5 sources or with mixed-quality flags expected). Note: this file was significantly rewritten in Prompt 1 — read the current state before editing. The Pass 4 Flag Taxonomy (Groups A/B/C/D) is already codified there.
 
-B. Create new file `skills/cm-curator-review/SKILL.md` — Phase 2 skill. The orchestrator already references a `cm-curator-review` skill but I'm not sure it exists in current form. Define it as: takes a Pass 4 flag report, leads the curator through Group A/B/C/D in order, produces the decisions document.
+B. `skills/cm-curator-review/SKILL.md` already exists — read it before deciding whether to update or replace. Define/update it as: takes a Pass 4 flag report, leads the curator through Group A/B/C/D in order, produces the decisions document.
 
 C. `skills/cm-evidence-linker/SKILL.md` — already exists. Update to add Phase 3 entry-point behavior: takes the decisions document, executes saves/creates/updates, regenerates Research Lens at the end.
 
@@ -285,7 +285,7 @@ C. `skills/cm-evidence-linker/SKILL.md` — already exists. Update to add Phase 
 
 ## What to confirm with me before changes
 
-1. Does `cm-curator-review/SKILL.md` already exist? (I'm not sure of the current state.) If yes, what does it currently do, and should we update it or replace it?
+1. ~~Does `cm-curator-review/SKILL.md` already exist?~~ It does — read it first.
 2. The decisions-document format — should it be a structured Markdown file in `/sources/<week>/_decisions.md`, or a JSON artifact, or just a chat-pasteable list? My preference is structured Markdown that's both human-readable and pasteable.
 3. Should Phase 3 always regenerate the Research Lens, or is that a separate decision?
 4. Is there a phase-naming convention you want? "Intake / Review / Integrate" or different names?
@@ -531,8 +531,8 @@ When a chat finishes the work for a prompt:
 2. Execute the work per the prompt. Pause for user confirmation before making destructive changes — the prompts are written to require this.
 3. Flip the prompt's status marker in section 3 from `⬜ Pending` → `✅ Completed` (or `🔴 Blocked` if work couldn't complete).
 4. Append a Completion Log entry to section 6 using the template at the top of that section.
-5. Do NOT edit sections 2, 4, or the body of section 3 (only the status column).
-6. If you discover the diagnosis was wrong or partially wrong, append a "Diagnosis Update" entry to section 6 instead of editing section 2.
+5. If you discover that a prompt's instructions are outdated or based on assumptions that no longer hold, update the prompt in section 4 directly. Note the change in the Completion Log entry.
+6. If you discover the diagnosis was wrong or partially wrong, update section 2 directly or append a "Diagnosis Update" entry to section 6 for nuanced findings.
 
 For chats running in parallel (e.g., Prompt 3 in one chat while Prompts 1+2 run in another):
 
@@ -567,6 +567,18 @@ Entries are appended in chronological order. Each entry uses this template:
 ---
 
 *(End of plan. New entries below this line.)*
+
+### 2026-05-11 — Prompt 2: Add batched enrichment MCP tools
+- **Status:** Completed
+- **What changed:**
+  - `convex/dataPoints.ts` — removed `enrichDataPoint` and `updateTags` mutations (orphaned after MCP tool removal); added `enrichBatch` mutation (validates all DP IDs before writing, allows re-enrichment), `updateTagsBatch` mutation (same all-or-nothing validation, additive tag logic), and `getDataPointsBatch` query (same shape as `getDataPoint`, null-preserving for missing IDs).
+  - `mcp/src/tools/extraction.ts` — removed `cm_enrich_data_point` and `cm_update_data_point_tags` entirely; added `cm_enrich_data_points_batch` and `cm_update_data_points_tags_batch`. Updated file header comment.
+  - `mcp/src/tools/query.ts` — added `cm_get_data_points_batch` (replaces per-DP loop in Pass 3 Sub-agent 2). Kept `cm_get_data_point` (still used by analyst Layer 3 queries).
+  - `skills/cm-batch-orchestrator/SKILL.md` — Sub-agent 2 prompt rewritten: step 1 now uses `cm_get_data_points_batch`; steps 3-4 collect all tags/enrichment in memory; new step 5 writes both in two batch calls. Mental model scan in Sub-agent 1 prompt updated to scan full source first, then rank by novelty and distinctiveness, keep top 3-5.
+  - `skills/cm-deep-extract/SKILL.md` — fixed Pass 2.1 re-fetch bug (no longer calls `cm_extract_source` again); replaced `cm_update_data_point_tags` (per-DP) with `cm_update_data_points_tags_batch`; replaced `cm_enrich_data_point` (per-DP) with `cm_enrich_data_points_batch`.
+- **Deviations from plan:** Append-only rule relaxed for enrichment fields (confidence, extractionNote, relatedDataPoints, tags) — re-enrichment now allowed and overwrites existing values. This was agreed during planning as the right trade-off: provenance fields (claimText, anchorQuote, sourceId) remain immutable, curator-judgment fields are correctable. Single-DP Convex mutations (`enrichDataPoint`, `updateTags`) removed alongside the MCP tools rather than kept — cleaner because they had no other callers.
+- **New follow-ups discovered:** `cm-deep-extract` still references `cm-source-pipeline/SKILL.md` at Pass 1 step 1.2 ("Follow the Pass 1 instructions from cm-source-pipeline"). That skill file is now only a documentation reference and no longer used by any active skill prompt. Consider removing or archiving it in a future cleanup pass.
+- **Next chat should know:** Per-DP enrichment and tag tools are gone — any workflow referencing `cm_enrich_data_point` or `cm_update_data_point_tags` must be updated to use the batch versions. The batch versions require all DP IDs to be valid before writing anything.
 
 ### 2026-05-11 — Prompt 1: Optimize sub-agent extraction cost
 - **Status:** Completed

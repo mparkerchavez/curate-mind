@@ -45,7 +45,7 @@ Wait for confirmation. The curator may want to add context or adjust expectation
 
 #### 1.2 Extract data points
 
-Follow the Pass 1 instructions from cm-source-pipeline. Extract all data points with:
+Extract all data points with:
 - Verbatim anchor quotes (10-40 words, target 15-25)
 - Evidence types, locations
 - No tags (assigned in Pass 3)
@@ -107,7 +107,7 @@ Once the curator approves:
 
 #### 2.1 Scan and present candidates
 
-Re-read the source (call `cm_extract_source` again for a fresh read). Scan for frameworks, analogies, terms, metaphors, principles.
+The source text from Pass 1 is already in your context. Do NOT call `cm_extract_source` again. Scan the full source text in context for frameworks, analogies, terms, metaphors, and principles.
 
 Present candidates:
 
@@ -162,7 +162,7 @@ Present proposed tags for all DPs as a table:
 
 **Ask the curator:** "Tag assignments look right? Any to change?"
 
-After approval, create new tags via `cm_create_tag`, then call `cm_update_data_point_tags` for each DP to write the approved tag links.
+After approval, create new tags via `cm_create_tag`, then call `cm_update_data_points_tags_batch` with all DP tag assignments in a single call.
 
 #### 3.3 Enrichment pass
 
@@ -187,8 +187,8 @@ Related: [linked DPs]
 #### 3.4 Save enrichment
 
 After curator approval:
-- Ensure `cm_update_data_point_tags` has been called for each DP
-- Call `cm_enrich_data_point` for each DP
+- Call `cm_update_data_points_tags_batch` with all DP tag assignments (if not already called in 3.2)
+- Call `cm_enrich_data_points_batch` with all DP enrichment data in a single call
 - Call `cm_add_mental_model` for each approved mental model
 - Report what was saved
 

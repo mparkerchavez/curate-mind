@@ -99,14 +99,14 @@ Do NOT invoke any skill file. Follow ONLY these instructions:
 
 The source text from Pass 1 is already in your context. Do NOT call cm_extract_source again.
 
-6. Scan the source text for mental model candidates:
+6. Scan the ENTIRE source text for mental model candidates before selecting any:
    - framework: Named models, typologies, structured ways of thinking (e.g., "The seven workforce archetypes")
-   - analogy: Comparisons that illuminate a concept (e.g., "AI agents are like interns — check their work")
+   - analogy: Comparisons that illuminate a concept (e.g., "AI agents are like interns, check their work")
    - term: Coined or specialized vocabulary (e.g., "context engineering")
    - metaphor: Figurative language capturing a complex idea (e.g., "the implementation chasm")
    - principle: Rules of thumb or guiding statements (e.g., "Automate the workflow, not the task")
-   - For each candidate note: title, type, 2-4 sentence description, and which dpSequenceNumber it's most closely associated with.
-   - A typical source produces 0-5 candidates. Commentary articles often produce 0.
+   - After scanning the full source, rank all candidates by: (1) novelty — is this a named thing or a restatement of a common idea? (2) distinctiveness — would a strategist remember and reuse this? Keep the top 3-5 ranked candidates only. Commentary articles often produce 0.
+   - For each kept candidate note: title, type, 2-4 sentence description, and which dpSequenceNumber it's most closely associated with.
    - Do NOT save anything to Convex — return candidates only.
 
 Return ONLY this compact result:
@@ -140,27 +140,32 @@ Mental model candidates from Pass 2:
 
 Do NOT invoke any skill file. Follow ONLY these instructions:
 
-1. Retrieve DPs from Convex: call cm_get_data_point for each DP ID listed above.
+1. Retrieve ALL DPs in ONE call: cm_get_data_points_batch with the full DP ID list above.
 2. Retrieve the Research Lens: call cm_get_research_lens with projectId. If none exists, proceed without it and note this in your summary.
 
-3. Assign tags holistically (you can see all DPs together now):
+3. Assign tags holistically — collect all assignments in memory. Do NOT call any tool yet.
    - 1-4 tags per DP, at least one per DP
    - Lowercase hyphenated: agentic-workflows, enterprise-adoption, cost-optimization
    - Prefer specific over generic; reuse existing project tags when they fit
-   - Create new tags with cm_create_tag only when no existing tag fits
-   - Assign tags via cm_update_data_point_tags for each DP
+   - Create new tags with cm_create_tag only when no existing tag fits (call cm_create_tag immediately when needed so the slug exists before the batch write)
+   - Record each DP's final tag assignment: {dataPointId, tagSlugs[]}
 
-4. Enrich each DP — call cm_enrich_data_point with:
+4. Enrich all DPs holistically — collect all enrichment in memory. Do NOT call any tool yet.
    - confidence: strong | moderate | suggestive
      - strong: well-supported, specific, backed by data or clear reasoning
      - moderate: plausible but lacks strong quantitative backing (most common)
      - suggestive: speculative, anecdotal, or limited credibility on this topic
-   - extractionNote (1-3 sentences): connect this DP to existing Research Positions, open questions in the Research Lens, or argument chains with other DPs. Do not summarize the claim — add curatorial value.
+   - extractionNote (1-3 sentences): connect this DP to existing Research Positions, open questions in the Research Lens, or argument chains with other DPs. Do not summarize the claim — add curatorial value. Do not use em dashes.
    - relatedDataPoints: DP IDs from same source that form argument chains
+   - Record each DP's enrichment: {dataPointId, confidence, extractionNote, relatedDataPoints?}
 
-5. Save mental models: for each candidate from Pass 2, check Research Lens for duplicates. If novel, call cm_add_mental_model with title, modelType, description, sourceId, and sourceDataPointId.
+5. Write in two batch calls (do NOT use the single-DP versions of these tools):
+   a. cm_update_data_points_tags_batch — pass all tag assignments collected in step 3
+   b. cm_enrich_data_points_batch — pass all enrichment data collected in step 4
 
-6. Flag for curator review (flag conservatively — only items that genuinely need human judgment):
+6. Save mental models: for each candidate from Pass 2, check Research Lens for duplicates. If novel, call cm_add_mental_model with title, modelType, description, sourceId, and sourceDataPointId.
+
+7. Flag for curator review (flag conservatively — only items that genuinely need human judgment):
    - confidence-mismatch: Tier 1 source + suggestive signal, or Tier 3 + strong
    - position-contradiction: DP contradicts a current Research Position (per Research Lens)
    - anchor-concern: anchor quote seems imprecise or could not be verified
