@@ -266,7 +266,7 @@ export function registerExtractionTools(server: McpServer): void {
               type: "text" as const,
               text:
                 `Enriched ${result.length} data points.\n` +
-                result.map((r) => `  ${r.dataPointId}: success`).join("\n"),
+                result.map((r: { dataPointId: string }) => `  ${r.dataPointId}: success`).join("\n"),
             },
           ],
         };
@@ -327,8 +327,9 @@ export function registerExtractionTools(server: McpServer): void {
           })),
         });
 
-        const totalAdded = result.reduce((sum, r) => sum + r.tagsAdded, 0);
-        const totalSkipped = result.reduce((sum, r) => sum + r.tagsSkipped, 0);
+        type TagBatchResult = { dataPointId: string; tagsAdded: number; tagsSkipped: number };
+        const totalAdded = result.reduce((sum: number, r: TagBatchResult) => sum + r.tagsAdded, 0);
+        const totalSkipped = result.reduce((sum: number, r: TagBatchResult) => sum + r.tagsSkipped, 0);
 
         return {
           content: [
@@ -338,7 +339,7 @@ export function registerExtractionTools(server: McpServer): void {
                 `Tags updated for ${result.length} data points.\n` +
                 `Total added: ${totalAdded}, Total skipped: ${totalSkipped}\n` +
                 result
-                  .map((r) => `  ${r.dataPointId}: +${r.tagsAdded} added, ${r.tagsSkipped} skipped`)
+                  .map((r: TagBatchResult) => `  ${r.dataPointId}: +${r.tagsAdded} added, ${r.tagsSkipped} skipped`)
                   .join("\n"),
             },
           ],

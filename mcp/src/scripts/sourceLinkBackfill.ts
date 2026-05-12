@@ -74,7 +74,7 @@ async function resolveProjectId(): Promise<string> {
 
 async function getEvidenceLinkedSourceIds(): Promise<Set<string>> {
   const sourceIds = await convexQuery(api.sources.listEvidenceLinkedSourceIds, {});
-  return new Set(sourceIds.map((sourceId) => String(sourceId)));
+  return new Set(sourceIds.map((sourceId: unknown) => String(sourceId)));
 }
 
 async function getCurrentSource(sourceId: string) {

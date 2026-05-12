@@ -410,7 +410,7 @@ export function registerSynthesisTools(server: McpServer): void {
           await convexQuery(api.researchLens.getActivePositionsForLens, {
             projectId: asId<"projects">(projectId),
           })
-        ).filter((position): position is ActivePositionForLens => position !== null);
+        ).filter((position: unknown): position is ActivePositionForLens => position !== null);
 
         if (activePositions.length === 0) {
           return {
@@ -427,24 +427,24 @@ export function registerSynthesisTools(server: McpServer): void {
         // Compress positions into lens format
         const positionsSummary = activePositions
           .map(
-            (p) =>
+            (p: ActivePositionForLens) =>
               `[${p.themeTitle}] ${p.positionTitle} (${p.confidenceLevel}): ${p.currentStance}`
           )
           .join("\n\n");
 
         const allOpenQuestions = activePositions
-          .flatMap((p) => p.openQuestions || [])
+          .flatMap((p: ActivePositionForLens) => p.openQuestions || [])
           .filter(Boolean);
         const questionsSummary =
           allOpenQuestions.length > 0
-            ? allOpenQuestions.map((q) => `- ${q}`).join("\n")
+            ? allOpenQuestions.map((q: string) => `- ${q}`).join("\n")
             : "No open questions currently.";
 
         const surpriseSummary =
           "Evidence that would challenge current positions:\n" +
           activePositions
             .map(
-              (p) =>
+              (p: ActivePositionForLens) =>
                 `- ${p.positionTitle}: findings contradicting "${p.currentStance.slice(0, 80)}..."`
             )
             .join("\n");
