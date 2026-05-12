@@ -58,6 +58,7 @@ type PdfExtractionMetadata = {
   candidateScores?: string;
 };
 
+const SCRAPE_FAILURE_WORD_THRESHOLD = 100;
 const TRANSCRIPT_CHUNKS_PER_PARAGRAPH = 5;
 const TRANSCRIPT_MIN_CHUNKS_BEFORE_BREAK = 3;
 const TRANSCRIPT_PARAGRAPH_GAP_SECONDS = 6;
@@ -155,6 +156,10 @@ export function registerIntakeTools(server: McpServer): void {
           || (articleMeta.publishedDate ? formatPublishedDate(articleMeta.publishedDate) : "[verify]");
         const type = sourceType ?? "article";
 
+        const bodyContent = trimArticleContent(scraped.content);
+        const bodyWordCount = countWords(bodyContent);
+        const scrapeLikelyFailed = bodyWordCount < SCRAPE_FAILURE_WORD_THRESHOLD;
+
         const markdown =
           `# ${resolvedTitle}\n\n` +
           "## Metadata\n" +
@@ -165,7 +170,7 @@ export function registerIntakeTools(server: McpServer): void {
           `* **URL:** ${url}\n` +
           `* **Captured:** ${formatDateForMetadata(capturedAt)}\n\n` +
           "---\n\n" +
-          trimArticleContent(scraped.content);
+          bodyContent;
 
         // Determine the week folder
         const weekFolder = getWeekFolderPath(curateMindPath, capturedAt);
@@ -175,16 +180,38 @@ export function registerIntakeTools(server: McpServer): void {
 
         // Use the publisher name as the source label when we have it — more readable than a domain slug.
         const sourceLabel = publisher !== "[verify]" ? publisher : getUrlSourceLabel(url);
-        const filename =
-          `${buildSourceMarkdownFilename({
-            sourceLabel,
-            title: resolvedTitle,
-            capturedAt,
-          })}.md`;
+        const baseFilename = buildSourceMarkdownFilename({
+          sourceLabel,
+          title: resolvedTitle,
+          capturedAt,
+        });
+        const filename = scrapeLikelyFailed
+          ? `FAILED-${baseFilename}.md`
+          : `${baseFilename}.md`;
         const filePath = `${weekFolder}/${filename}`;
         await writeFile(filePath, markdown, "utf-8");
 
-        const wordCount = markdown.split(/\s+/).length;
+        if (scrapeLikelyFailed) {
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text:
+                  `Warning: scrape returned only ${bodyWordCount} words — likely a blocked or failed page.\n\n` +
+                  `Saved for inspection: ${filePath}\n` +
+                  `URL: ${url}\n\n` +
+                  `The site may be blocking scrapers (common with X/Twitter, paywalled sites, ` +
+                  `or pages that require JavaScript to load content).\n\n` +
+                  `Options:\n` +
+                  `  1. Paste the content manually: use cm_add_source with the text="..." parameter\n` +
+                  `  2. Skip this source\n` +
+                  `  3. Delete the FAILED- file from the sources folder`,
+              },
+            ],
+          };
+        }
+
+        const wordCount = countWords(markdown);
 
         const metaReport = [
           publisher !== "[verify]" ? `Publisher: ${publisher}` : "Publisher: [not found]",

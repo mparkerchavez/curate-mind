@@ -73,7 +73,7 @@ The work happened in a single chat. The three phases (Phase 1 Intake + Extractio
 | 2 | **P0** | Add batched enrichment MCP tools (`cm_enrich_data_points_batch`, `cm_update_data_point_tags_batch`) | Cuts 30-60 tool calls per source down to 2-3 | ✅ Completed |
 | 3 | **P1** | Document three-chat workflow (extraction / review / integrate) | No infra change; behavioral. Removes the catastrophic-failure scenario | ✅ Completed |
 | 4 | **P2** | Add curator-review-phase MCP tools (`cm_get_position_arrays`, `cm_link_evidence_to_position`, `cm_update_positions_batch`) | Real cost in the linking phase even though it used only ~40% today | ✅ Completed |
-| 5 | **P3** | Fix Dispatch intake tool date-folder bug | Removes weekly friction | ⬜ Pending |
+| 5 | **P3** | Fix Dispatch intake tool date-folder bug | Removes weekly friction | ✅ Completed |
 | 6 | **P3** | Add `cm_extract_pdf` retry-with-fallback chain | Eliminates silent PDF timeout failures | ⬜ Pending |
 
 **Suggested execution order:** Prompts 1 + 2 first (P0; Prompt 1's skill edits depend on Prompt 2's batched tools landing). Then Prompt 3 (workflow doc, no code, can run in parallel with 1+2). Then Prompts 4-6 as time allows.
@@ -576,6 +576,16 @@ Entries are appended in chronological order. Each entry uses this template:
 ---
 
 *(End of plan. New entries below this line.)*
+
+### 2026-05-11 — Prompt 5: Fix Dispatch intake tool date-folder bug
+- **Status:** Completed
+- **What changed:**
+  - `mcp/src/lib/utils.ts` — replaced fixed monthly-band logic (1-7, 8-14, 15-21, 22-end) with Sunday→Saturday calendar week calculation. `getWeekFolderPath` now computes `weekStart = most_recent_sunday(date)`, `weekEnd = weekStart + 6 days`. Cross-month weeks use `YYYY-MM-DD_to_MM-DD` format; same-month weeks use `YYYY-MM-DD_to_DD`. Added two private helpers: `resolveWeekStartDay()` (reads `CURATE_MIND_WEEK_START` env var, defaults to 0=Sunday) and `getMostRecentWeekStart()`. Parent folder is always the week-start month.
+  - `mcp/src/tools/intake.ts` — added `SCRAPE_FAILURE_WORD_THRESHOLD = 100` constant. In `cm_fetch_url` handler, extracted `trimArticleContent(scraped.content)` to a `bodyContent` variable and checks `countWords(bodyContent)` before saving. If under threshold: saves file with `FAILED-` prefix and returns a warning response with three options (paste manually, skip, delete file). Normal success path unchanged.
+  - `.env.example` — added documented `CURATE_MIND_WEEK_START` variable (commented out, shows default and valid values).
+- **Deviations from plan:** Batched in a second fix (failed-scrape detection) at curator request. Week-start config landed as an env var rather than a config file — consistent with existing `CURATE_MIND_PATH` / `CURATE_MIND_PYTHON_PATH` pattern and easiest for AI-assisted maintenance.
+- **New follow-ups discovered:** TypeScript build shows pre-existing errors in `convex/*.ts`, `extraction.ts`, and `synthesis.ts` — unrelated to this change. Worth a separate cleanup pass if the build is ever needed to pass cleanly.
+- **Next chat should know:** Test case — Wednesday May 13, 2026 produces folder `sources/2026-05/2026-05-10_to_16/`. Cross-month week example: Sunday April 27 produces `sources/2026-04/2026-04-27_to_05-03/`. Failed scrapes land as `FAILED-<normal-filename>.md` in the same week folder.
 
 ### 2026-05-11 — Prompt 4: Add curator-review-phase MCP tools
 - **Status:** Completed

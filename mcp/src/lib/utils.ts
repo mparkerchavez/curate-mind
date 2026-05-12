@@ -11,38 +11,49 @@ const DISALLOWED_ARCHIVE_PATH_SEGMENTS = [
 
 /**
  * Determines the local file path for a source based on the current date.
- * Follows the existing folder convention:
- *   sources/YYYY-MM/YYYY-MM-DD_to_DD/
+ * Follows the folder convention: sources/YYYY-MM/YYYY-MM-DD_to_DD/
  *
- * Week boundaries: 01-07, 08-14, 15-21, 22-end of month
+ * Weeks run Sunday → Saturday by default. The start day is always the most
+ * recent week-start day relative to the supplied date, regardless of when
+ * during the week you actually begin collecting sources.
+ *
+ * To change the week-start convention, set CURATE_MIND_WEEK_START in your
+ * .env.local file ("sunday" or "monday"). Ask Claude: "change my Curate Mind
+ * week to start on Monday" and it will update .env.local for you.
  */
 export function getWeekFolderPath(basePath: string, date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = date.getDate();
+  const weekStartDayIndex = resolveWeekStartDay();
+  const weekStart = getMostRecentWeekStart(date, weekStartDayIndex);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
 
-  let weekStart: number;
-  let weekEnd: number;
+  const startYear = weekStart.getFullYear();
+  const startMonth = String(weekStart.getMonth() + 1).padStart(2, "0");
+  const startDay = String(weekStart.getDate()).padStart(2, "0");
+  const endDay = String(weekEnd.getDate()).padStart(2, "0");
 
-  if (day <= 7) {
-    weekStart = 1;
-    weekEnd = 7;
-  } else if (day <= 14) {
-    weekStart = 8;
-    weekEnd = 14;
-  } else if (day <= 21) {
-    weekStart = 15;
-    weekEnd = 21;
-  } else {
-    weekStart = 22;
-    // Last day of the month
-    weekEnd = new Date(year, date.getMonth() + 1, 0).getDate();
-  }
+  // When the week crosses a month boundary include the end month in the suffix.
+  const endSuffix =
+    weekEnd.getMonth() === weekStart.getMonth()
+      ? endDay
+      : `${String(weekEnd.getMonth() + 1).padStart(2, "0")}-${endDay}`;
 
-  const startStr = String(weekStart).padStart(2, "0");
-  const endStr = String(weekEnd).padStart(2, "0");
+  const folderName = `${startYear}-${startMonth}-${startDay}_to_${endSuffix}`;
 
-  return `${basePath}/sources/${year}-${month}/${year}-${month}-${startStr}_to_${endStr}`;
+  return `${basePath}/sources/${startYear}-${startMonth}/${folderName}`;
+}
+
+function resolveWeekStartDay(): number {
+  const configured = process.env.CURATE_MIND_WEEK_START?.trim().toLowerCase();
+  return configured === "monday" ? 1 : 0; // 0 = Sunday (default), 1 = Monday
+}
+
+function getMostRecentWeekStart(date: Date, weekStartDay: number): Date {
+  const result = new Date(date);
+  result.setHours(0, 0, 0, 0);
+  const daysBack = (result.getDay() - weekStartDay + 7) % 7;
+  result.setDate(result.getDate() - daysBack);
+  return result;
 }
 
 /**
