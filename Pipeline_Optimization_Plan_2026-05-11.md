@@ -74,7 +74,7 @@ The work happened in a single chat. The three phases (Phase 1 Intake + Extractio
 | 3 | **P1** | Document three-chat workflow (extraction / review / integrate) | No infra change; behavioral. Removes the catastrophic-failure scenario | ✅ Completed |
 | 4 | **P2** | Add curator-review-phase MCP tools (`cm_get_position_arrays`, `cm_link_evidence_to_position`, `cm_update_positions_batch`) | Real cost in the linking phase even though it used only ~40% today | ✅ Completed |
 | 5 | **P3** | Fix Dispatch intake tool date-folder bug | Removes weekly friction | ✅ Completed |
-| 6 | **P3** | Add `cm_extract_pdf` retry-with-fallback chain | Eliminates silent PDF timeout failures | ⬜ Pending |
+| 6 | **P3** | Add `cm_extract_pdf` retry-with-fallback chain | Eliminates silent PDF timeout failures | ✅ Completed |
 
 **Suggested execution order:** Prompts 1 + 2 first (P0; Prompt 1's skill edits depend on Prompt 2's batched tools landing). Then Prompt 3 (workflow doc, no code, can run in parallel with 1+2). Then Prompts 4-6 as time allows.
 
@@ -576,6 +576,15 @@ Entries are appended in chronological order. Each entry uses this template:
 ---
 
 *(End of plan. New entries below this line.)*
+
+### 2026-05-11 — Prompt 6: Add cm_extract_pdf retry-with-fallback chain
+- **Status:** Completed
+- **What changed:**
+  - `mcp/scripts/extract_pdf.py` — added `import signal`; added seven new constants (`_METHOD_TIMEOUTS_SECONDS`, `_OCR_PAGE_GATE=60`, `_OCR_SIZE_GATE_MB=30.0`, `_IMAGES_FRACTION_THRESHOLD=0.20`, `_LARGE_FILE_THRESHOLD_MB=5.0`, `_PYPDF_WORD_THRESHOLD_LARGE_FILE=1000`, `_PYPDF_WORD_THRESHOLD_SMALL_FILE=500`); added `_MethodTimeoutError` class; added `_run_with_alarm()` (SIGALRM per-method timeout, no-ops on non-Unix); added `_get_pdf_info()` (single pypdf pass returning page_count + has_significant_images via image XObject check); added `_build_candidates_adaptive()` (pypdf→docling→docling_ocr, per-method timeouts, early-stop logic, OCR gates, returns candidates + ocr_skipped flag); added `_compute_recommendation()` (human-readable string based on quality, visualHeaviness, image_count, ocr_skipped); updated `main()` to branch on auto vs. single-method, compute file_size_mb, visualHeaviness, extraction_failed (wordCount < 500 and fileSizeMb > 5), and emit three new metadata fields (`visualHeaviness`, `extractionFailed`, `recommendation`); updated docling early-check to only block for explicit `docling`/`docling_ocr` single-method calls (auto gracefully handles missing docling via fallback).
+  - `mcp/src/tools/intake.ts` — bumped `PDF_EXTRACTION_TIMEOUT_MS` from 180,000 to 270,000; added `visualHeaviness`, `extractionFailed`, `recommendation` to `PdfExtractionMetadata` type; updated `parsePdfExtractionMetadata()` to coerce and validate new fields; updated handler to detect `extractionFailed`, write file with `FAILED-` prefix when true, and return a warning response with remediation options (try docling_ocr directly, paste manually, skip); added `visualHeaviness` and `recommendation` to success response; updated tool description for `auto` to describe the adaptive chain and OCR gates; updated `formatPdfExtractionError()` timeout message from 180s to 270s.
+- **Deviations from plan:** None. All four Q&A decisions from the planning conversation were implemented as discussed (pypdf early-stop disabled when `>20%` of pages have images; dual OCR gate page_count > 60 OR file_size_mb > 30; timeouts pypdf=30s docling=90s docling_ocr=120s; no chunked extraction).
+- **New follow-ups discovered:** `_run_with_alarm` uses SIGALRM which can only interrupt C extensions when they yield back to Python — Vision Framework calls in docling_ocr may run slightly past the 120s mark before the alarm fires. Acceptable in practice; worth noting if docling_ocr timeout enforcement feels loose on macOS.
+- **Next chat should know:** `auto` mode now runs pypdf → docling → docling_ocr (fast-first). Single-method calls (docling, pypdf, docling_ocr) are unaffected. `FAILED-` prefix fires when wordCount < 500 and file_size_mb > 5. The `recommendation` field replaces the need to manually interpret `quality` + `visualHeaviness` — it's a ready-to-read sentence surfaced in both the warning and success responses.
 
 ### 2026-05-11 — Prompt 5: Fix Dispatch intake tool date-folder bug
 - **Status:** Completed

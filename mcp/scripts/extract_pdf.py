@@ -13,6 +13,7 @@ import html
 import io
 import json
 import re
+import signal
 import sys
 from contextlib import redirect_stderr, redirect_stdout
 from dataclasses import dataclass, field
@@ -21,6 +22,28 @@ from typing import Any
 
 
 PAGE_BREAK_SENTINEL = "[[PARAGRAPH_BREAK]]"
+
+# Per-method timeouts for the adaptive auto chain (seconds).
+# Signal-based; process-level Node.js timeout is the hard backstop.
+_METHOD_TIMEOUTS_SECONDS: dict[str, int] = {
+    "pypdf": 30,
+    "docling": 90,
+    "docling_ocr": 120,
+}
+
+# Auto-mode OCR gates: skip docling_ocr if either threshold is exceeded.
+_OCR_PAGE_GATE = 60
+_OCR_SIZE_GATE_MB = 30.0
+
+# Fraction of pages that must have embedded images to disable pypdf early-stop.
+_IMAGES_FRACTION_THRESHOLD = 0.20
+
+# File-size boundary that governs which pypdf word-count threshold applies.
+_LARGE_FILE_THRESHOLD_MB = 5.0
+
+# Minimum word counts for pypdf early-stop (fast exit before trying docling).
+_PYPDF_WORD_THRESHOLD_LARGE_FILE = 1000
+_PYPDF_WORD_THRESHOLD_SMALL_FILE = 500
 
 
 @dataclass
@@ -34,6 +57,10 @@ class ExtractionCandidate:
     review_summary: str = ""
     review_focus: list[str] = field(default_factory=list)
     stats: dict[str, float | int] = field(default_factory=dict)
+
+
+class _MethodTimeoutError(Exception):
+    """Raised when a per-method SIGALRM timeout fires inside _run_with_alarm."""
 
 
 def _read_pdf_metadata(pdf_path: Path) -> dict[str, str]:
@@ -108,6 +135,53 @@ def _run_docling_conversion(converter: Any, pdf_path: Path) -> str:
     with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
         result = converter.convert(str(pdf_path))
     return result.document.export_to_markdown().strip()
+
+
+def _run_with_alarm(fn: Any, pdf_path: Path, timeout_sec: int) -> str:
+    """Call fn(pdf_path) with a SIGALRM per-method timeout.
+
+    Falls back to an unconstrained call on platforms without SIGALRM (Windows).
+    When the alarm fires inside a C extension the signal is deferred until
+    Python regains control, so the actual cutoff may be slightly late.
+    """
+    if not hasattr(signal, "SIGALRM"):
+        return fn(pdf_path)
+
+    def _handler(signum: int, frame: Any) -> None:
+        raise _MethodTimeoutError(f"timed out after {timeout_sec}s")
+
+    old_handler = signal.signal(signal.SIGALRM, _handler)
+    signal.alarm(timeout_sec)
+    try:
+        result = fn(pdf_path)
+        signal.alarm(0)
+        return result
+    except _MethodTimeoutError:
+        raise
+    finally:
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, old_handler)
+
+
+def _get_pdf_info(pdf_path: Path) -> tuple[int, bool]:
+    """Return (page_count, has_significant_images) in a single cheap pypdf pass.
+
+    has_significant_images is True when more than _IMAGES_FRACTION_THRESHOLD of
+    pages contain embedded image XObjects — used to suppress pypdf early-stop in
+    the adaptive auto chain so docling always runs on mixed-content PDFs.
+    """
+    try:
+        from pypdf import PdfReader  # type: ignore
+
+        reader = PdfReader(str(pdf_path))
+        page_count = len(reader.pages)
+        if page_count == 0:
+            return 0, False
+        pages_with_images = sum(1 for page in reader.pages if page.images)
+        has_images = (pages_with_images / page_count) > _IMAGES_FRACTION_THRESHOLD
+        return page_count, has_images
+    except Exception:
+        return 0, False
 
 
 def _extract_text_with_pypdf(pdf_path: Path) -> str:
@@ -601,6 +675,96 @@ def _choose_best_candidate(candidates: list[ExtractionCandidate]) -> ExtractionC
     )
 
 
+def _build_candidates_adaptive(
+    pdf_path: Path,
+    file_size_mb: float,
+    page_count: int,
+    has_significant_images: bool,
+) -> tuple[list[ExtractionCandidate], bool]:
+    """Try pypdf → docling → docling_ocr, stopping early when quality is sufficient.
+
+    Returns (candidates, ocr_skipped).  ocr_skipped is True when the page-count
+    or file-size gate prevented docling_ocr from running.
+
+    Early-stop rules:
+    - pypdf: stop if no significant images AND word count >= threshold AND quality != low.
+    - docling: stop if quality != low.
+    - docling_ocr: last resort, no early stop.
+    """
+    skip_ocr = page_count > _OCR_PAGE_GATE or file_size_mb > _OCR_SIZE_GATE_MB
+    word_threshold = (
+        _PYPDF_WORD_THRESHOLD_LARGE_FILE
+        if file_size_mb > _LARGE_FILE_THRESHOLD_MB
+        else _PYPDF_WORD_THRESHOLD_SMALL_FILE
+    )
+
+    extractors: dict[str, Any] = {
+        "pypdf": _extract_text_with_pypdf,
+        "docling": _extract_docling_default,
+        "docling_ocr": _extract_docling_ocr,
+    }
+
+    candidates: list[ExtractionCandidate] = []
+
+    for method in ["pypdf", "docling", "docling_ocr"]:
+        if method == "docling_ocr" and skip_ocr:
+            continue
+
+        timeout_sec = _METHOD_TIMEOUTS_SECONDS[method]
+        extractor = extractors[method]
+
+        try:
+            raw_markdown = _run_with_alarm(extractor, pdf_path, timeout_sec)
+        except _MethodTimeoutError:
+            continue
+        except Exception:
+            continue
+
+        if not raw_markdown or not raw_markdown.strip():
+            continue
+
+        cleaned_markdown, cleanup_notes = _clean_markdown(raw_markdown.strip())
+        if not cleaned_markdown:
+            continue
+
+        (
+            score,
+            quality,
+            review_recommended,
+            review_summary,
+            review_focus,
+            stats,
+        ) = _score_candidate(cleaned_markdown)
+        candidates.append(
+            ExtractionCandidate(
+                method=method,
+                markdown=cleaned_markdown,
+                cleanup_notes=cleanup_notes,
+                quality_score=score,
+                quality=quality,
+                review_recommended=review_recommended,
+                review_summary=review_summary,
+                review_focus=review_focus,
+                stats=stats,
+            )
+        )
+
+        word_count = int(stats.get("wordCount", 0))
+
+        if method == "pypdf":
+            # Only stop at pypdf when the file has no significant images and
+            # the text layer is clearly sufficient.  Mixed-content PDFs always
+            # continue to docling so tables and image placeholders are captured.
+            if not has_significant_images and word_count >= word_threshold and quality != "low":
+                break
+        elif method == "docling":
+            if quality != "low":
+                break
+        # docling_ocr: last resort, no early stop
+
+    return candidates, skip_ocr
+
+
 def _resolve_requested_methods(method: str) -> list[str]:
     if method == "auto":
         return ["docling", "docling_ocr", "pypdf"]
@@ -671,6 +835,49 @@ def _format_candidate_scores(candidates: list[ExtractionCandidate]) -> str:
     )
 
 
+def _compute_recommendation(
+    quality: str,
+    word_count: int,
+    visual_heaviness: float,
+    image_count: int,
+    sparse_table_count: int,
+    file_size_mb: float,
+    page_count: int,
+    ocr_skipped: bool,
+) -> str:
+    if word_count < 500 and file_size_mb > 5.0:
+        return (
+            "Very low word count for file size: content is likely in images or charts. "
+            "Manual review recommended before ingesting."
+        )
+
+    if visual_heaviness > 0.005:
+        if ocr_skipped:
+            pages_label = f"{page_count}+ pages" if page_count > 0 else f"{file_size_mb:.0f}MB"
+            return (
+                f"Visual-heavy PDF ({pages_label}): OCR skipped in auto mode. "
+                "Charts and graphs not captured; text narrative extracted. "
+                "Use method=docling_ocr directly if full OCR is needed."
+            )
+        return (
+            "Visual-heavy PDF: charts and graphs likely not fully captured. "
+            "Text narrative extracted. Curator note recommended for visual content."
+        )
+
+    if image_count > 0 or sparse_table_count > 0:
+        return (
+            "Mixed-content PDF: text narrative captured. "
+            "Charts and visual elements noted as placeholders. "
+            "Curator note recommended to document visual evidence."
+        )
+
+    if quality == "high":
+        return "Likely ready for ingestion after a quick skim."
+    if quality == "medium":
+        return "Skim before pushing to Convex."
+    return "Review recommended: extraction quality is low."
+
+
 def main() -> int:
     if len(sys.argv) not in {2, 3}:
         print(
@@ -700,8 +907,11 @@ def main() -> int:
         print(f"Error: File must end with .pdf: {pdf_path}", file=sys.stderr)
         return 1
 
-    requested_methods = _resolve_requested_methods(requested_method)
-    if any(method in {"docling", "docling_ocr"} for method in requested_methods):
+    # For explicit single-method docling/docling_ocr calls, verify docling is
+    # installed up-front so the error message is actionable.  For auto mode,
+    # the adaptive chain handles a missing docling gracefully (falls back to
+    # pypdf), so no early exit here.
+    if requested_method in {"docling", "docling_ocr"}:
         try:
             import docling  # noqa: F401
         except Exception:
@@ -711,8 +921,18 @@ def main() -> int:
             )
             return 1
 
+    file_size_mb = pdf_path.stat().st_size / (1024 * 1024)
+
     try:
-        candidates = _build_candidates(pdf_path, requested_methods)
+        if requested_method == "auto":
+            page_count, has_significant_images = _get_pdf_info(pdf_path)
+            candidates, ocr_skipped = _build_candidates_adaptive(
+                pdf_path, file_size_mb, page_count, has_significant_images
+            )
+        else:
+            page_count = 0
+            ocr_skipped = False
+            candidates = _build_candidates(pdf_path, [requested_method])
     except Exception as exc:
         print(f"Error converting PDF: {exc}", file=sys.stderr)
         return 1
@@ -733,6 +953,22 @@ def main() -> int:
         return 1
 
     best_candidate = _choose_best_candidate(candidates)
+    word_count = int(best_candidate.stats.get("wordCount", 0))
+    image_count = int(best_candidate.stats.get("imageCount", 0))
+    sparse_table_count = int(best_candidate.stats.get("sparseTableCount", 0))
+    visual_heaviness = round(file_size_mb / max(1, word_count), 4)
+    extraction_failed = word_count < 500 and file_size_mb > 5.0
+    recommendation = _compute_recommendation(
+        quality=best_candidate.quality,
+        word_count=word_count,
+        visual_heaviness=visual_heaviness,
+        image_count=image_count,
+        sparse_table_count=sparse_table_count,
+        file_size_mb=file_size_mb,
+        page_count=page_count,
+        ocr_skipped=ocr_skipped,
+    )
+
     metadata = _read_pdf_metadata(pdf_path)
     metadata["requestedMethod"] = requested_method
     metadata["extractionMethod"] = best_candidate.method
@@ -743,6 +979,9 @@ def main() -> int:
     metadata["reviewFocus"] = ", ".join(best_candidate.review_focus)
     metadata["cleanupApplied"] = ", ".join(best_candidate.cleanup_notes)
     metadata["candidateScores"] = _format_candidate_scores(candidates)
+    metadata["visualHeaviness"] = str(visual_heaviness)
+    metadata["extractionFailed"] = "yes" if extraction_failed else "no"
+    metadata["recommendation"] = recommendation
     print(json.dumps(metadata), file=sys.stderr)
     sys.stdout.write(best_candidate.markdown)
     if best_candidate.markdown and not best_candidate.markdown.endswith("\n"):

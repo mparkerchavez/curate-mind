@@ -56,13 +56,16 @@ type PdfExtractionMetadata = {
   reviewFocus?: string;
   cleanupApplied?: string;
   candidateScores?: string;
+  visualHeaviness?: number | string;
+  extractionFailed?: boolean | "yes" | "no";
+  recommendation?: string;
 };
 
 const SCRAPE_FAILURE_WORD_THRESHOLD = 100;
 const TRANSCRIPT_CHUNKS_PER_PARAGRAPH = 5;
 const TRANSCRIPT_MIN_CHUNKS_BEFORE_BREAK = 3;
 const TRANSCRIPT_PARAGRAPH_GAP_SECONDS = 6;
-const PDF_EXTRACTION_TIMEOUT_MS = 180_000;
+const PDF_EXTRACTION_TIMEOUT_MS = 270_000;
 const PDF_EXTRACTION_MAX_BUFFER_BYTES = 10 * 1024 * 1024;
 const REVIEW_STATUS_FILENAME = "review-status.json";
 
@@ -385,10 +388,10 @@ export function registerIntakeTools(server: McpServer): void {
         "source to Convex. After reviewing the saved file, use cm_add_source " +
         "with reviewed=true to push it to the database.\n\n" +
         "Method guidance:\n" +
-        "  - auto: Best-effort mode. Tries multiple extractors and picks the best result. Highest quality, but slowest.\n" +
-        "  - docling: Good default for large visual reports in Claude when auto may time out.\n" +
-        "  - docling_ocr: Best for image-heavy or scanned PDFs.\n" +
-        "  - pypdf: Fastest for text-heavy PDFs, but may fail on visual/image-based reports.\n\n" +
+        "  - auto: Adaptive chain — tries pypdf first (fast), advances to docling for mixed/visual PDFs, then docling_ocr as a last resort for image-heavy files. Stops early when quality is sufficient. OCR is skipped for files over 60 pages or 30 MB in auto mode.\n" +
+        "  - docling: Structured extraction for visual reports and mixed-content PDFs. Use when auto is too slow or you want docling specifically.\n" +
+        "  - docling_ocr: Full OCR for image-heavy or scanned PDFs. Slow — expect 2-5 minutes for large files.\n" +
+        "  - pypdf: Fastest for purely text-heavy PDFs. Skips all images and charts.\n\n" +
         "Args:\n" +
         "  - filePath (string): Absolute path to the local PDF file\n" +
         "  - title (string, optional): Override title (uses PDF metadata or filename if omitted)\n" +
@@ -532,6 +535,10 @@ export function registerIntakeTools(server: McpServer): void {
         const reviewSummary = pdfMetadata.reviewSummary?.trim();
         const reviewFocus = pdfMetadata.reviewFocus?.trim();
         const candidateScores = pdfMetadata.candidateScores?.trim();
+        const extractionFailed = pdfMetadata.extractionFailed === true;
+        const visualHeaviness = pdfMetadata.visualHeaviness;
+        const recommendation = pdfMetadata.recommendation?.trim();
+
         const markdown =
           `# ${resolvedTitle}\n\n` +
           "## Metadata\n" +
@@ -555,10 +562,37 @@ export function registerIntakeTools(server: McpServer): void {
           title: resolvedTitle,
           capturedAt,
         });
-        const markdownFilePath = path.join(weekFolder, `${markdownFilename}.md`);
+        const markdownFilePath = path.join(
+          weekFolder,
+          extractionFailed ? `FAILED-${markdownFilename}.md` : `${markdownFilename}.md`
+        );
         await writeFile(markdownFilePath, markdown, "utf-8");
 
         const wordCount = countWords(markdown);
+        const fileSizeMb = (pdfStats.size / (1024 * 1024)).toFixed(1);
+
+        if (extractionFailed) {
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text:
+                  `Warning: extraction likely incomplete — only ${wordCount} words from a ${fileSizeMb}MB file.\n\n` +
+                  `Saved for inspection: ${markdownFilePath}\n` +
+                  `Title: ${resolvedTitle}\n` +
+                  `Extraction method: ${extractionMethod}\n` +
+                  `Quality: ${quality}${formatQualityScoreSuffix(qualityScore)}\n` +
+                  (visualHeaviness !== undefined ? `Visual heaviness: ${visualHeaviness} (MB per word)\n` : "") +
+                  (recommendation ? `\nRecommendation: ${recommendation}\n` : "") +
+                  `\nThe PDF content is likely in images, charts, or visual elements that text extraction cannot read.\n\n` +
+                  `Options:\n` +
+                  `  1. Try method=docling_ocr directly (expect 2-5 min for image-heavy PDFs)\n` +
+                  `  2. Paste the content manually: use cm_add_source with the text="..." parameter\n` +
+                  `  3. Skip this source and delete the FAILED- file`,
+              },
+            ],
+          };
+        }
 
         return {
           content: [
@@ -572,7 +606,9 @@ export function registerIntakeTools(server: McpServer): void {
                 `Requested method: ${requestedMethod}\n` +
                 `Extraction method: ${extractionMethod}\n` +
                 `Quality: ${quality}${formatQualityScoreSuffix(qualityScore)}\n` +
+                (visualHeaviness !== undefined ? `Visual heaviness: ${visualHeaviness} (MB per word)\n` : "") +
                 `${formatCandidateScores(candidateScores)}\n` +
+                (recommendation ? `Recommendation: ${recommendation}\n` : "") +
                 `${formatReviewGuidance(reviewRecommended, reviewSummary, reviewFocus, pdfMetadata.cleanupApplied)}\n\n` +
                 `Next step: ${getPdfNextStep(reviewRecommended, reviewFocus)}\n` +
                 `with filePath="${markdownFilePath}", originalFilePath="${filePath}", and reviewed=true\n` +
@@ -1377,6 +1413,16 @@ function parsePdfExtractionMetadata(stderr: string): PdfExtractionMetadata {
           : parsed.reviewRecommended === "no"
             ? false
             : parsed.reviewRecommended;
+      const visualHeaviness =
+        typeof parsed.visualHeaviness === "string"
+          ? Number(parsed.visualHeaviness)
+          : parsed.visualHeaviness;
+      const extractionFailed =
+        parsed.extractionFailed === "yes"
+          ? true
+          : parsed.extractionFailed === "no"
+            ? false
+            : parsed.extractionFailed;
       return {
         title: parsed.title?.trim() || undefined,
         author: parsed.author?.trim() || undefined,
@@ -1395,6 +1441,13 @@ function parsePdfExtractionMetadata(stderr: string): PdfExtractionMetadata {
         reviewFocus: parsed.reviewFocus?.trim() || undefined,
         cleanupApplied: parsed.cleanupApplied?.trim() || undefined,
         candidateScores: parsed.candidateScores?.trim() || undefined,
+        visualHeaviness:
+          typeof visualHeaviness === "number" && Number.isFinite(visualHeaviness)
+            ? visualHeaviness
+            : undefined,
+        extractionFailed:
+          typeof extractionFailed === "boolean" ? extractionFailed : undefined,
+        recommendation: parsed.recommendation?.trim() || undefined,
       };
     } catch {
       continue;
@@ -1470,8 +1523,9 @@ function formatPdfExtractionError(error: unknown): string {
     (error as { signal?: string | null }).signal === "SIGTERM"
   ) {
     return (
-      "PDF extraction timed out after 180 seconds. " +
-      "Try a smaller PDF or increase the timeout."
+      "PDF extraction timed out after 270 seconds. " +
+      "The file may be too large or complex for automated extraction. " +
+      "Try method=docling or method=pypdf, or paste the content manually with cm_add_source."
     );
   }
 
