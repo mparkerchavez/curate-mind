@@ -727,7 +727,54 @@ export function registerIntakeTools(server: McpServer): void {
             };
           }
 
+          // Guard: reject files whose basename still starts with "verify_".
+          // The verify_ prefix is the intake convention for "metadata not yet
+          // filled in". Ingesting one of these results in null descriptive
+          // metadata in Convex because the parser silently drops [verify]
+          // placeholders.
+          const basename = path.basename(params.filePath);
+          if (basename.startsWith("verify_")) {
+            return {
+              content: [
+                {
+                  type: "text" as const,
+                  text:
+                    `Error: filename "${basename}" still has the "verify_" prefix.\n` +
+                    "Fill in the metadata header (Publisher, Author, Published, URL), " +
+                    "rename the file to drop the verify_ prefix, then re-run cm_add_source.",
+                },
+              ],
+            };
+          }
+
           fullText = await readFile(params.filePath, "utf-8");
+
+          // Guard: reject content whose metadata header still contains
+          // [verify] placeholders. The parser drops these to undefined, which
+          // would land in Convex as null. Scan only the header region (text
+          // before the first --- separator) so [verify] inside article body
+          // text does not cause a false positive.
+          const headerEndIdx = fullText.indexOf("\n---");
+          const headerRegion = headerEndIdx >= 0 ? fullText.slice(0, headerEndIdx) : fullText;
+          if (/\[verify\b/i.test(headerRegion)) {
+            const offendingLines = headerRegion
+              .split("\n")
+              .filter((line) => /\[verify\b/i.test(line))
+              .map((line) => `  - ${line.trim()}`)
+              .slice(0, 6);
+            return {
+              content: [
+                {
+                  type: "text" as const,
+                  text:
+                    `Error: metadata header in "${basename}" still contains [verify] placeholders.\n` +
+                    "Fill in the bracketed values before ingesting:\n" +
+                    offendingLines.join("\n"),
+                },
+              ],
+            };
+          }
+
           parsedMetadata = parseSourceMetadataHeader(fullText);
         } else if (params.text) {
           fullText = params.text;
@@ -893,6 +940,97 @@ export function registerIntakeTools(server: McpServer): void {
             {
               type: "text" as const,
               text: `Error adding source: ${error instanceof Error ? error.message : String(error)}`,
+            },
+          ],
+        };
+      }
+    }
+  );
+
+  // ============================================================
+  // cm_update_source_metadata — Repair descriptive metadata on a source
+  // Partial update: only fields explicitly passed are patched in Convex.
+  // Use this when a source landed in Convex with null author/publisher/
+  // publishedDate/canonicalUrl because the markdown header still had
+  // [verify] placeholders at ingest time. The data points and source
+  // synthesis are untouched.
+  // ============================================================
+  server.registerTool(
+    "cm_update_source_metadata",
+    {
+      title: "Update Source Descriptive Metadata",
+      description:
+        "Repair descriptive metadata on an existing source in Convex. " +
+        "Partial update: only fields explicitly passed are written; fields " +
+        "left undefined are kept as is. Use this when a source was ingested " +
+        "with placeholder ([verify]) metadata that the parser dropped, leaving " +
+        "the row with null publisher/author/publishedDate/canonicalUrl. " +
+        "Does not touch data points, source synthesis, or status.\n\n" +
+        "Args:\n" +
+        "  - sourceId (string): The source to update\n" +
+        "  - authorName (string, optional): Author or creator\n" +
+        "  - publisherName (string, optional): Publication or platform\n" +
+        "  - publishedDate (string, optional): Original publication date\n" +
+        "  - canonicalUrl (string, optional): URL to original source\n" +
+        "  - repairNote (string): Short note explaining why this update is needed\n\n" +
+        "Returns: The sourceId, previous values, and the fields that were patched.",
+      inputSchema: {
+        sourceId: z.string().describe("Source ID to update"),
+        authorName: z.string().optional().describe("Author or creator"),
+        publisherName: z.string().optional().describe("Publication or platform"),
+        publishedDate: z.string().optional().describe("Original publication date"),
+        canonicalUrl: z.string().optional().describe("URL to original source"),
+        repairNote: z.string().min(1)
+          .describe("Short note explaining why this update is needed (audit trail)"),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async (params) => {
+      try {
+        const result = await convexMutation(
+          api.sources.updateSourceDescriptiveMetadata,
+          {
+            sourceId: asId<"sources">(params.sourceId),
+            authorName: params.authorName,
+            publisherName: params.publisherName,
+            publishedDate: params.publishedDate,
+            canonicalUrl: params.canonicalUrl,
+            repairNote: params.repairNote,
+          }
+        );
+
+        const patchedKeys = Object.keys(result.patched);
+        const summaryLines = patchedKeys.map((key) => {
+          const previousValue = (result.previous as Record<string, string | null>)[key];
+          const newValue = (result.patched as Record<string, string>)[key];
+          return `  - ${key}: ${previousValue ?? "(null)"} -> ${newValue}`;
+        });
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text:
+                `Source descriptive metadata updated.\n` +
+                `Source ID: ${result.sourceId}\n` +
+                `Fields patched: ${patchedKeys.length}\n` +
+                summaryLines.join("\n") +
+                (summaryLines.length > 0 ? "\n" : "") +
+                `Repair note: ${result.repairNote}`,
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Error updating source metadata: ${error instanceof Error ? error.message : String(error)}`,
             },
           ],
         };

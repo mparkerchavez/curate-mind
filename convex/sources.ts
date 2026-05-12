@@ -240,6 +240,98 @@ export const repairSourceCanonicalUrl = mutation({
 });
 
 // ============================================================
+// Structural maintenance: update descriptive metadata
+// Partial update — only fields explicitly passed (non-undefined) are patched.
+// Decision 30 allows controlled plumbing corrections for fields that are not
+// part of the append-only research record (data points, position versions).
+// Source descriptive metadata is curator-supplied plumbing, not research output,
+// so it is safe to repair in place.
+// ============================================================
+export const updateSourceDescriptiveMetadata = mutation({
+  args: {
+    sourceId: v.id("sources"),
+    authorName: v.optional(v.string()),
+    publisherName: v.optional(v.string()),
+    publishedDate: v.optional(v.string()),
+    canonicalUrl: v.optional(v.string()),
+    repairNote: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const source = await ctx.db.get(args.sourceId);
+    if (!source) {
+      throw new Error("Source not found");
+    }
+
+    const patch: {
+      authorName?: string;
+      publisherName?: string;
+      publishedDate?: string;
+      canonicalUrl?: string;
+    } = {};
+
+    if (args.authorName !== undefined) {
+      const trimmed = args.authorName.trim();
+      if (!trimmed) {
+        throw new Error("authorName must not be empty when provided");
+      }
+      patch.authorName = trimmed;
+    }
+
+    if (args.publisherName !== undefined) {
+      const trimmed = args.publisherName.trim();
+      if (!trimmed) {
+        throw new Error("publisherName must not be empty when provided");
+      }
+      patch.publisherName = trimmed;
+    }
+
+    if (args.publishedDate !== undefined) {
+      const trimmed = args.publishedDate.trim();
+      if (!trimmed) {
+        throw new Error("publishedDate must not be empty when provided");
+      }
+      patch.publishedDate = trimmed;
+    }
+
+    if (args.canonicalUrl !== undefined) {
+      const trimmed = args.canonicalUrl.trim();
+      if (!trimmed) {
+        throw new Error("canonicalUrl must not be empty when provided");
+      }
+      try {
+        const parsed = new URL(trimmed);
+        if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+          throw new Error("canonicalUrl must use http or https");
+        }
+      } catch {
+        throw new Error("canonicalUrl must be a valid URL");
+      }
+      patch.canonicalUrl = trimmed;
+    }
+
+    if (Object.keys(patch).length === 0) {
+      throw new Error(
+        "At least one of authorName, publisherName, publishedDate, or canonicalUrl must be provided"
+      );
+    }
+
+    await ctx.db.patch(args.sourceId, patch);
+
+    return {
+      sourceId: source._id,
+      previous: {
+        authorName: source.authorName ?? null,
+        publisherName: source.publisherName ?? null,
+        publishedDate: source.publishedDate ?? null,
+        canonicalUrl: source.canonicalUrl ?? null,
+      },
+      patched: patch,
+      repairNote: args.repairNote,
+    };
+  },
+});
+
+// ============================================================
 // Get a single source by ID (without fullText)
 // ============================================================
 export const getSource = query({

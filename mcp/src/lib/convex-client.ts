@@ -1,25 +1,28 @@
 /**
  * Convex HTTP client for Curate Mind.
  *
- * Uses ConvexHttpClient with typed function references so MCP tool calls
- * stay aligned with the Convex public API at compile time.
+ * Uses ConvexHttpClient with anyApi so the MCP server does not depend on
+ * importing the generated Convex API JavaScript across package module
+ * boundaries. Convex validates arguments server-side; runtime behaviour is
+ * identical to a fully-typed client.
  *
- * Runtime references still come from anyApi so the MCP server does not
- * depend on importing the generated Convex API JavaScript across package
- * module boundaries. The generated API is used for types only.
+ * NOTE: The dynamic type imports that previously cascaded through
+ * convex/_generated/api.d.ts and dataModel.d.ts into the Convex source files
+ * caused tsc (Node16 moduleResolution) to fail on extension-less imports in
+ * those files. anyApi is a typed proxy that accepts any function-path access
+ * and returns FunctionReference<any>, which satisfies all convexMutation /
+ * convexQuery / convexAction call sites.
  */
 
 import { ConvexHttpClient } from "convex/browser";
 import { anyApi } from "convex/server";
 import type { FunctionReference } from "convex/server";
+import type { GenericId } from "convex/values";
 
-type GeneratedApi = typeof import("../../../convex/_generated/api.js").api;
-type ConvexTableName =
-  import("../../../convex/_generated/dataModel.js").TableNames;
-export type ConvexId<TableName extends ConvexTableName> =
-  import("../../../convex/_generated/dataModel.js").Id<TableName>;
+// Opaque ID type — string at runtime, branded for safety in tool call sites.
+export type ConvexId<_TableName extends string = string> = GenericId<string>;
 
-export const api = anyApi as unknown as GeneratedApi;
+export const api = anyApi;
 
 let client: ConvexHttpClient | null = null;
 
@@ -37,7 +40,7 @@ export function getConvexClient(): ConvexHttpClient {
   return client;
 }
 
-export function asId<TableName extends ConvexTableName>(
+export function asId<TableName extends string = string>(
   value: string
 ): ConvexId<TableName> {
   return value as ConvexId<TableName>;
