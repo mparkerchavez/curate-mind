@@ -50,12 +50,12 @@ For each position in Section B:
 
 For each update in Section C, in order:
 
-1. Call `cm_get_position_history` with the positionId to retrieve current evidence arrays. Use history (not detail) — the detail endpoint returns full embedding vectors that cause truncation.
-2. Extract existing `supportingEvidence` and `counterEvidence` arrays from the latest version.
-3. Resolve any cross-references: substitute actual IDs for labels like "A1 (save first)" using the IDs recorded in step 2.
-4. Merge: `[...existingSupporting, ...newSupportingDPs]` and `[...existingCounter, ...newCounterDPs]`.
-5. Call `cm_update_position` with the full merged arrays, the curatorObservations array (existing + new), and the stance note from Section C.
-6. Report the new version number: "Update C1 applied: [position title] now at version [n]"
+1. Call `cm_get_position_arrays` with the positionId to retrieve current evidence arrays. This returns only the ID arrays — no stance text, no history, no embedding vectors.
+2. Resolve any cross-references: substitute actual IDs for labels like "A1 (save first)" using the IDs recorded in step 2.
+3. Call `cm_link_evidence_to_position` with the delta arrays (only the new IDs to add) and a changeSummary. The mutation handles merging and deduplication internally, and copies the stance verbatim from the previous version.
+4. Report the new version number: "Update C1 applied: [position title] now at version [n]"
+
+**Tool-selection rule:** Use `cm_link_evidence_to_position` (or `cm_update_positions_batch` for multiple positions at once) whenever the update only adds to evidence arrays. Use `cm_update_position` only when the curator is revising the stance text or open questions. Use `cm_get_position_history` only for full history inspection — never for retrieving current arrays before a linkage operation.
 
 ### 5. Regenerate Research Lens (if flagged)
 
@@ -139,30 +139,26 @@ Present candidate DPs to the curator organized by position:
 
 **CRITICAL: Before updating any position, fetch its current evidence arrays.**
 
-1. **Use `cm_get_position_history`** (NOT `cm_get_position_detail`). The detail endpoint returns `supportingEvidenceDetails` and `counterEvidenceDetails` which contain full embedding vectors (~1536 dimensions per DP), causing response truncation at ~25K characters and hiding the evidence ID arrays. History returns clean ID arrays without embeddings.
+1. **Use `cm_get_position_arrays`** (NOT `cm_get_position_history`, NOT `cm_get_position_detail`). This returns only the current version's ID arrays — no stance text, no history, no embedding vectors. It is the correct permanent fix for the context-window truncation problem that `cm_get_position_detail` caused.
 
-2. **Extract existing arrays** from the latest version: `supportingEvidence` and `counterEvidence`.
-
-3. **Cross-check new candidates against existing arrays** to avoid duplicates before compiling updates.
+2. **Cross-check new candidates against existing arrays** to avoid duplicates before compiling updates.
 
 ### Pass 3: Position Update (Agent)
 
 For each position with triaged evidence:
 
-1. **Compile FULL evidence arrays.** `cm_update_position` requires the COMPLETE updated arrays (existing + new), not just the new additions. Passing only new DPs will OVERWRITE the existing evidence.
-   - Merge: `[...existingSupportingEvidence, ...newSupportingDPs]`
-   - Merge: `[...existingCounterEvidence, ...newCounterDPs]`
-
-2. **Call `cm_update_position`** with:
+1. **Call `cm_link_evidence_to_position`** (single position) or **`cm_update_positions_batch`** (multiple positions) with only the new IDs to add:
    - `positionId`: The position being updated
-   - `currentStance`: Update to integrate new evidence into the thesis narrative. Explain what the new evidence adds.
-   - `confidenceLevel`: Keep unchanged unless evidence warrants a shift
-   - `status`: Keep unchanged unless evidence warrants a shift
-   - `supportingEvidence`: FULL array of supporting DP IDs (existing + new)
-   - `counterEvidence`: FULL array of counter-evidence DP IDs (existing + new, optional)
-   - `changeSummary`: Describe what evidence was linked — format as "+NE S, +NC C" (e.g., "+5S, +2C"), list what new DPs demonstrate
+   - `addSupportingEvidence`: New supporting DP IDs only (not the full existing array)
+   - `addCounterEvidence`: New counter DP IDs only (optional)
+   - `addCuratorObservations`: New observation IDs only (optional)
+   - `changeSummary`: Format as "+NS, +NC" (e.g., "+5S, +2C"), describe what the new DPs demonstrate
+   
+   The mutation merges and dedupes internally and copies the stance verbatim from the previous version. Do NOT pre-merge arrays before calling — pass only the new additions.
 
-3. **Verify the update.** The tool returns a new version number. Previous version is preserved (append-only).
+2. **Verify the update.** The tool returns a new version number. Previous version is preserved (append-only).
+
+**Tool-selection rule:** Use `cm_link_evidence_to_position` / `cm_update_positions_batch` for any update that only adds to evidence arrays. Use `cm_update_position` only when the curator is revising the stance text or open questions. Use `cm_get_position_history` only for full history inspection — never for retrieving current arrays before a linkage operation.
 
 ---
 
@@ -218,9 +214,9 @@ After incremental linking, assess emerging positions for promotion:
 
 4. **Stale Research Lens.** If the lens was last generated before evidence linking, it won't reflect the strengthened positions. Always regenerate after linking is complete.
 
-5. **cm_get_position_detail truncation.** NEVER use this for fetching existing evidence arrays — embedding vectors cause truncation at ~25K chars. Always use `cm_get_position_history` instead.
+5. **Using the wrong read tool.** NEVER use `cm_get_position_detail` or `cm_get_position_history` to fetch current arrays before a linkage operation. `cm_get_position_detail` returns embedding vectors that cause truncation. `cm_get_position_history` returns all prior versions unnecessarily. Always use `cm_get_position_arrays` — it returns only the current version's ID arrays.
 
-6. **Overwriting evidence arrays.** `cm_update_position` takes FULL arrays, not deltas. If you pass only new DPs, all existing evidence is lost. Always merge existing + new before calling update.
+6. **Overwriting evidence arrays via cm_update_position.** If you call `cm_update_position` for a linkage-only update, you must pass the FULL merged arrays or existing evidence is lost. Avoid this pattern entirely for linkage: `cm_link_evidence_to_position` and `cm_update_positions_batch` accept only the new additions and handle merging internally.
 
 ---
 

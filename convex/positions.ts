@@ -401,6 +401,248 @@ export const getThemeEvidenceScope = query({
 });
 
 // ============================================================
+// Get only the current version's evidence arrays (no stance, no history)
+// Use this for linkage operations — ~95% fewer tokens than getPositionHistory
+// ============================================================
+export const getPositionArrays = query({
+  args: { positionId: v.id("researchPositions") },
+  handler: async (ctx, args) => {
+    const position = await ctx.db.get(args.positionId);
+    if (!position) return null;
+
+    const currentVersion = position.currentVersionId
+      ? await ctx.db.get(position.currentVersionId)
+      : null;
+
+    if (!currentVersion) return null;
+
+    return {
+      positionId: position._id,
+      currentVersionId: position.currentVersionId,
+      versionNumber: currentVersion.versionNumber,
+      confidenceLevel: currentVersion.confidenceLevel,
+      status: currentVersion.status,
+      supportingEvidence: currentVersion.supportingEvidence,
+      counterEvidence: currentVersion.counterEvidence ?? [],
+      curatorObservations: currentVersion.curatorObservations ?? [],
+      mentalModels: currentVersion.mentalModels ?? [],
+      openQuestions: currentVersion.openQuestions ?? [],
+    };
+  },
+});
+
+// ============================================================
+// Link evidence to a position (additive-only, copies stance forward)
+// Use instead of updatePosition when only adding to evidence arrays
+// ============================================================
+export const linkEvidenceToPosition = mutation({
+  args: {
+    positionId: v.id("researchPositions"),
+    addSupportingEvidence: v.optional(v.array(v.id("dataPoints"))),
+    addCounterEvidence: v.optional(v.array(v.id("dataPoints"))),
+    addCuratorObservations: v.optional(v.array(v.id("curatorObservations"))),
+    addMentalModels: v.optional(v.array(v.id("mentalModels"))),
+    changeSummary: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const position = await ctx.db.get(args.positionId);
+    if (!position) throw new Error("Position not found");
+
+    const currentVersion = position.currentVersionId
+      ? await ctx.db.get(position.currentVersionId)
+      : null;
+    if (!currentVersion) throw new Error("Position has no current version");
+
+    if (currentVersion.status === "retired") {
+      throw new Error(
+        `Cannot link evidence to retired position "${position.title}". ` +
+        `Update the position status first if this thesis is being revisited.`
+      );
+    }
+
+    // Dedupe helpers
+    const mergeIds = <T extends string>(existing: T[], additions: T[] = []): T[] => {
+      const seen = new Set(existing.map(String));
+      const merged = [...existing];
+      for (const id of additions) {
+        if (!seen.has(String(id))) {
+          seen.add(String(id));
+          merged.push(id);
+        }
+      }
+      return merged;
+    };
+
+    const nextVersionNumber = currentVersion.versionNumber + 1;
+    const now = new Date().toISOString();
+
+    const mergedSupporting = mergeIds(
+      currentVersion.supportingEvidence,
+      args.addSupportingEvidence
+    );
+    const mergedCounter = mergeIds(
+      currentVersion.counterEvidence ?? [],
+      args.addCounterEvidence
+    );
+    const mergedObservations = mergeIds(
+      currentVersion.curatorObservations ?? [],
+      args.addCuratorObservations
+    );
+    const mergedModels = mergeIds(
+      currentVersion.mentalModels ?? [],
+      args.addMentalModels
+    );
+
+    const newVersionId = await ctx.db.insert("positionVersions", {
+      positionId: args.positionId,
+      versionNumber: nextVersionNumber,
+      previousVersionId: position.currentVersionId,
+      // Copied verbatim from previous version
+      currentStance: currentVersion.currentStance,
+      confidenceLevel: currentVersion.confidenceLevel,
+      status: currentVersion.status,
+      openQuestions: currentVersion.openQuestions,
+      // Merged arrays
+      supportingEvidence: mergedSupporting,
+      counterEvidence: mergedCounter.length > 0 ? mergedCounter : undefined,
+      curatorObservations: mergedObservations.length > 0 ? mergedObservations : undefined,
+      mentalModels: mergedModels.length > 0 ? mergedModels : undefined,
+      changeSummary: args.changeSummary,
+      versionDate: now,
+      embeddingStatus: "pending",
+    });
+
+    await ctx.db.patch(args.positionId, { currentVersionId: newVersionId });
+
+    return {
+      versionId: newVersionId,
+      versionNumber: nextVersionNumber,
+      added: {
+        supportingEvidence: (args.addSupportingEvidence ?? []).length,
+        counterEvidence: (args.addCounterEvidence ?? []).length,
+        curatorObservations: (args.addCuratorObservations ?? []).length,
+        mentalModels: (args.addMentalModels ?? []).length,
+      },
+    };
+  },
+});
+
+// ============================================================
+// Batch link evidence to multiple positions in one transaction
+// All position IDs are validated before any writes occur
+// ============================================================
+export const linkEvidenceBatch = mutation({
+  args: {
+    updates: v.array(
+      v.object({
+        positionId: v.id("researchPositions"),
+        addSupportingEvidence: v.optional(v.array(v.id("dataPoints"))),
+        addCounterEvidence: v.optional(v.array(v.id("dataPoints"))),
+        addCuratorObservations: v.optional(v.array(v.id("curatorObservations"))),
+        addMentalModels: v.optional(v.array(v.id("mentalModels"))),
+        changeSummary: v.string(),
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    if (args.updates.length > 20) {
+      throw new Error("Batch size limit is 20 positions per call.");
+    }
+
+    // Validation pass — fetch all positions and versions before writing anything
+    const records: Array<{
+      position: NonNullable<Awaited<ReturnType<typeof ctx.db.get<"researchPositions">>>>;
+      currentVersion: NonNullable<Awaited<ReturnType<typeof ctx.db.get<"positionVersions">>>>;
+      update: (typeof args.updates)[number];
+    }> = [];
+
+    for (const update of args.updates) {
+      const position = await ctx.db.get(update.positionId);
+      if (!position) {
+        throw new Error(`Position not found: ${update.positionId}`);
+      }
+      const currentVersion = position.currentVersionId
+        ? await ctx.db.get(position.currentVersionId)
+        : null;
+      if (!currentVersion) {
+        throw new Error(`Position has no current version: ${update.positionId}`);
+      }
+      if (currentVersion.status === "retired") {
+        throw new Error(
+          `Cannot link evidence to retired position "${position.title}" (${update.positionId}). ` +
+          `Update the position status first if this thesis is being revisited.`
+        );
+      }
+      records.push({ position, currentVersion, update });
+    }
+
+    // Write pass — all validations passed
+    const mergeIds = <T extends string>(existing: T[], additions: T[] = []): T[] => {
+      const seen = new Set(existing.map(String));
+      const merged = [...existing];
+      for (const id of additions) {
+        if (!seen.has(String(id))) {
+          seen.add(String(id));
+          merged.push(id);
+        }
+      }
+      return merged;
+    };
+
+    const now = new Date().toISOString();
+    const results: Array<{ positionId: string; newVersionId: string; versionNumber: number }> = [];
+
+    for (const { position, currentVersion, update } of records) {
+      const nextVersionNumber = currentVersion.versionNumber + 1;
+
+      const mergedSupporting = mergeIds(
+        currentVersion.supportingEvidence,
+        update.addSupportingEvidence
+      );
+      const mergedCounter = mergeIds(
+        currentVersion.counterEvidence ?? [],
+        update.addCounterEvidence
+      );
+      const mergedObservations = mergeIds(
+        currentVersion.curatorObservations ?? [],
+        update.addCuratorObservations
+      );
+      const mergedModels = mergeIds(
+        currentVersion.mentalModels ?? [],
+        update.addMentalModels
+      );
+
+      const newVersionId = await ctx.db.insert("positionVersions", {
+        positionId: update.positionId,
+        versionNumber: nextVersionNumber,
+        previousVersionId: position.currentVersionId,
+        currentStance: currentVersion.currentStance,
+        confidenceLevel: currentVersion.confidenceLevel,
+        status: currentVersion.status,
+        openQuestions: currentVersion.openQuestions,
+        supportingEvidence: mergedSupporting,
+        counterEvidence: mergedCounter.length > 0 ? mergedCounter : undefined,
+        curatorObservations: mergedObservations.length > 0 ? mergedObservations : undefined,
+        mentalModels: mergedModels.length > 0 ? mergedModels : undefined,
+        changeSummary: update.changeSummary,
+        versionDate: now,
+        embeddingStatus: "pending",
+      });
+
+      await ctx.db.patch(update.positionId, { currentVersionId: newVersionId });
+
+      results.push({
+        positionId: String(update.positionId),
+        newVersionId: String(newVersionId),
+        versionNumber: nextVersionNumber,
+      });
+    }
+
+    return results;
+  },
+});
+
+// ============================================================
 // List all positions across all themes (Layer 1 summary)
 // ============================================================
 export const listAllPositions = query({

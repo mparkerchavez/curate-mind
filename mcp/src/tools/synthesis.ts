@@ -17,6 +17,7 @@ import { generateEmbedding } from "../lib/openai-client.js";
 
 type CreatePositionResult = typeof api.positions.createPosition["_returnType"];
 type UpdatePositionResult = typeof api.positions.updatePosition["_returnType"];
+type LinkEvidenceBatchResult = typeof api.positions.linkEvidenceBatch["_returnType"];
 type CreateTagResult = typeof api.tags.createTag["_returnType"];
 type ActivePositionForLens = NonNullable<
   typeof api.researchLens.getActivePositionsForLens["_returnType"][number]
@@ -531,6 +532,263 @@ export function registerSynthesisTools(server: McpServer): void {
               text: result.created
                 ? `Tag created.\nID: ${result.tagId}\nName: ${name}\nSlug: ${slug}`
                 : `Tag already exists.\nID: ${result.tagId}\nSlug: ${slug}`,
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+            },
+          ],
+        };
+      }
+    }
+  );
+
+  // ============================================================
+  // cm_get_position_arrays — Current evidence arrays only (no stance, no history)
+  // ============================================================
+  server.registerTool(
+    "cm_get_position_arrays",
+    {
+      title: "Get Position Arrays",
+      description:
+        "Return only the current version's evidence arrays for a position — " +
+        "no stance text, no version history, no embedding vectors.\n\n" +
+        "Use this instead of cm_get_position_history for any operation that " +
+        "only needs to know what evidence IDs are currently linked (e.g., " +
+        "before calling cm_link_evidence_to_position). ~95% fewer tokens than " +
+        "the history endpoint.\n\n" +
+        "Args:\n" +
+        "  - positionId (string): The position to inspect\n\n" +
+        "Returns: supportingEvidence, counterEvidence, curatorObservations, " +
+        "mentalModels, openQuestions (all as ID arrays), plus confidenceLevel, " +
+        "status, versionNumber, and currentVersionId.",
+      inputSchema: {
+        positionId: z.string().describe("The position to inspect"),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ positionId }) => {
+      try {
+        const result = await convexQuery(api.positions.getPositionArrays, {
+          positionId: asId<"researchPositions">(positionId),
+        });
+
+        if (!result) {
+          return {
+            content: [{ type: "text" as const, text: "Position not found." }],
+          };
+        }
+
+        return {
+          content: [
+            { type: "text" as const, text: JSON.stringify(result, null, 2) },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+            },
+          ],
+        };
+      }
+    }
+  );
+
+  // ============================================================
+  // cm_link_evidence_to_position — Additive linkage, copies stance forward
+  // ============================================================
+  server.registerTool(
+    "cm_link_evidence_to_position",
+    {
+      title: "Link Evidence to Position",
+      description:
+        "Add evidence IDs to a position without touching the stance text. " +
+        "Creates a new version (append-only) that copies the current stance, " +
+        "confidenceLevel, status, and openQuestions verbatim and merges the " +
+        "new IDs into the existing arrays (deduped).\n\n" +
+        "Use this for any update that only adds to evidence arrays. " +
+        "Use cm_update_position only when the curator is revising the stance " +
+        "text or open questions.\n\n" +
+        "Args:\n" +
+        "  - positionId (string): The position to update\n" +
+        "  - addSupportingEvidence (string[], optional): DP IDs to add\n" +
+        "  - addCounterEvidence (string[], optional): DP IDs to add\n" +
+        "  - addCuratorObservations (string[], optional): Observation IDs to add\n" +
+        "  - addMentalModels (string[], optional): Mental Model IDs to add\n" +
+        "  - changeSummary (string): Why this version was created " +
+        "(format: '+3S, +1C — [brief description]')\n\n" +
+        "Returns: New version ID, version number, and count of IDs added per array. " +
+        "Throws if the position is retired.",
+      inputSchema: {
+        positionId: z.string().describe("The position to update"),
+        addSupportingEvidence: z.array(z.string()).optional()
+          .describe("Data Point IDs to add as supporting evidence"),
+        addCounterEvidence: z.array(z.string()).optional()
+          .describe("Data Point IDs to add as counter evidence"),
+        addCuratorObservations: z.array(z.string()).optional()
+          .describe("Curator Observation IDs to add"),
+        addMentalModels: z.array(z.string()).optional()
+          .describe("Mental Model IDs to add"),
+        changeSummary: z.string().min(1)
+          .describe("Why this version was created (e.g. '+3S, +1C — new T2 sources')"),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    async (params) => {
+      try {
+        const result = await convexMutation(
+          api.positions.linkEvidenceToPosition,
+          {
+            positionId: asId<"researchPositions">(params.positionId),
+            addSupportingEvidence: params.addSupportingEvidence?.map((id) =>
+              asId<"dataPoints">(id)
+            ),
+            addCounterEvidence: params.addCounterEvidence?.map((id) =>
+              asId<"dataPoints">(id)
+            ),
+            addCuratorObservations: params.addCuratorObservations?.map((id) =>
+              asId<"curatorObservations">(id)
+            ),
+            addMentalModels: params.addMentalModels?.map((id) =>
+              asId<"mentalModels">(id)
+            ),
+            changeSummary: params.changeSummary,
+          }
+        );
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text:
+                `Evidence linked (append-only).\n` +
+                `New Version ID: ${result.versionId}\n` +
+                `Version Number: ${result.versionNumber}\n` +
+                `Added — Supporting: ${result.added.supportingEvidence}, ` +
+                `Counter: ${result.added.counterEvidence}, ` +
+                `Observations: ${result.added.curatorObservations}, ` +
+                `Mental Models: ${result.added.mentalModels}\n` +
+                `Stance text copied verbatim from previous version.`,
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+            },
+          ],
+        };
+      }
+    }
+  );
+
+  // ============================================================
+  // cm_update_positions_batch — Batch additive linkage, single transaction
+  // ============================================================
+  server.registerTool(
+    "cm_update_positions_batch",
+    {
+      title: "Batch Link Evidence to Positions",
+      description:
+        "Add evidence IDs to multiple positions in a single atomic transaction. " +
+        "Same additive-only semantics as cm_link_evidence_to_position: stance is " +
+        "copied forward, arrays are merged and deduped, new versions are created.\n\n" +
+        "All position IDs are validated before any writes occur. If any ID is " +
+        "invalid or retired, the entire batch fails with no changes written.\n\n" +
+        "Maximum 20 positions per call.\n\n" +
+        "Args:\n" +
+        "  - updates (array): Each item has:\n" +
+        "      - positionId (string): Position to update\n" +
+        "      - addSupportingEvidence (string[], optional)\n" +
+        "      - addCounterEvidence (string[], optional)\n" +
+        "      - addCuratorObservations (string[], optional)\n" +
+        "      - addMentalModels (string[], optional)\n" +
+        "      - changeSummary (string, required)\n\n" +
+        "Returns: Array of { positionId, newVersionId, versionNumber } for each " +
+        "updated position.",
+      inputSchema: {
+        updates: z.array(
+          z.object({
+            positionId: z.string().describe("Position to update"),
+            addSupportingEvidence: z.array(z.string()).optional()
+              .describe("Data Point IDs to add as supporting evidence"),
+            addCounterEvidence: z.array(z.string()).optional()
+              .describe("Data Point IDs to add as counter evidence"),
+            addCuratorObservations: z.array(z.string()).optional()
+              .describe("Curator Observation IDs to add"),
+            addMentalModels: z.array(z.string()).optional()
+              .describe("Mental Model IDs to add"),
+            changeSummary: z.string().min(1)
+              .describe("Why this version was created"),
+          })
+        ).max(20).describe("Array of position updates (max 20)"),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ updates }) => {
+      try {
+        const results: LinkEvidenceBatchResult = await convexMutation(
+          api.positions.linkEvidenceBatch,
+          {
+            updates: updates.map((u) => ({
+              positionId: asId<"researchPositions">(u.positionId),
+              addSupportingEvidence: u.addSupportingEvidence?.map((id) =>
+                asId<"dataPoints">(id)
+              ),
+              addCounterEvidence: u.addCounterEvidence?.map((id) =>
+                asId<"dataPoints">(id)
+              ),
+              addCuratorObservations: u.addCuratorObservations?.map((id) =>
+                asId<"curatorObservations">(id)
+              ),
+              addMentalModels: u.addMentalModels?.map((id) =>
+                asId<"mentalModels">(id)
+              ),
+              changeSummary: u.changeSummary,
+            })),
+          }
+        );
+
+        const summary = results
+          .map((r: { positionId: string; newVersionId: string; versionNumber: number }) =>
+            `  ${r.positionId} → v${r.versionNumber} (${r.newVersionId})`
+          )
+          .join("\n");
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text:
+                `Batch evidence link complete (${results.length} positions updated).\n\n` +
+                `Results:\n${summary}\n\n` +
+                `All stances copied verbatim. All arrays merged and deduped.`,
             },
           ],
         };

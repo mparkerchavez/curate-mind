@@ -72,7 +72,7 @@ The work happened in a single chat. The three phases (Phase 1 Intake + Extractio
 | 1 | **P0** | Optimize sub-agent extraction cost (cm-source-pipeline + cm-batch-orchestrator) | Where the 5-minute burn happened | ✅ Completed |
 | 2 | **P0** | Add batched enrichment MCP tools (`cm_enrich_data_points_batch`, `cm_update_data_point_tags_batch`) | Cuts 30-60 tool calls per source down to 2-3 | ✅ Completed |
 | 3 | **P1** | Document three-chat workflow (extraction / review / integrate) | No infra change; behavioral. Removes the catastrophic-failure scenario | ✅ Completed |
-| 4 | **P2** | Add curator-review-phase MCP tools (`cm_get_position_arrays`, `cm_link_evidence_to_position`, `cm_update_positions_batch`) | Real cost in the linking phase even though it used only ~40% today | ⬜ Pending |
+| 4 | **P2** | Add curator-review-phase MCP tools (`cm_get_position_arrays`, `cm_link_evidence_to_position`, `cm_update_positions_batch`) | Real cost in the linking phase even though it used only ~40% today | ✅ Completed |
 | 5 | **P3** | Fix Dispatch intake tool date-folder bug | Removes weekly friction | ⬜ Pending |
 | 6 | **P3** | Add `cm_extract_pdf` retry-with-fallback chain | Eliminates silent PDF timeout failures | ⬜ Pending |
 
@@ -576,6 +576,16 @@ Entries are appended in chronological order. Each entry uses this template:
 ---
 
 *(End of plan. New entries below this line.)*
+
+### 2026-05-11 — Prompt 4: Add curator-review-phase MCP tools
+- **Status:** Completed
+- **What changed:**
+  - `convex/positions.ts` — added three new exports: `getPositionArrays` query (returns only the current version's ID arrays + metadata, no stance, no history, no embeddings); `linkEvidenceToPosition` mutation (additive-only, copies stance/confidenceLevel/status/openQuestions verbatim from previous version, merges + dedupes each incoming array, guards against linking to retired positions); `linkEvidenceBatch` mutation (same logic for up to 20 positions, validates all IDs before writing anything — fully atomic).
+  - `mcp/src/tools/synthesis.ts` — added three MCP tools: `cm_get_position_arrays`, `cm_link_evidence_to_position`, `cm_update_positions_batch`. All three sit between `cm_update_position` and `cm_generate_embeddings` in the file. `cm_link_evidence_to_position` and `cm_update_positions_batch` include the tool-selection rule in their descriptions.
+  - `skills/cm-evidence-linker/SKILL.md` — four targeted edits: (1) Phase 3 Step 4 rewritten to use `cm_get_position_arrays` + `cm_link_evidence_to_position` with tool-selection rule appended; (2) Pass 2.5 rewritten to use `cm_get_position_arrays` and explain why it's the permanent fix; (3) Pass 3 rewritten to use `cm_link_evidence_to_position` / `cm_update_positions_batch` with delta-only arg semantics explained; (4) Failure modes 5 and 6 updated to reflect the new tools.
+- **Deviations from plan:** Q4 (`cm_get_positions_arrays_batch`) not added — confirmed unnecessary during planning since the batch mutation fetches current arrays internally. Retired-position guard throws a descriptive error (title + ID + instructions) surfaced as a standard MCP text response.
+- **New follow-ups discovered:** None.
+- **Next chat should know:** `cm_link_evidence_to_position` and `cm_update_positions_batch` accept ONLY the new IDs to add (delta), not full arrays. `cm_update_position` still requires full arrays — use the new tools for all pure linkage operations. The batch cap is 20 positions per call.
 
 ### 2026-05-11 — Prompt 3: Document three-chat workflow
 - **Status:** Completed
