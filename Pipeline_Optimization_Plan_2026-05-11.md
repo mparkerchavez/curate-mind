@@ -507,7 +507,7 @@ If the final result has wordCount < 500 for a file >5MB, the tool should return 
 
 - Don't change the existing single-method calls (pypdf, docling, docling_ocr) — these still work for users who want a specific method.
 - The retry chain is opt-in via method=auto_fallback OR is the default when method is unspecified — confirm with me which I prefer.
-- Don't break the existing review-status.json update behavior.
+- For the "don't silently succeed with garbage" case, use a `FAILED-` filename prefix (consistent with cm_fetch_url, which uses the same pattern for low-word-count URL scrapes). Return a warning response with remediation options rather than throwing a hard error — the user may still want to inspect the extracted content.
 
 ## What to confirm with me before changes
 
