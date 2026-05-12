@@ -15,6 +15,24 @@ You coordinate the extraction pipeline across multiple sources. Your job is queu
 
 For a single high-value source where the user wants to watch and engage, use **cm-deep-extract** instead.
 
+## Three-Chat Workflow (Default for Batches)
+
+Processing a weekly batch runs across three separate chats. Each phase holds a different work shape and hands off via a compact artifact.
+
+```
+Phase 1 — Extract  →  [Pass 4 Flag Report]  →  Phase 2 — Review
+Phase 2 — Review   →  [Decisions Document]  →  Phase 3 — Integrate
+```
+
+**When to use three-chat:** Any batch with more than 5 sources, or any batch where mixed-quality flags are expected. Splitting phases keeps each chat's context focused on one kind of task and means a rate-limit hit during extraction doesn't abort curator work.
+
+**When single-chat is acceptable:** Small batches (5 or fewer sources, low-complexity material) where the curator wants speed over isolation. In single-chat mode, invoke cm-curator-review directly after Step 5 instead of emitting the flag report.
+
+**How the handoffs work:**
+- Phase 1 (Extract — this skill) closes by emitting the Pass 4 Flag Report with a ready-to-paste opener for Phase 2.
+- Phase 2 (Review — cm-curator-review) closes by emitting the Decisions Document with a ready-to-paste opener for Phase 3.
+- You do not need to remember commands. Each phase tells you exactly how to start the next one.
+
 ## Step-by-Step Process
 
 ### 1. Build the queue
@@ -223,21 +241,70 @@ When presenting the consolidated curator review, group all flags into four categ
 
 For each group, present all flagged DPs in a table (dpId, source title, brief flag reason), then invite the curator's commentary before moving to the next group.
 
-### 5. Present consolidated Pass 4 review
+### 5. Emit the Pass 4 Flag Report (Phase 1 close)
 
-After all sources complete, aggregate all flags and hand off to the **cm-curator-review** skill.
+After all sources complete, aggregate all flags and emit the structured Pass 4 Flag Report. This is the closing artifact for Phase 1. Present it in full so the curator can copy it into Phase 2.
 
-Provide the curator review skill with:
-- Total sources processed
-- Total DPs extracted
-- The complete flag list across all sources
-- Any failed sources
+```
+## Pass 4 Flag Report — [date]
 
-Then follow the cm-curator-review process for the interactive review.
+**Project:** [project name]  |  **Batch:** [date range]
+**Sources processed:** [n]  |  **Failed:** [n]
+**Total data points:** [n]  |  **Total flags:** [n]
 
-### 6. Final report
+---
 
-After Pass 4 review is complete:
+### Group A — Position Contradictions ([n])
+
+| DP ID | Source Title | Claim (abbreviated) | Contradicts Position | Flag Reason |
+|---|---|---|---|---|
+| [dpId] | [title] | [first 80 chars...] | [position title] | [brief reason] |
+
+### Group B — Novel Signals ([n])
+
+| DP ID | Source Title | Claim (abbreviated) | Flag Reason |
+|---|---|---|---|
+| [dpId] | [title] | [first 80 chars...] | [brief reason] |
+
+### Group C — Confidence Mismatch ([n])
+
+| DP ID | Source Title | Source Tier | Assigned Confidence | Flag Reason |
+|---|---|---|---|---|
+| [dpId] | [title] | [tier] | [confidence] | [brief reason] |
+
+### Group D — Anchor Concerns ([n])
+
+| DP ID | Source Title | Anchor (abbreviated) | Concern |
+|---|---|---|---|
+| [dpId] | [title] | "[first 60 chars...]" | [brief concern] |
+
+---
+
+### Source Summary
+
+| Source Title | DPs | Mental Models | Flags | Outcome |
+|---|---|---|---|---|
+| [title] | [n] | [n] | [n] | ✅ Processed |
+| [title] | — | — | — | ❌ Failed: [error] |
+```
+
+Then present the Phase 2 opener:
+
+```
+---
+Phase 1 complete.
+
+To start Phase 2 (Review): open a new chat and paste the line below,
+followed by this flag report.
+
+    Start Phase 2 — Curate Mind weekly batch
+```
+
+**Single-chat mode only:** For batches of 5 or fewer sources, skip the opener and invoke cm-curator-review directly to continue in this chat.
+
+### 6. Final report (single-chat mode only)
+
+After cm-curator-review completes in the same chat:
 
 ```
 ## Batch Extraction Complete

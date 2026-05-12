@@ -71,7 +71,7 @@ The work happened in a single chat. The three phases (Phase 1 Intake + Extractio
 |---|---|---|---|---|
 | 1 | **P0** | Optimize sub-agent extraction cost (cm-source-pipeline + cm-batch-orchestrator) | Where the 5-minute burn happened | ✅ Completed |
 | 2 | **P0** | Add batched enrichment MCP tools (`cm_enrich_data_points_batch`, `cm_update_data_point_tags_batch`) | Cuts 30-60 tool calls per source down to 2-3 | ✅ Completed |
-| 3 | **P1** | Document three-chat workflow (extraction / review / integrate) | No infra change; behavioral. Removes the catastrophic-failure scenario | ⬜ Pending |
+| 3 | **P1** | Document three-chat workflow (extraction / review / integrate) | No infra change; behavioral. Removes the catastrophic-failure scenario | ✅ Completed |
 | 4 | **P2** | Add curator-review-phase MCP tools (`cm_get_position_arrays`, `cm_link_evidence_to_position`, `cm_update_positions_batch`) | Real cost in the linking phase even though it used only ~40% today | ⬜ Pending |
 | 5 | **P3** | Fix Dispatch intake tool date-folder bug | Removes weekly friction | ⬜ Pending |
 | 6 | **P3** | Add `cm_extract_pdf` retry-with-fallback chain | Eliminates silent PDF timeout failures | ⬜ Pending |
@@ -376,11 +376,20 @@ Behavior: same as cm_link_evidence_to_position but for an array of positions. Cr
 
 ## After tools land
 
-- Update `skills/cm-evidence-linker/SKILL.md` to use the new tools as the default linkage path:
-  1. Get current arrays via `cm_get_position_arrays` (lightweight).
-  2. Decide what to add.
-  3. Apply via `cm_link_evidence_to_position` (single) or `cm_update_positions_batch` (multiple).
-- Add memory note: "For linkage-only updates, use cm_link_evidence_to_position; for stance/thesis edits use cm_update_position."
+Update `skills/cm-evidence-linker/SKILL.md` in two specific places. The skill was rewritten in Prompt 3 — read the current file before editing. The two locations are:
+
+**1. Phase 3 entry-point, step 4 ("Update existing positions")**
+
+This step currently calls `cm_get_position_history` to retrieve current evidence arrays and `cm_update_position` to apply the update. Decisions-document position updates are always pure linkage (adding DP IDs and observation IDs — never stance rewrites), so the lighter tools are always correct here:
+- Replace `cm_get_position_history` with `cm_get_position_arrays`
+- Replace `cm_update_position` with `cm_link_evidence_to_position`
+
+**2. Tag-based workflow, Pass 2.5 and Pass 3**
+
+- Pass 2.5 ("Fetch Existing Evidence Arrays"): replace `cm_get_position_history` with `cm_get_position_arrays`. The entire rationale for Pass 2.5 was avoiding embedding-vector truncation from cm_get_position_detail — cm_get_position_arrays is the right permanent fix.
+- Pass 3 ("Position Update"): replace `cm_update_position` with `cm_link_evidence_to_position` (single position) or `cm_update_positions_batch` (multiple) as the default linkage path.
+
+**The rule to embed in both places:** use `cm_link_evidence_to_position` / `cm_update_positions_batch` for any update that only adds to evidence arrays. Use `cm_update_position` only when the curator is revising the stance text or open questions. Use `cm_get_position_history` only for full history inspection — never for retrieving current arrays before a linkage operation.
 
 ## What to confirm with me before changes
 
@@ -567,6 +576,16 @@ Entries are appended in chronological order. Each entry uses this template:
 ---
 
 *(End of plan. New entries below this line.)*
+
+### 2026-05-11 — Prompt 3: Document three-chat workflow
+- **Status:** Completed
+- **What changed:**
+  - `skills/cm-batch-orchestrator/SKILL.md` — added "Three-Chat Workflow (Default for Batches)" section after "When to Use This Skill" (explains when to use three-chat vs single-chat, how handoffs work, ready-to-paste opener pattern); rewrote Step 5 to emit a structured Pass 4 Flag Report artifact with the Phase 2 opener, instead of handing off to cm-curator-review inline; updated Step 6 header to flag it as "single-chat mode only."
+  - `skills/cm-curator-review/SKILL.md` — full rewrite: reframed as standalone Phase 2 skill that accepts a pasted flag report; updated frontmatter description; added 9-step process (open dashboard, auto-finalize clean sources, Groups A/B/C/D review, batch decisions, source finalization, Decisions Document output); moved cm_add_curator_observation / cm_create_position / cm_update_position calls out of this skill and into Phase 3; kept inline calls for source finalization (cm_update_source_status, cm_generate_embeddings) and confidence adjustments (cm_enrich_data_point); added Research Lens cadence guidance (trigger-based, not time-based) as an inline section; added Phase 3 opener at the close.
+  - `skills/cm-evidence-linker/SKILL.md` — added frontmatter header (was the only skill without one); added Phase 3 entry-point section at the top covering: confirm document, save observations in order (capture returned IDs for cross-references), create new positions, update existing positions with merged arrays, regenerate Research Lens per decisions document flag, prompt to continue to tag-based linking or close; added "Tag-Based Evidence Linking (Optional Continuation)" header to frame the existing Three-Pass Workflow as the optional second part of Phase 3.
+- **Deviations from plan:** Research Lens cadence guidance added to cm-curator-review as an inline section (not in cm-evidence-linker) — that's where the regeneration decision is captured (in the Decisions Document field), so the guidance belongs there. Evidence-linker step 5 implements the flag, not the decision logic.
+- **New follow-ups discovered:** When Prompt 4 lands (cm_get_position_arrays, cm_link_evidence_to_position, cm_update_positions_batch), Phase 3 step 4 in cm-evidence-linker should be updated to prefer cm_link_evidence_to_position over cm_update_position for pure linkage operations.
+- **Next chat should know:** Phase naming is Extract / Review / Integrate (soft, lowercase). The Decisions Document format is structured Markdown with sections A (observations), B (new positions), C (existing position updates), and a Research Lens field. Labels A1/A2/B1/B2/C1/C2 are used for cross-referencing within the document. The opener phrases are: "Start Phase 2 — Curate Mind weekly batch" and "Start Phase 3 — Curate Mind weekly batch."
 
 ### 2026-05-11 — Prompt 2: Add batched enrichment MCP tools
 - **Status:** Completed

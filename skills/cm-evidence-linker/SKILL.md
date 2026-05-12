@@ -1,16 +1,104 @@
-# cm-evidence-linker
+---
+name: cm-evidence-linker
+description: "Curate Mind Phase 3 — Integrate. Executes a Decisions Document from Phase 2 (saving curator observations, creating new positions, updating existing positions with new evidence), then optionally continues with tag-based evidence linking. Use when the user pastes a Decisions Document or says 'Start Phase 3 — Curate Mind weekly batch', 'integrate decisions', or 'link evidence'."
+---
 
-**Purpose:** Orchestrate the post-extraction evidence linking workflow — connecting extracted Data Points to Research Positions as supporting or counter-evidence.
+# Curate Mind — Phase 3: Integrate
 
-**When to use:** After an extraction wave is complete (sources have status `extracted`, DPs exist in Convex, but positions have empty or incomplete evidence chains). This is Phase 3.75 in the Implementation Plan.
+You execute the Decisions Document produced in Phase 2 (Review), then optionally continue with tag-based evidence linking to connect remaining DPs to positions.
 
 **Reference:** Architecture_Spec.md → Evidence Linking Pattern. Design Decisions 27, 28, 29.
 
 ---
 
-## Prerequisites
+## Phase 3 Entry-Point: Execute Decisions Document
 
-Before starting evidence linking:
+When the user pastes a Decisions Document or says "Start Phase 3 — Curate Mind weekly batch", execute it before doing anything else.
+
+### 1. Confirm the document
+
+Parse the pasted document and present a brief summary before executing:
+
+```
+## Phase 3: Integrate
+
+**Curator observations to save:** [n]
+**New positions to create:** [n]
+**Existing position updates:** [n]
+**Research Lens:** [Regenerate / Defer]
+
+Ready to execute. Say "go" to proceed, or adjust anything first.
+```
+
+### 2. Save curator observations (Section A)
+
+Execute in order — observation IDs are needed for cross-references in subsequent steps.
+
+For each observation in Section A:
+- Call `cm_add_curator_observation` with the observation text, dpIds, positionIds, and tags
+- Record the returned observation ID mapped to its label (A1 → [returned ID], A2 → [returned ID], etc.)
+- Report each as it saves: "Observation A1 saved: [returned ID]"
+
+### 3. Create new positions (Section B)
+
+For each position in Section B:
+- Call `cm_create_position` with title, themeId (look up by theme title if needed), initialStance, supportingEvidence (DP IDs), and openQuestions
+- Record the returned positionId mapped to its label (B1 → [returned ID], etc.)
+- Report: "Position B1 created: [title] ([returned positionId])"
+
+### 4. Update existing positions (Section C)
+
+For each update in Section C, in order:
+
+1. Call `cm_get_position_history` with the positionId to retrieve current evidence arrays. Use history (not detail) — the detail endpoint returns full embedding vectors that cause truncation.
+2. Extract existing `supportingEvidence` and `counterEvidence` arrays from the latest version.
+3. Resolve any cross-references: substitute actual IDs for labels like "A1 (save first)" using the IDs recorded in step 2.
+4. Merge: `[...existingSupporting, ...newSupportingDPs]` and `[...existingCounter, ...newCounterDPs]`.
+5. Call `cm_update_position` with the full merged arrays, the curatorObservations array (existing + new), and the stance note from Section C.
+6. Report the new version number: "Update C1 applied: [position title] now at version [n]"
+
+### 5. Regenerate Research Lens (if flagged)
+
+Check the Research Lens field in the decisions document:
+
+- **Regenerate: YES** — call `cm_update_research_lens` with the projectId. Report: "Research Lens regenerated."
+- **Regenerate: DEFER** — skip and note: "Research Lens deferred. Regenerate before the next extraction batch if new positions were created."
+
+### 6. Continue to tag-based evidence linking (optional)
+
+After the decisions document is fully executed, prompt:
+
+```
+Decisions document complete.
+
+Continue to tag-based evidence linking? This connects remaining DPs
+to positions via tag retrieval — useful after a large extraction wave.
+
+Say "yes" to continue, or "done" to close Phase 3 here.
+```
+
+If the curator says yes, proceed with the Three-Pass Workflow below. If done, close with a brief summary:
+
+```
+## Phase 3 Complete
+
+**Observations saved:** [n]
+**Positions created:** [n]
+**Positions updated:** [n]
+**Research Lens:** [Regenerated / Deferred]
+```
+
+---
+
+---
+
+## Tag-Based Evidence Linking (Optional Continuation)
+
+The sections below cover the second part of Phase 3: connecting DPs that weren't handled in the decisions document to Research Positions using tag-based retrieval. Run this after the decisions document is executed, or as a standalone session after any extraction wave.
+
+### Prerequisites
+
+Before starting tag-based evidence linking:
 1. At least one extraction wave is complete (sources extracted, DPs tagged)
 2. Research Positions exist (bootstrapped from CRIS or created during synthesis)
 3. The `cm_get_data_points_by_tag` MCP tool is available

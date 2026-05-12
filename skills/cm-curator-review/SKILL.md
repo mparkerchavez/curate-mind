@@ -1,103 +1,86 @@
 ---
 name: cm-curator-review
-description: "Curate Mind Pass 4: Curator Review. The human-in-the-loop quality check. Presents flagged items from the extraction pipeline for the curator to approve, adjust, or annotate. Works with aggregated flags from a batch run or flags from a single source. Use whenever the user says 'review flags', 'curator review', 'show me what needs attention', or after the batch orchestrator completes."
+description: "Curate Mind Phase 2 — Review. Takes a Pass 4 flag report from Phase 1, leads the curator through Group A/B/C/D flag review in order, and produces a Decisions Document to hand off to Phase 3 (cm-evidence-linker). Use when the user pastes a flag report or says 'Start Phase 2 — Curate Mind weekly batch', 'curator review', 'review flags', or 'show me what needs attention'."
 ---
 
-# Curate Mind — Pass 4: Curator Review
+# Curate Mind — Phase 2: Review
 
-You facilitate the curator review — the human-in-the-loop quality check. You present flagged items, process decisions efficiently, and finalize source statuses. Your goal is to make this fast and focused. The curator's time is the scarcest resource.
+You facilitate the curator review — the human-in-the-loop quality check between extraction and integration. You present flagged items, guide the curator through decisions in Groups A→B→C→D, and close by producing a Decisions Document. Phase 3 (cm-evidence-linker) executes that document.
+
+**What you do in this phase:**
+- Lead the dialogue through each flag group
+- Call `cm_update_source_status` and `cm_generate_embeddings` (source finalization — direct consequence of review completing)
+- Call `cm_enrich_data_point` for confidence adjustments (low-stakes DP-level change, no cross-referencing needed)
+
+**What you do NOT do in this phase:**
+- Do not call `cm_add_curator_observation`, `cm_create_position`, or `cm_update_position` — those happen in Phase 3. Instead, record decisions in the Decisions Document.
 
 ## When to Use This Skill
 
-- The batch orchestrator hands off after Passes 1-3 complete
-- The user asks to review flagged items
-- The deep-extract skill reaches the review step
-
-## Inputs
-
-You receive:
-- A list of flags, each with: sourceId, source title, dpId, flag type, brief reason
-- Total sources processed and total DPs extracted
-- The project ID
+- User pastes a Pass 4 flag report and says "Start Phase 2 — Curate Mind weekly batch"
+- User says "curator review", "review flags", or "show me what needs attention"
+- Batch orchestrator hands off in single-chat mode (5 or fewer sources)
 
 ## Step-by-Step Process
 
-### 1. Present the review dashboard
+### 1. Open with the review dashboard
 
-Start with an overview so the curator knows the scope:
+Parse the pasted flag report and present:
 
 ```
-## Curator Review
+## Phase 2: Review
 
-**Sources processed:** [n]
-**Total data points:** [n]
-**Items flagged for review:** [n flags] across [n sources]
+**Sources:** [n processed]  |  **Total data points:** [n]
+**Flags to review:** [n] across [n sources]
 
-| Flag Type | Count |
-|-----------|-------|
-| Confidence mismatch | [n] |
-| Position contradiction | [n] |
-| Anchor concern | [n] |
-| Novel signal | [n] |
+| Group | Type | Count |
+|---|---|---|
+| A | Position contradictions | [n] |
+| B | Novel signals | [n] |
+| C | Confidence mismatch | [n] |
+| D | Anchor concerns | [n] |
 
-**Sources with zero flags:** [n] (will be marked as extracted automatically)
+**Sources with zero flags:** [n] — finalizing now.
+
+Reviewing A → B → C → D.
 ```
 
 ### 2. Auto-finalize clean sources
 
-For sources with zero flags, immediately:
+For sources with zero flags:
 - Call `cm_update_source_status` with status `extracted` for each
-- Call `cm_generate_embeddings` to process pending embeddings
+- Call `cm_generate_embeddings`
 - Report: "[n] sources finalized with no flags."
 
-### 3. Present flags grouped by type
+### 3. Review Group A — Position Contradictions
 
-Present flags in order of importance, not source-by-source. This lets the curator batch-process similar decisions.
-
-#### Position contradictions (highest priority)
-
-These are the most strategically valuable flags. Present each with full context:
+These are the highest-priority flags. Present each with full context:
 
 ```
-### Contradiction [n] of [total]: [Source Title]
+### A[n] of [total]: [Source Title]
 
 **Claim:** [claimText]
 **Anchor:** "[anchorQuote]"
 **Confidence:** [confidence]
 
-**Contradicts position:** [position title]
-**Current stance (abbreviated):** [stance excerpt]
+**Contradicts:** [position title]
+**Current stance (excerpt):** [first ~150 chars of current stance]
 
 **The tension:** [1-2 sentences from the extraction note]
 
 **Options:**
-A) Approve — note the tension, no position update yet
-B) Approve + create a Curator Observation documenting the tension
-C) Approve + flag the position for potential update later
-D) Adjust — the contradiction isn't as strong as flagged
+A) Note — flag the tension, no action this phase
+B) Observation — draft a curator observation (records to Section A of decisions document)
+C) Position update — add as counter-evidence + note stance revision (records to Section C)
+D) Reclassify — not actually a contradiction, approve as-is
 ```
 
-#### Confidence mismatches
+Wait for curator response. If they choose B or C, draft the text with them before recording.
+
+### 4. Review Group B — Novel Signals
 
 ```
-### Mismatch [n] of [total]: [Source Title]
-
-**Claim:** [claimText]
-**Anchor:** "[anchorQuote]"
-**Source tier:** [tier] | **Assigned confidence:** [confidence]
-
-**Why flagged:** [Tier 1 source with suggestive confidence / Tier 3 source with strong confidence]
-
-**Options:**
-A) Approve as-is (the assessment is correct despite the tier mismatch)
-B) Adjust confidence to [suggested alternative]
-C) Edit the extraction note to clarify
-```
-
-#### Novel signals
-
-```
-### Novel [n] of [total]: [Source Title]
+### B[n] of [total]: [Source Title]
 
 **Claim:** [claimText]
 **Anchor:** "[anchorQuote]"
@@ -106,95 +89,179 @@ C) Edit the extraction note to clarify
 **Why flagged:** This concept doesn't connect to any existing Research Position.
 
 **Options:**
-A) Acknowledge — it's noted, no action needed now
-B) Create a Curator Observation linking it to emerging thinking
-C) Note for potential new Research Position (capture the thesis)
+A) Acknowledge — noted, no action needed
+B) Observation — draft a curator observation (records to Section A of decisions document)
+C) New position — draft title, theme, and initial stance (records to Section B)
 ```
 
-#### Anchor concerns
+### 5. Review Group C — Confidence Mismatch
 
 ```
-### Anchor [n] of [total]: [Source Title]
+### C[n] of [total]: [Source Title]
+
+**Claim:** [claimText]
+**Anchor:** "[anchorQuote]"
+**Source tier:** [tier]  |  **Assigned confidence:** [confidence]
+
+**Why flagged:** [Tier 1 source with suggestive confidence / Tier 3 source with strong confidence]
+
+**Options:**
+A) Approve — the assessment is correct despite the tier mismatch
+B) Adjust to [suggested alternative]
+```
+
+For option B: call `cm_enrich_data_point` with the updated confidence immediately. Also record the adjustment in the decisions document's DP Adjustments section for the audit trail.
+
+### 6. Review Group D — Anchor Concerns
+
+```
+### D[n] of [total]: [Source Title]
 
 **Claim:** [claimText]
 **Current anchor:** "[anchorQuote]"
 
-**Concern:** [what seems off — paraphrased? too vague? not found in source?]
+**Concern:** [what seems off — paraphrased? too vague? not in source?]
 
 **Options:**
 A) Approve — anchor is adequate
-B) Flag for re-extraction of this specific DP
+B) Flag for re-extraction (manual follow-up, note in decisions document)
 ```
 
-### 4. Support batch decisions
+### 7. Support batch decisions
 
-The curator should be able to move fast. Support these patterns:
+The curator should move fast. Support these patterns at any point:
 
-- **"Approve all confidence mismatches"** → Approve entire category
-- **"Approve 1, 3, 5 — let me look at 2, 4"** → Process approvals, present remaining
-- **"Adjust all Tier 3 strong → moderate"** → Batch confidence update
-- **"Approve all novel signals"** → Acknowledge all, no action needed
-- **"Looks good"** or **"approve"** → Move on immediately
+- "Approve all confidence mismatches" → Approve entire Group C as-is
+- "Approve 1, 3, 5 — let me look at 2, 4" → Process approvals, present remaining
+- "Adjust all Tier 3 strong → moderate" → Batch confidence updates via `cm_enrich_data_point`
+- "Acknowledge all novel signals" → Acknowledge all of Group B, no action needed
+- "Approve" or "looks good" → Move on immediately
 
-### 5. Process decisions
+### 8. Finalize reviewed sources
 
-**Approve:** No action needed, move to next flag.
+After all flags for a source are resolved:
+- Call `cm_update_source_status` with status `extracted`
+- Call `cm_generate_embeddings`
 
-**Adjust confidence:** Call `cm_enrich_data_point` with the updated confidence.
+### 9. Produce the Decisions Document (Phase 2 close)
 
-**Edit extraction note:** Ask for the new note text, then call `cm_enrich_data_point`.
+After all groups are complete, emit the full Decisions Document. Include every section even if empty (write "None" in empty sections so Phase 3 can skip them cleanly).
 
-**Create Curator Observation:** Help draft the observation text, ask which DPs and positions to link, then call `cm_add_curator_observation`.
+```markdown
+# Decisions Document — Week of [date]
 
-**Flag position for update:** Record the position ID and thesis. Present all flagged positions at the end as a "positions to revisit" list.
+**Project:** [name]  |  **Curator:** Maicol Parker-Chavez
+**From:** Pass 4 Flag Report ([date])
 
-**Flag for re-extraction:** Note this — it's a manual follow-up. The curator will need to re-examine the source in a dedicated session.
+---
 
-### 6. Finalize remaining sources
+## Source Finalization
 
-After all flags for a source are resolved, call `cm_update_source_status` with status `extracted` and `cm_generate_embeddings`.
+| Source Title | Action |
+|---|---|
+| [title] | Mark extracted |
+| [title] | Re-extraction needed |
 
-### 7. Close the review
+---
+
+## DP Adjustments
+
+*Applied inline during review — recorded here for the audit trail. No Phase 3 action needed.*
+
+| DP ID | Field | New Value |
+|---|---|---|
+| [dpId] | confidence | moderate |
+
+---
+
+## A. Curator Observations to Save
+
+### Observation A1
+**Text:** [observation text]
+**Data Points:** [dp-id-1], [dp-id-2]
+**Positions:** [position title or positionId]
+**Tags:** [tag-a, tag-b]
+
+*(repeat for each observation; use A1, A2, A3... so Phase 3 can cross-reference them)*
+
+---
+
+## B. New Positions to Create
+
+### Position B1: [Title]
+**Theme:** [theme title]
+**Initial Stance:** [stance text]
+**Supporting DPs:** [dp-id-1], [dp-id-2]
+**Open Questions:** [...]
+
+*(repeat for each new position; use B1, B2... so Phase 3 can cross-reference them)*
+
+---
+
+## C. Existing Position Updates
+
+### Update C1: [Position Title] (positionId: [id])
+**Observations to Add:** A1 (save first in Phase 3)
+**DPs to Add — Supporting:** [dp-id-1]
+**DPs to Add — Counter:** [dp-id-2]
+**Stance Note:** [1-2 sentences on what changed and why]
+
+*(repeat for each update)*
+
+---
+
+## Research Lens
+
+**Regenerate:** YES / DEFER
+**Reason:** [e.g., "2 new positions created" or "pure evidence linking, stances unchanged"]
+```
+
+Then present the Phase 3 opener:
 
 ```
-## Review Complete
+---
+Phase 2 complete.
 
-**Flags reviewed:** [n]
-- Approved as-is: [n]
-- Confidence adjusted: [n]
-- Extraction notes edited: [n]
-- Curator observations created: [n]
-- Re-extraction flagged: [n]
+To start Phase 3 (Integrate): open a new chat and paste the line below,
+followed by this Decisions Document.
 
-**Sources finalized:** [n total] ([n auto-finalized, n after review])
-
-**Positions to revisit:**
-[list of position titles + brief reason, if any]
-
-**Sources needing re-extraction:**
-[list, if any]
-
-All sources are now marked as extracted. Embeddings are being generated.
+    Start Phase 3 — Curate Mind weekly batch
 ```
 
-## Edge Case: No Flags at All
+## Research Lens — When to Regenerate
+
+The Research Lens is used during Pass 3 enrichment to help sub-agents connect DPs to positions. The right trigger is positional change, not time or source count.
+
+**Regenerate (set YES) when:**
+- New positions were created (the lens doesn't know they exist)
+- Existing positions received substantive stance updates — thesis revision, not just evidence linking
+
+**Defer (set DEFER) when:**
+- Phase 3 is pure evidence linking with no stance changes
+- You plan to process more related sources soon and want the lens to reflect a more mature set of positions before regenerating
+
+Positions become more useful in the lens as they accumulate evidence from multiple sources. If you're mid-campaign on a theme, deferring until positions stabilize produces a better lens for subsequent extraction waves.
+
+## Edge Case: No Flags
 
 If the entire batch produced zero flags:
 
 ```
-## Curator Review: No Flags
+## Phase 2: Review — No Flags
 
-All [n] sources completed Passes 1-3 with no items flagged for review.
-[total DPs] data points extracted, [total models] mental models created.
+All [n] sources completed extraction with no flagged items.
+[total DPs] data points, [total models] mental models.
 
-All sources marked as extracted. Embeddings being generated.
+All sources finalized. No decisions document needed.
+Phase 3 is optional — proceed to evidence linking if desired.
 ```
+
+Finalize all sources via `cm_update_source_status` and `cm_generate_embeddings`. No opener needed for Phase 3 unless the curator wants to run evidence linking.
 
 ## Interaction Style
 
-- Keep it efficient — the curator knows the domain
-- Don't over-explain flags. Present the information, offer options, process the decision.
-- Support rapid movement. "Approve" means move on immediately.
-- When the curator wants to discuss a flag, engage thoughtfully — this is where the highest-value insights emerge
-- Group similar decisions to enable batch processing
-- The review for 30-50 flags across 20 sources should take 15-30 minutes, not an hour
+- Efficient — the curator knows the domain. Present information, offer options, process the decision.
+- "Approve" or "looks good" means move on immediately. No confirmation needed.
+- When the curator wants to discuss a flag, engage — this is where the highest-value insights emerge.
+- Group similar decisions to enable batch processing.
+- Reviewing 30-50 flags should take 15-30 minutes, not an hour.
