@@ -12,11 +12,17 @@
  * - cm_get_tag_trends: Tag usage counts
  * - cm_get_position_history: Version history
  * - cm_list_sources: List sources by status
+ * - cm_list_data_points_by_source: Lean DP list for a single source
+ *
+ * Embedding vectors are stripped from all responses at the MCP boundary; the
+ * underlying Convex queries still return them (vector indexes require it) but
+ * they are not useful to MCP consumers and blow out token budgets.
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { api, asId, convexAction, convexQuery } from "../lib/convex-client.js";
+import { stripEmbeddingsDeep } from "../lib/response-shaping.js";
 
 const CHARACTER_LIMIT = 25000;
 
@@ -178,7 +184,9 @@ export function registerQueryTools(server: McpServer): void {
           };
         }
 
-        const text = truncateIfNeeded(JSON.stringify(detail, null, 2));
+        const text = truncateIfNeeded(
+          JSON.stringify(stripEmbeddingsDeep(detail), null, 2)
+        );
         return {
           content: [{ type: "text" as const, text }],
         };
@@ -234,7 +242,10 @@ export function registerQueryTools(server: McpServer): void {
 
         return {
           content: [
-            { type: "text" as const, text: JSON.stringify(dp, null, 2) },
+            {
+              type: "text" as const,
+              text: JSON.stringify(stripEmbeddingsDeep(dp), null, 2),
+            },
           ],
         };
       } catch (error) {
@@ -317,7 +328,8 @@ export function registerQueryTools(server: McpServer): void {
         "Args:\n" +
         "  - queryText (string): What to search for\n" +
         "  - limit (number, optional): Max results per entity type (default 5)\n\n" +
-        "Returns: Matching results from all entity types, ranked by relevance.",
+        "Returns: Matching results from all entity types, ranked by relevance. " +
+        "Embedding vectors are stripped from the response to keep it within token caps.",
       inputSchema: {
         queryText: z.string().min(1).describe("What to search for"),
         limit: z.number().int().min(1).max(20).optional()
@@ -337,7 +349,9 @@ export function registerQueryTools(server: McpServer): void {
           limit: limit ?? 5,
         });
 
-        const text = truncateIfNeeded(JSON.stringify(results, null, 2));
+        const text = truncateIfNeeded(
+          JSON.stringify(stripEmbeddingsDeep(results), null, 2)
+        );
         return {
           content: [{ type: "text" as const, text }],
         };
@@ -364,7 +378,8 @@ export function registerQueryTools(server: McpServer): void {
       description:
         "Get tag usage counts across all data points. Shows which topics " +
         "have the most evidence, useful for spotting emerging trends.\n\n" +
-        "Returns: Tags sorted by data point count (most used first).",
+        "Returns: Tags sorted by data point count (most used first). " +
+        "Embedding vectors are stripped from the response to keep it within token caps.",
       inputSchema: {},
       annotations: {
         readOnlyHint: true,
@@ -378,7 +393,10 @@ export function registerQueryTools(server: McpServer): void {
         const trends = await convexQuery(api.tags.getTagUsageCounts);
         return {
           content: [
-            { type: "text" as const, text: JSON.stringify(trends, null, 2) },
+            {
+              type: "text" as const,
+              text: JSON.stringify(stripEmbeddingsDeep(trends), null, 2),
+            },
           ],
         };
       } catch (error) {
@@ -431,7 +449,9 @@ export function registerQueryTools(server: McpServer): void {
           };
         }
 
-        const text = truncateIfNeeded(JSON.stringify(history, null, 2));
+        const text = truncateIfNeeded(
+          JSON.stringify(stripEmbeddingsDeep(history), null, 2)
+        );
         return {
           content: [{ type: "text" as const, text }],
         };
@@ -521,7 +541,8 @@ export function registerQueryTools(server: McpServer): void {
         "Pass 2 enrichment as context.\n\n" +
         "Args:\n" +
         "  - projectId (string): The project to get the lens for\n\n" +
-        "Returns: The current Research Lens or null if none exists yet.",
+        "Returns: The current Research Lens or null if none exists yet. " +
+        "Embedding vectors are stripped from the response to keep it within token caps.",
       inputSchema: {
         projectId: z.string().describe("Project ID"),
       },
@@ -552,7 +573,10 @@ export function registerQueryTools(server: McpServer): void {
 
         return {
           content: [
-            { type: "text" as const, text: JSON.stringify(lens, null, 2) },
+            {
+              type: "text" as const,
+              text: JSON.stringify(stripEmbeddingsDeep(lens), null, 2),
+            },
           ],
         };
       } catch (error) {
@@ -618,7 +642,7 @@ export function registerQueryTools(server: McpServer): void {
         );
 
         const summary = `Found ${dataPoints.length} data points for tag "${tag.name}" (${tagSlug}):\n\n` +
-          JSON.stringify(dataPoints, null, 2);
+          JSON.stringify(stripEmbeddingsDeep(dataPoints), null, 2);
 
         return {
           content: [
@@ -676,9 +700,65 @@ export function registerQueryTools(server: McpServer): void {
 
         const text =
           `Fetched ${found} of ${dataPointIds.length} data points` +
-          (missing > 0 ? ` (${missing} not found — returned as null)` : "") +
+          (missing > 0 ? ` (${missing} not found, returned as null)` : "") +
           ".\n\n" +
-          JSON.stringify(results, null, 2);
+          JSON.stringify(stripEmbeddingsDeep(results), null, 2);
+
+        return {
+          content: [{ type: "text" as const, text: truncateIfNeeded(text) }],
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+            },
+          ],
+        };
+      }
+    }
+  );
+
+  // ============================================================
+  // cm_list_data_points_by_source — Lean DP list scoped to one source
+  // ============================================================
+  server.registerTool(
+    "cm_list_data_points_by_source",
+    {
+      title: "List Data Points by Source",
+      description:
+        "Returns all data points extracted from a specific source, ordered by " +
+        "sequence number. Lean response: includes claim text, anchor quote, " +
+        "evidence type, confidence, sequence number, and extraction metadata, " +
+        "but NOT embeddings, tag joins, or source metadata fanout. Use this in " +
+        "extraction and processing workflows where you know the source ID and " +
+        "want its DPs without paying for embeddings.\n\n" +
+        "Args:\n" +
+        "  - sourceId (string): The source ID\n\n" +
+        "Returns: Array of data points ordered by dpSequenceNumber.",
+      inputSchema: {
+        sourceId: z.string().describe("The source ID"),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ sourceId }) => {
+      try {
+        const dataPoints = await convexQuery(
+          api.dataPoints.listDataPointsBySource,
+          {
+            sourceId: asId<"sources">(sourceId),
+          }
+        );
+
+        const text =
+          `Found ${dataPoints.length} data points for source ${sourceId}.\n\n` +
+          JSON.stringify(stripEmbeddingsDeep(dataPoints), null, 2);
 
         return {
           content: [{ type: "text" as const, text: truncateIfNeeded(text) }],

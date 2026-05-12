@@ -58,6 +58,21 @@ The foundation is a set of persistent, append-only entities in Convex (Data Poin
 
 Layers 3-4 are restricted from the Reader persona.
 
+### Phase 1 PDF Intake Flow
+
+PDFs go through a two-step intake. The extraction wraps the PDF in a markdown source file with a metadata header, and the curator fills in any fields the extractor could not read confidently before the source is ingested into Convex.
+
+1. Extract with `cm_extract_pdf`. This writes a `verify_*.md` wrapper into the current week's source folder and saves the original PDF alongside it. Fields the extractor could not resolve appear as `[verify]` placeholders in the metadata header.
+2. Open the wrapper and fill in the bracketed `[verify]` placeholders in the metadata header:
+   - Publisher
+   - Author
+   - Published (ISO date preferred, e.g. 2026-03-26)
+   - URL (canonical link to the original source)
+3. Rename the file to drop the `verify_` prefix.
+4. Ingest with `cm_add_source`, passing both `filePath` (the cleaned markdown) and `originalFilePath` (the PDF). The PDF gets uploaded to Convex file storage and the resulting storageId is stored on the source record.
+
+Guard: `cm_add_source` rejects any filename starting with `verify_` and any file whose metadata header still contains `[verify]` placeholders. This is intentional. Fix the metadata first, then ingest.
+
 ### Extraction Pipeline
 
 Four-pass, one source at a time. Each pass is a separate sub-agent with its own context window. Sub-agents write directly to Convex.
@@ -72,7 +87,7 @@ Two modes: **batch** (sub-agents process silently, curator reviews flags) and **
 
 After extraction waves, data points need to be connected to Research Positions. This is a separate phase from extraction.
 
-**Workflow:** Tag retrieval (`cm_get_data_points_by_tag`) → Curator triage → Position update (`cm_update_position`). Batch 2-3 themes at a time. Use tag-based retrieval, NOT semantic search (`cm_search` returns embedding vectors that blow out context windows). See Architecture_Spec.md → Evidence Linking Pattern and Design Decisions 27-29.
+**Workflow:** Tag retrieval (`cm_get_data_points_by_tag`) → Curator triage → Position update (`cm_update_position`). Batch 2-3 themes at a time. Prefer tag-based retrieval over semantic search for evidence linking: it scopes to a deliberate vocabulary slice and returns a tight, predictable shape. See Architecture_Spec.md → Evidence Linking Pattern and Design Decisions 27-29.
 
 **Skill:** `cm-evidence-linker` orchestrates this workflow.
 

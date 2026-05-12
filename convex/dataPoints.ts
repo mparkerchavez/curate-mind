@@ -318,6 +318,23 @@ export const getBySource = query({
 });
 
 // ============================================================
+// List data points for a source — lean shape for processing workflows
+// No tag joins, no source metadata, embeddings stripped.
+// ============================================================
+export const listDataPointsBySource = query({
+  args: { sourceId: v.id("sources") },
+  handler: async (ctx, args) => {
+    const dps = await ctx.db
+      .query("dataPoints")
+      .withIndex("by_sourceId", (q) => q.eq("sourceId", args.sourceId))
+      .collect();
+
+    dps.sort((a, b) => a.dpSequenceNumber - b.dpSequenceNumber);
+    return dps.map(({ embedding, ...rest }) => rest);
+  },
+});
+
+// ============================================================
 // Get a batch of data points by ID in a single call
 // Returns the same shape as getDataPoint (with source metadata and tags).
 // Missing IDs return null in the result array — position is preserved.
