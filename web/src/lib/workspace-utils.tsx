@@ -23,6 +23,10 @@ export type AssistantAnswer = {
   carriedDataPointIds: string[];
   freshDataPointIds: string[];
   retrievedDataPoints: any[];
+  positions?: AnalystPosition[];
+  observations?: AnalystObservation[];
+  mentalModels?: AnalystMentalModel[];
+  contextSummary?: string;
   scopeLabel: string;
 };
 
@@ -35,7 +39,8 @@ export type EvidenceSection = {
   title: string;
   subtitle: string;
   items: any[];
-  variant?: "support" | "counter" | "carried" | "context";
+  variant?: "support" | "counter" | "carried" | "context" | "positions" | "secondary";
+  kind?: "dataPoints" | "positions" | "secondary";
   cited?: boolean;
   /** Map from data point id → citation label ("E2", "C1") used as the evidence-card marker. */
   labelByDpId?: Record<string, string>;
@@ -47,6 +52,39 @@ export type EvidenceSection = {
    * card stays fully clickable.
    */
   referencedDpIds?: Set<string>;
+};
+
+export type AnalystPosition = {
+  positionId: string;
+  title: string;
+  themeTitle?: string;
+  currentStance: string;
+  supportingEvidenceCount: number;
+  counterEvidenceCount: number;
+};
+
+export type AnalystObservation = {
+  observationId: string;
+  content: string;
+};
+
+export type AnalystMentalModel = {
+  mentalModelId: string;
+  modelType: string;
+  term: string;
+  description: string;
+};
+
+export type AnalystDataPoint = {
+  label: string;
+  dataPointId: string;
+  origin?: "carried" | "fresh";
+  interpretation: string;
+  anchorQuote?: string;
+  whyItMatters?: string;
+  evidenceType?: string;
+  confidence?: string;
+  source?: SourceGroupSource | null;
 };
 
 /**
@@ -211,6 +249,66 @@ export function groupDataPointsBySource(dataPoints: any[]): SourceGroup[] {
     groups.get(key)!.claims.push(dp);
   }
   return Array.from(groups.values());
+}
+
+export function analystDataPointToCard(dp: AnalystDataPoint) {
+  return {
+    _id: dp.dataPointId,
+    label: dp.label,
+    claimText: dp.interpretation,
+    anchorQuote: dp.anchorQuote ?? "",
+    evidenceType: dp.evidenceType ?? "",
+    confidence: dp.confidence,
+    extractionNote: dp.whyItMatters,
+    source: dp.source ?? null,
+    origin: dp.origin,
+  };
+}
+
+export function buildCitationMapFromDataPoints(dataPoints: any[]): ChatCitation[] {
+  return dataPoints.map((dp, index) => ({
+    label: dp.label ?? `E${index + 1}`,
+    dataPointId: dp._id,
+    order: index + 1,
+    isCited: true,
+    origin: dp.origin,
+  }));
+}
+
+export function buildAnalystSummary(args: {
+  positions: AnalystPosition[];
+  dataPoints: any[];
+  observations: AnalystObservation[];
+  mentalModels: AnalystMentalModel[];
+}) {
+  const { positions, dataPoints, observations, mentalModels } = args;
+  const lines = [
+    `Found ${positions.length} relevant position${positions.length === 1 ? "" : "s"} and ${dataPoints.length} evidence data point${dataPoints.length === 1 ? "" : "s"} for this question.`,
+  ];
+
+  if (positions.length > 0) {
+    lines.push("");
+    lines.push("Most relevant positions:");
+    for (const [index, position] of positions.entries()) {
+      lines.push(`- [P${index + 1}] ${position.title}`);
+    }
+  }
+
+  if (dataPoints.length > 0) {
+    lines.push("");
+    lines.push("Evidence retrieved:");
+    for (const dp of dataPoints.slice(0, 5)) {
+      lines.push(`- [${dp.label}] ${summarizeText(dp.claimText ?? "", 180)}`);
+    }
+  }
+
+  const secondaryCount = observations.length + mentalModels.length;
+  if (secondaryCount > 0) {
+    lines.push("");
+    lines.push(`${secondaryCount} observation/model item${secondaryCount === 1 ? "" : "s"} are available in the evidence panel for secondary context.`);
+  }
+
+  return lines.join("\n");
 }
 
 export function getRouteKind(pathname: string): RouteKind {

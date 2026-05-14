@@ -108,8 +108,13 @@ export const POSITION_LEGEND_ROWS: LegendRow[] = [
 
 export const EVIDENCE_LEGEND_ROWS: LegendRow[] = [
   {
+    label: "P#",
+    description: "Research position — a current thesis surfaced for the question.",
+    tone: "blue",
+  },
+  {
     label: "E#",
-    description: "Supporting evidence — a data point that backs the stance.",
+    description: "Evidence data point — a grounded claim from the research base.",
     tone: "emerald",
   },
   {

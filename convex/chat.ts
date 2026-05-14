@@ -414,6 +414,9 @@ export const askAnalyst = action({
     args
   ): Promise<{
     question: string;
+    answer: string;
+    citations: CitationMeta[];
+    citedDataPointIds: string[];
     positions: AnalystPosition[];
     observations: AnalystObservation[];
     mentalModels: AnalystMentalModel[];
@@ -428,7 +431,10 @@ export const askAnalyst = action({
     };
   }> => {
     const openaiKey = process.env.OPENAI_API_KEY;
+    const anthropicKey = process.env.ANTHROPIC_API_KEY;
     if (!openaiKey) throw new Error("OPENAI_API_KEY is not set in Convex env");
+    if (!anthropicKey)
+      throw new Error("ANTHROPIC_API_KEY is not set in Convex env");
 
     const retrievalLimit = Math.max(1, Math.min(args.limit ?? 12, 20));
 
@@ -521,31 +527,54 @@ export const askAnalyst = action({
       .slice(0, retrievalLimit);
     const retrievedIds = uniqueIds([...carriedIds, ...freshIds]);
     const retrieved = await hydrateDataPoints(ctx, retrievedIds);
+    const dataPoints: EvidencePackItem[] = retrieved.map((dp, index) => ({
+      label: `E${index + 1}`,
+      dataPointId: dp._id,
+      origin: (carriedIdSet.has(dp._id) ? "carried" : "fresh") as EvidenceOrigin,
+      interpretation: dp.claimText,
+      whyItMatters: dp.extractionNote,
+      anchorQuote: dp.anchorQuote,
+      evidenceType: dp.evidenceType,
+      confidence: dp.confidence,
+      source: dp.source,
+    }));
+    const observations = (observationResults as any[]).map((o) => ({
+      observationId: String(o._id),
+      content: o.observationText ?? "",
+    }));
+    const mentalModels = (mentalModelResults as any[]).map((m) => ({
+      mentalModelId: String(m._id),
+      modelType: m.modelType ?? "term",
+      term: m.term ?? "",
+      description: m.description ?? "",
+    }));
+    const answer = await composeAnalystAnswer(anthropicKey, {
+      question: args.question,
+      scopeSummary: scope.summary,
+      positions,
+      observations,
+      mentalModels,
+      dataPoints,
+    });
+    const citedDataPointIds = collectCitedIdsFromInlineLabels(answer, retrieved);
+    const citedSet = new Set(citedDataPointIds);
+    const citations: CitationMeta[] = retrieved.map((dp, index) => ({
+      label: `E${index + 1}`,
+      dataPointId: dp._id,
+      order: index + 1,
+      isCited: citedSet.has(dp._id),
+      origin: carriedIdSet.has(dp._id) ? "carried" : "fresh",
+    }));
 
     return {
       question: args.question,
+      answer,
+      citations,
+      citedDataPointIds,
       positions,
-      observations: (observationResults as any[]).map((o) => ({
-        observationId: String(o._id),
-        content: o.observationText ?? "",
-      })),
-      mentalModels: (mentalModelResults as any[]).map((m) => ({
-        mentalModelId: String(m._id),
-        modelType: m.modelType ?? "term",
-        term: m.term ?? "",
-        description: m.description ?? "",
-      })),
-      dataPoints: retrieved.map((dp, index) => ({
-        label: `E${index + 1}`,
-        dataPointId: dp._id,
-        origin: (carriedIdSet.has(dp._id) ? "carried" : "fresh") as EvidenceOrigin,
-        interpretation: dp.claimText,
-        whyItMatters: dp.extractionNote,
-        anchorQuote: dp.anchorQuote,
-        evidenceType: dp.evidenceType,
-        confidence: dp.confidence,
-        source: dp.source,
-      })),
+      observations,
+      mentalModels,
+      dataPoints,
       carriedDataPointIds: carriedIds,
       freshDataPointIds: freshIds,
       context: {
@@ -561,6 +590,110 @@ export const askAnalyst = action({
 // ------------------------------------------------------------
 // Helpers
 // ------------------------------------------------------------
+
+async function composeAnalystAnswer(
+  anthropicKey: string,
+  args: {
+    question: string;
+    scopeSummary: string;
+    positions: AnalystPosition[];
+    observations: AnalystObservation[];
+    mentalModels: AnalystMentalModel[];
+    dataPoints: EvidencePackItem[];
+  }
+): Promise<string> {
+  const positionsBlock =
+    args.positions.slice(0, 5).map((position, index) =>
+      [
+        `P${index + 1}: ${position.title}`,
+        position.themeTitle ? `Theme: ${position.themeTitle}` : "",
+        `Stance: ${truncateForPrompt(position.currentStance, 900)}`,
+        `Evidence counts: ${position.supportingEvidenceCount} supporting, ${position.counterEvidenceCount} counter`,
+      ]
+        .filter(Boolean)
+        .join("\n")
+    ).join("\n\n") || "(none)";
+
+  const dataPointsBlock =
+    args.dataPoints.slice(0, 12).map((dp) =>
+      [
+        `${dp.label}: ${truncateForPrompt(dp.interpretation, 550)}`,
+        dp.whyItMatters ? `Why it matters: ${truncateForPrompt(dp.whyItMatters, 260)}` : "",
+        dp.evidenceType || dp.confidence
+          ? `Type/confidence: ${[dp.evidenceType, dp.confidence].filter(Boolean).join(" / ")}`
+          : "",
+      ]
+        .filter(Boolean)
+        .join("\n")
+    ).join("\n\n") || "(none)";
+
+  const observationsBlock =
+    args.observations.slice(0, 3).map((observation, index) =>
+      `O${index + 1}: ${truncateForPrompt(observation.content, 300)}`
+    ).join("\n") || "(none)";
+
+  const mentalModelsBlock =
+    args.mentalModels.slice(0, 3).map((model, index) =>
+      `M${index + 1}: ${model.term} (${model.modelType}) - ${truncateForPrompt(model.description, 300)}`
+    ).join("\n") || "(none)";
+
+  const system = [
+    "You are the Curate Mind analyst. Write a clear, grounded answer for a public-facing research UI.",
+    "Use only the supplied positions, observations, mental models, and evidence data points.",
+    "Cite every evidence-backed claim with data point labels like [E1]. You may mention position labels like [P1] as plain references.",
+    "Do not invent facts, sources, quotes, statistics, or labels. If the evidence is thin, say so.",
+    "Optimize for useful synthesis, not exhaustive coverage. Prefer 3-5 short sections with direct headings.",
+    "Do not include a JSON block or bibliography.",
+  ].join("\n");
+
+  const user = [
+    args.scopeSummary,
+    "",
+    `Question: ${args.question}`,
+    "",
+    "## Positions",
+    positionsBlock,
+    "",
+    "## Evidence Data Points",
+    dataPointsBlock,
+    "",
+    "## Curator Observations",
+    observationsBlock,
+    "",
+    "## Mental Models",
+    mentalModelsBlock,
+  ].join("\n");
+
+  const anthropicResp = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": anthropicKey,
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-6",
+      max_tokens: 1200,
+      system,
+      messages: [{ role: "user", content: user }],
+    }),
+  });
+
+  if (!anthropicResp.ok) {
+    const errText = await anthropicResp.text();
+    throw new Error(`Anthropic API error: ${anthropicResp.status} ${errText}`);
+  }
+
+  const anthropicData = (await anthropicResp.json()) as {
+    content: Array<{ type: string; text?: string }>;
+  };
+
+  return anthropicData.content
+    .filter((c) => c.type === "text" && c.text)
+    .map((c) => c.text as string)
+    .join("\n")
+    .trim();
+}
 
 async function hydrateDataPoints(
   ctx: ActionCtx,
@@ -614,6 +747,14 @@ function uniqueIds(ids: Array<string | Id<"dataPoints">>): string[] {
     unique.push(normalized);
   }
   return unique;
+}
+
+function truncateForPrompt(value: string | undefined, maxLength: number): string {
+  const text = (value ?? "").trim();
+  if (text.length <= maxLength) return text;
+  const shortened = text.slice(0, maxLength);
+  const lastSpace = shortened.lastIndexOf(" ");
+  return `${shortened.slice(0, lastSpace > 0 ? lastSpace : maxLength).trimEnd()}...`;
 }
 
 async function resolveScopeContext(

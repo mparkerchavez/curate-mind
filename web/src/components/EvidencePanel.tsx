@@ -13,7 +13,8 @@ type RenderSection = {
   title: string;
   subtitle: string;
   items: any[];
-  variant?: "support" | "counter" | "carried" | "context" | "also-attached";
+  variant?: "support" | "counter" | "carried" | "context" | "also-attached" | "positions" | "secondary";
+  kind?: "dataPoints" | "positions" | "secondary";
   cited?: boolean;
   labelByDpId?: Record<string, string>;
   dimmed?: boolean;
@@ -65,6 +66,7 @@ export default function EvidencePanel() {
         subtitle: s.subtitle,
         items: s.items,
         variant: s.variant,
+        kind: s.kind,
         cited: s.cited,
         labelByDpId: s.labelByDpId,
       }));
@@ -155,6 +157,8 @@ export default function EvidencePanel() {
       <div className="flex-1 overflow-y-auto pb-4">
         {visibleSections.map((section) => {
           const isCounter = section.variant === "counter";
+          const isPositions = section.kind === "positions";
+          const isSecondary = section.kind === "secondary";
           const groups = groupDataPointsBySource(section.items);
           const citedIds = section.cited ? section.items.map((dp: any) => dp._id) : undefined;
           const clickableIds =
@@ -197,7 +201,11 @@ export default function EvidencePanel() {
                 <p className="mt-1 text-xs text-tertiary">{section.subtitle}</p>
               </div>
               <div className="px-5 pt-5 pb-7">
-                {groups.length > 0 ? (
+                {isPositions ? (
+                  <PositionList positions={section.items} />
+                ) : isSecondary ? (
+                  <SecondaryContextList items={section.items} />
+                ) : groups.length > 0 ? (
                   <div className="space-y-7">
                     {groups.map((group) => (
                       <SourceEvidenceGroup
@@ -227,5 +235,55 @@ export default function EvidencePanel() {
         })}
       </div>
     </div>
+  );
+}
+
+function PositionList({ positions }: { positions: any[] }) {
+  return (
+    <ol className="space-y-4">
+      {positions.map((position, index) => (
+        <li key={position.positionId ?? index} className="rounded-lg border border-secondary bg-secondary_subtle px-3 py-3">
+          <div className="flex items-start gap-3">
+            <span className="shrink-0 text-sm font-semibold tabular-nums tracking-[0.02em] text-brand-secondary">
+              P{index + 1}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold leading-6 text-primary">{position.title}</p>
+              {position.themeTitle && (
+                <p className="mt-0.5 text-xs leading-5 text-tertiary">{position.themeTitle}</p>
+              )}
+              {position.currentStance && (
+                <p className="mt-2 text-sm leading-6 text-secondary">{position.currentStance}</p>
+              )}
+              <p className="mt-2 text-xs leading-5 text-tertiary">
+                {position.supportingEvidenceCount ?? 0} supporting · {position.counterEvidenceCount ?? 0} counter
+              </p>
+            </div>
+          </div>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function SecondaryContextList({ items }: { items: any[] }) {
+  return (
+    <details className="rounded-lg border border-secondary bg-secondary_subtle px-3 py-3">
+      <summary className="cursor-pointer text-sm font-semibold text-primary">
+        Show observations and mental models
+      </summary>
+      <div className="mt-3 space-y-3">
+        {items.map((item, index) => (
+          <div key={item.observationId ?? item.mentalModelId ?? index} className="border-t border-secondary pt-3 first:border-t-0 first:pt-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-quaternary">
+              {item.kind === "observation" ? "Observation" : item.modelType ?? "Mental model"}
+            </p>
+            <p className="mt-1 text-sm leading-6 text-secondary">
+              {item.kind === "observation" ? item.content : `${item.term}: ${item.description}`}
+            </p>
+          </div>
+        ))}
+      </div>
+    </details>
   );
 }
