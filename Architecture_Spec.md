@@ -32,6 +32,8 @@ When querying the knowledge base, the system defaults to the highest level of co
 
 Progressive disclosure applies to how data is queried and surfaced. It does **not** apply to extraction. Every source that enters the pipeline receives full-fidelity extraction.
 
+**`cm_ask` implements progressive disclosure server-side.** The `cm_ask` MCP tool fetches all layers in a single call and returns a structured analyst pack: Layer 1 positions first (the curator's current stance on the topic), then Layer 2 evidence (curator observations, mental models, and data points with resolved source links), with Layer 3 verbatim anchor quotes included in the pack for verification on demand. Every substantive claim in the pack carries an inline citation label: `[P#]` for positions, `[O#]` for observations, `[M#]` for mental models, `[E#]` for data point evidence. This is the primary tool for analyst queries. See Design Decision 31 for why it exists as a separate tool from `cm_search`.
+
 ### 3. Append-Only Data Architecture
 
 Nothing is deleted. Nothing is overwritten. Every change creates a new record.
@@ -382,14 +384,17 @@ When reprocessing sources that were previously extracted:
 
 ### Analyst Persona Tools (Query & Analysis)
 
+The analyst tools operate in two distinct modes. **Mode 1 (`cm_search`)** is for exploration and signal-finding — scanning the corpus for emerging patterns, pressure-testing a brief, or doing early corpus work before positions exist. **Mode 2 (`cm_ask`)** is for rigorous cited analysis — producing answers traceable from position stance to data point to verbatim source. See Design Decision 31.
+
 | Tool | Description |
 |------|-------------|
+| `cm_ask` | **Mode 2 — Analyst query with progressive disclosure.** Fetches a structured pack: positions first (Layer 1, curator's current stance), then curator observations, mental models, and data points with resolved source links (Layer 2), with verbatim anchor quotes available in the pack for verification (Layer 3). Returns `[P#]`, `[O#]`, `[M#]`, `[E#]` citation labels on every claim. Use for any question requiring a cited, traceable answer. |
 | `get_themes` | Return all Research Themes with position counts and summary stats. (Layer 1) |
 | `get_positions` | Return positions within a theme, or all positions matching a filter. Current stance, confidence, status. (Layer 1) |
 | `get_position_detail` | Return a position with all linked evidence, counter-evidence, observations, mental models, and version history. (Layer 2) |
 | `get_data_point` | Return a single DP with full detail including anchor quote and extraction note. (Layer 3) |
 | `get_source_text` | Return the full text of a source. (Layer 4) |
-| `search_knowledge_base` | Semantic vector search across data points, positions, observations, and mental models. Returns results at the highest applicable layer. |
+| `cm_search` | **Mode 1 — Exploration and signal-finding.** Semantic vector search across data points, positions, observations, and mental models. Use for scanning emerging signals, pressure-testing a brief, or exploring the corpus when positions don't yet exist. Do not use for producing cited analyst answers — source links in `cm_search` results are not resolved. |
 | `get_data_points_by_tag` | Retrieve all DPs linked to a specific tag by slug. Returns clean data (ID, claim, evidence type, confidence, source title, source tier) without embeddings. Primary tool for building evidence pools during evidence linking. See Evidence Linking Pattern below. |
 | `get_tag_trends` | Return tag frequency over time periods. Identifies emerging and growing topics. |
 | `get_position_history` | Return all versions of a position with diffs. Supports the 3-6 month cross-referencing use case. |

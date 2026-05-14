@@ -381,4 +381,24 @@ Allowed mutation types (with justification required):
 
 ---
 
+## Decision 31: Two-Mode Query Protocol — `cm_search` for Exploration, `cm_ask` for Analysis
+
+**What:** The MCP query interface is split into two distinct tools with non-overlapping purposes:
+
+- **Mode 1 (`cm_search`):** Semantic vector search across all entity types. For exploration: scanning for emerging signals, pressure-testing a brief, or doing early corpus work before positions exist. Does not produce citations — source links in results are not resolved. Output is meant to spark a reaction or surface patterns, not support a cited argument.
+
+- **Mode 2 (`cm_ask`):** Progressive disclosure analyst tool. Always surfaces positions first (Layer 1 — the curator's current stance), then curator observations and mental models (Layer 2 — connective reasoning), then data points with resolved source links (Layer 2). Verbatim anchor quotes are included in the pack for Layer 3 verification on demand. Returns a structured pack with inline citation labels: `[P#]` for positions, `[O#]` for observations, `[M#]` for mental models, `[E#]` for data point evidence.
+
+**Why:** Without `cm_ask`, Claude defaulted to `cm_search` for all queries — both exploration and analysis. This produced two problems: (1) answers that led with raw evidence clusters rather than the curator's synthesized position, burying the most important context; and (2) hallucinated source links. `cm_search` returns embedding vectors and unresolved source metadata. When Claude tried to construct source URLs from this, it fabricated URLs that looked plausible but didn't exist. Analyst answers became uncitable.
+
+**Why not just fix `cm_search`?** The two modes serve genuinely different workflows, not just different output formats. Exploration needs breadth: scan across entity types, surface patterns, return results that spark a perspective. Analysis needs depth: start from synthesized positions, layer in grounded evidence, resolve every source to an actual link. Collapsing them into a single tool with a flag would require loading the full progressive disclosure machinery for every exploratory query — slower, more expensive, and semantically wrong for early-corpus work when positions don't exist yet.
+
+**`cm_retrieve_evidence_pack` as the predecessor:** Before `cm_ask`, there was `cm_retrieve_evidence_pack` — a tool that fetched data points with resolved source links for a specific position. It partially addressed the hallucinated-URL problem, but it didn't include positions or observations, so Claude still had to synthesize the curator's stance from evidence rather than retrieving it. `cm_ask` expands this into the full analyst pack: positions first, evidence second, all source links resolved throughout.
+
+**The boundary rule:** Do not use `cm_search` to produce cited answers. Do not use `cm_ask` for early corpus exploration when positions don't yet exist.
+
+**Date:** May 2026
+
+---
+
 *When making implementation decisions not covered here, apply this test: does this decision serve the foundation (persistent, queryable, append-only knowledge structure) or does it serve a specific output? If the latter, it probably doesn't belong in the core system. Generate it on demand instead.*

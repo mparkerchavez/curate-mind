@@ -31,7 +31,7 @@ The system is built on one principle: **build a robust foundation, generate ever
 
 **Research Persona (curator):** Ingests sources, runs the extraction pipeline, writes observations, and maintains research positions. Full MCP access. This is Maicol's role in the demo system.
 
-**Analyst Persona (power user):** Queries the knowledge base for analysis against new projects or opportunities. Full progressive disclosure access across all four layers: Themes and Positions → Evidence → Verification → Full Source.
+**Analyst Persona (power user):** Queries the knowledge base for analysis against new projects or opportunities. Full progressive disclosure access across all four layers: Themes and Positions → Evidence → Verification → Full Source. `cm_ask` is the primary query tool for cited analyst answers — it fetches a structured pack with position stances first, then observations, mental models, and data points with resolved source links, all tagged with inline citation labels (`[P#]`, `[O#]`, `[M#]`, `[E#]`). `cm_search` is reserved for exploration and signal-finding when positions don't exist yet or a cited answer is not the goal.
 
 **Reader Persona (external visitors):** Browses the research via the web frontend at curatemind.io. Layer 1 and 2 only — no verbatim anchor quotes, no full source text. The web app is the Reader interface.
 
@@ -55,7 +55,7 @@ Skills are the orchestration layer. They contain the step-by-step instructions C
 
 **MCP tools (underlying primitives the skills call)**
 - `extraction.ts` — `cm_extract_source`, `cm_save_data_points`, `cm_enrich_data_point`, `cm_update_data_point_tags`, `cm_save_mental_models`, `cm_update_source_status`
-- `query.ts` — themes, positions, evidence, data points, semantic search, source text, tag trends, position history
+- `query.ts` — `cm_ask` (Mode 2: analyst query with progressive disclosure and resolved source links), themes, positions, evidence, data points, `cm_search` (Mode 1: semantic exploration), source text, tag trends, position history
 - `synthesis.ts` — `cm_create_theme`, `cm_create_position`, `cm_update_position`, `cm_update_research_lens`, `cm_create_tag`, `cm_generate_embeddings`
 - `intake.ts` (validation phase) — `cm_add_source`, `cm_add_curator_observation`, and `cm_add_mental_model` are functional; `cm_fetch_url`, `cm_fetch_youtube`, and `cm_extract_pdf` exist for two-step local intake and are being manually tested before being treated as production-ready
 - `review.ts` — local file review queue for fetched markdown files; part of the current MCP-based intake validation path
@@ -126,6 +126,7 @@ The v1 GitHub release is complete when all of the following are true:
 - [ ] `cm_add_source` successfully ingests a markdown file and stores fullText in Convex
 - [ ] Four-pass extraction pipeline runs without errors on a single source via `cm-deep-extract` or `cm-batch-orchestrator`
 - [ ] `cm_search` returns semantic results (embeddings are generated and stored correctly)
+- [ ] `cm_ask` returns a structured analyst pack with `[P#]`, `[O#]`, `[M#]`, `[E#]` citation labels and resolved source links
 - [ ] `cm_fetch_url`, `cm_fetch_youtube`, `cm_extract_pdf`, and `cm_review_queue` have been manually smoke-tested against representative sources before being documented as production-ready intake tools
 
 ### Convex backend
@@ -164,6 +165,7 @@ These rules apply to every agent working on this project. Do not deviate without
 - Do not load the Research Lens during Pass 1 or Pass 2. Only Pass 3 uses it.
 - Do not assign tags during Pass 1. Tags are assigned in Pass 3 with a holistic view of all data points.
 - Do not use `cm_search` for evidence linking — use `cm_get_data_points_by_tag`. Semantic search returns embedding vectors that blow out context windows.
+- Do not use `cm_search` to answer analyst questions that require cited sources. Use `cm_ask` — it returns positions first, then grounded evidence with resolved source links.
 
 **Frontend — follow these exactly:**
 - Do not add new pages or components unless explicitly asked.
