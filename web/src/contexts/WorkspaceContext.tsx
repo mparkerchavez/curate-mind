@@ -172,7 +172,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     if (routeKind === "ask" && activeAnswer) {
       const citedSet = new Set([
         ...activeAnswer.citedDataPointIds,
-        ...(activeAnswer.citations ?? []).map((c) => c.dataPointId).filter(Boolean),
+        ...(activeAnswer.citations ?? [])
+          .filter((c) => c.isCited)
+          .map((c) => c.dataPointId)
+          .filter(Boolean),
       ]);
       const carriedSet = new Set(activeAnswer.carriedDataPointIds);
       const cited = activeAnswer.retrievedDataPoints.filter((dp: any) => citedSet.has(dp._id));

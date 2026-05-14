@@ -245,7 +245,11 @@ export const askGrounded = action({
     // 8. Parse: extract trailing JSON block, return prose before it
     const { answer, citedDataPointIds } = parseCitedJson(rawText);
     const retrievedIdSet = new Set(retrieved.map((dp) => dp._id));
-    const normalizedCitedIds = citedDataPointIds.filter((id) => retrievedIdSet.has(id));
+    const normalizedCitedIds = (
+      citedDataPointIds.length > 0
+        ? citedDataPointIds
+        : collectCitedIdsFromInlineLabels(answer, retrieved)
+    ).filter((id) => retrievedIdSet.has(id));
 
     const citedSet = new Set(normalizedCitedIds);
     const citations: CitationMeta[] = retrieved.map((dp, index) => {
@@ -515,7 +519,10 @@ function parseCitedJson(raw: string): {
     }
   }
 
-  return { answer: raw.trim(), citedDataPointIds: [] };
+  return {
+    answer: stripMalformedTrailingCitedJson(raw),
+    citedDataPointIds: [],
+  };
 }
 
 function parseTrailingCitedObject(raw: string): {
@@ -573,6 +580,39 @@ function findMatchingJsonObjectEnd(text: string, objectStart: number): number {
     }
   }
   return -1;
+}
+
+function stripMalformedTrailingCitedJson(raw: string): string {
+  const keyIndex = raw.lastIndexOf('"cited_dp_ids"');
+  if (keyIndex < 0) return raw.trim();
+
+  const objectStart = raw.lastIndexOf("{", keyIndex);
+  if (objectStart < 0) return raw.trim();
+
+  const beforeObject = raw.slice(0, objectStart);
+  if (!/`{2,3}json\s*$/i.test(beforeObject) && objectStart < raw.length * 0.8) {
+    return raw.trim();
+  }
+
+  return beforeObject.replace(/`{2,3}json\s*$/i, "").trim();
+}
+
+function collectCitedIdsFromInlineLabels(
+  answer: string,
+  retrieved: CitedDataPoint[]
+): string[] {
+  const seen = new Set<string>();
+  const ids: string[] = [];
+
+  for (const match of answer.matchAll(/\[E(\d+)\]/g)) {
+    const index = Number(match[1]) - 1;
+    const dataPointId = retrieved[index]?._id;
+    if (!dataPointId || seen.has(dataPointId)) continue;
+    seen.add(dataPointId);
+    ids.push(dataPointId);
+  }
+
+  return ids;
 }
 
 function stripCitationLabelsFromHistory(content: string): string {
