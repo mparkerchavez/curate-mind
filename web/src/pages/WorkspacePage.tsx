@@ -1282,6 +1282,12 @@ function ChatModal({
                     <TextAreaBase
                       value={input}
                       onChange={(event) => setInput(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" && !event.shiftKey) {
+                          event.preventDefault();
+                          void onSubmit();
+                        }
+                      }}
                       rows={10}
                       disabled={pending || reachedTurnLimit}
                       placeholder={
@@ -1294,7 +1300,7 @@ function ChatModal({
 
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-xs font-medium text-slate-500">
-                        Cmd/Ctrl + Enter to submit
+                        Enter to send · Shift + Enter for new line
                       </p>
 
                       <Button

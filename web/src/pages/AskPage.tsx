@@ -204,7 +204,7 @@ export default function AskPage() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => {
-                    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                    if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
                       void handleAskQuestion();
                     }
@@ -215,7 +215,7 @@ export default function AskPage() {
                   className="min-h-[4.5rem] resize-none bg-transparent shadow-none ring-0 focus:ring-0"
                 />
                 <div className="mt-3 flex items-center justify-between">
-                  <p className="text-xs text-tertiary">{"\u2318"}/Ctrl + Enter</p>
+                  <p className="text-xs text-tertiary">Enter to send · Shift + Enter for new line</p>
                   <Button
                     type="submit"
                     size="sm"

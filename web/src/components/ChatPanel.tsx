@@ -178,7 +178,7 @@ export default function ChatPanel() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
-              if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+              if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
                 void handleAskQuestion();
               }
@@ -194,7 +194,7 @@ export default function ChatPanel() {
           />
           <div className="mt-2 flex items-center justify-between">
             <p className="text-xs text-slate-500">
-              {"\u2318"}/Ctrl + Enter
+              Enter to send · Shift + Enter for new line
             </p>
             <Button
               type="submit"
