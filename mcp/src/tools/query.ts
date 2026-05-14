@@ -73,6 +73,83 @@ function resolveSourceLink(
   return { url, label };
 }
 
+function getEvidenceLabelMap(dataPoints: any[]): Map<string, any> {
+  return new Map(
+    dataPoints
+      .filter((item) => item?.label)
+      .map((item) => [String(item.label), item])
+  );
+}
+
+function getCitationLabels(text: string): string[] {
+  const seen = new Set<string>();
+  const labels: string[] = [];
+  for (const match of text.matchAll(/\[(E\d+)\]/g)) {
+    const label = match[1];
+    if (seen.has(label)) continue;
+    seen.add(label);
+    labels.push(label);
+  }
+  return labels;
+}
+
+function formatSourceLine(source: any): string {
+  const bits = [
+    source.title ? `Title: ${String(source.title)}` : "Title: Unknown source",
+    source.authorName ? `Author: ${String(source.authorName)}` : null,
+    source.publisherName ? `Publisher: ${String(source.publisherName)}` : null,
+    source.publishedDate ? `Date: ${String(source.publishedDate)}` : null,
+    source.tier ? `Tier: ${String(source.tier)}` : null,
+  ].filter(Boolean);
+  return bits.join(" · ");
+}
+
+function formatLocalEvidenceItem(item: any): string[] {
+  const source = item.source ?? {};
+  const { url: sourceUrl, label: sourceLabel } = resolveSourceLink(source, item.anchorQuote);
+  return [
+    `- **[${item.label}] ${source.title ? String(source.title) : "Unknown source"}**`,
+    `  - ${formatSourceLine(source)}`,
+    `  - Interpretation: ${item.interpretation}`,
+    item.anchorQuote ? `  - Anchor quote: "${item.anchorQuote}"` : "  - Anchor quote: Not provided.",
+    sourceUrl
+      ? `  - Original source: [${sourceLabel ?? "Open source"}](${sourceUrl})`
+      : "  - Original source: Not available.",
+  ];
+}
+
+function formatAnswerWithLocalEvidence(answer: string, dataPoints: any[]): string[] {
+  const evidenceByLabel = getEvidenceLabelMap(dataPoints);
+  const lines: string[] = ["## Answer", ""];
+  const blocks = answer
+    .split(/\n{2,}/)
+    .map((block) => block.trim())
+    .filter(Boolean);
+
+  if (blocks.length === 0) {
+    lines.push("No composed answer was returned.", "");
+    return lines;
+  }
+
+  for (const block of blocks) {
+    lines.push(block, "");
+
+    const labels = getCitationLabels(block);
+    const evidenceItems = labels
+      .map((label) => evidenceByLabel.get(label))
+      .filter(Boolean);
+
+    if (evidenceItems.length === 0) continue;
+
+    lines.push("Evidence for this paragraph:", "");
+    for (const item of evidenceItems) {
+      lines.push(...formatLocalEvidenceItem(item), "");
+    }
+  }
+
+  return lines;
+}
+
 function formatEvidencePackMarkdown(result: any): string {
   const items = Array.isArray(result.evidencePack) ? result.evidencePack : [];
   const lines: string[] = [
@@ -147,24 +224,25 @@ function formatEvidencePackMarkdown(result: any): string {
 
 function formatAnalystPackMarkdown(result: any): string {
   const positions: any[] = Array.isArray(result.positions) ? result.positions : [];
-  const observations: any[] = Array.isArray(result.observations) ? result.observations : [];
-  const mentalModels: any[] = Array.isArray(result.mentalModels) ? result.mentalModels : [];
   const dataPoints: any[] = Array.isArray(result.dataPoints) ? result.dataPoints : [];
+  const citedLabels = new Set(
+    Array.isArray(result.citations)
+      ? result.citations
+          .filter((citation: any) => citation?.isCited && citation?.label)
+          .map((citation: any) => String(citation.label))
+      : []
+  );
+  const citedDataPoints = dataPoints.filter((item) => citedLabels.has(String(item.label)));
+  const additionalDataPoints = dataPoints.filter((item) => !citedLabels.has(String(item.label)));
 
   const lines: string[] = [
-    "# Curate Mind Analyst Pack",
+    "# Curate Mind Analyst Answer",
     "",
     `**Question:** ${result.question}`,
     "",
-    "## How to Use This Pack",
-    "",
-    "- Lead your answer with positions (Layer 1) — these are the curator's synthesized stances.",
-    "- Support claims with observations [O#], mental models [M#], and data point evidence [E#].",
-    "- Every substantive claim should carry at least one inline label.",
-    "- Anchor quotes are for verification; surface them when a specific claim needs it.",
-    "- If the pack does not support an answer, say so rather than filling gaps.",
-    "",
   ];
+
+  lines.push(...formatAnswerWithLocalEvidence(result.answer ?? "", dataPoints));
 
   // ── Context ──────────────────────────────────────────────────
   if (result.context?.summary) {
@@ -192,58 +270,24 @@ function formatAnalystPackMarkdown(result: any): string {
   }
 
   // ── Layer 2a: Curator Observations ───────────────────────────
-  lines.push("## Layer 2 — Curator Observations", "");
-  if (observations.length === 0) {
-    lines.push("No observations matched this question.", "");
-  } else {
-    observations.forEach((o, i) => {
-      lines.push(`**[O${i + 1}]** ${o.content}`, "");
-    });
-  }
-
-  // ── Layer 2b: Mental Models ───────────────────────────────────
-  lines.push("## Layer 2 — Mental Models", "");
-  if (mentalModels.length === 0) {
-    lines.push("No mental models matched this question.", "");
-  } else {
-    mentalModels.forEach((m, i) => {
-      lines.push(
-        `**[M${i + 1}] ${m.term}** (${m.modelType})`,
-        "",
-        m.description,
-        ""
-      );
-    });
-  }
-
-  // ── Layer 2c: Data Points ─────────────────────────────────────
-  lines.push("## Layer 2 — Data Point Evidence", "");
+  // Curator observations and mental models may inform the composed answer,
+  // but the chat-facing lineage is source-backed data point evidence.
+  lines.push("## Retrieved Data Point Evidence", "");
   if (dataPoints.length === 0) {
     lines.push("No data points retrieved.", "");
   } else {
-    for (const item of dataPoints) {
-      const source = item.source ?? {};
-      const sourceBits = [
-        source.title ? String(source.title) : "Unknown source",
-        source.authorName ? `by ${source.authorName}` : null,
-        source.publisherName ? `(${source.publisherName})` : null,
-        source.publishedDate ? String(source.publishedDate) : null,
-        source.tier ? `tier ${source.tier}` : null,
-      ].filter(Boolean);
-      const { url: sourceUrl } = resolveSourceLink(source, item.anchorQuote);
+    if (citedDataPoints.length > 0) {
+      lines.push("### Cited in the Answer", "");
+      for (const item of citedDataPoints) {
+        lines.push(...formatLocalEvidenceItem(item), "");
+      }
+    }
 
-      lines.push(
-        `### [${item.label}] ${sourceBits.join(" ")}`,
-        "",
-        `- Data point ID: ${item.dataPointId}`,
-        `- Origin: ${item.origin}`,
-        `- Evidence type: ${item.evidenceType}${item.confidence ? `; confidence: ${item.confidence}` : ""}`,
-        `- Interpretation: ${item.interpretation}`,
-        item.whyItMatters ? `- Why it matters: ${item.whyItMatters}` : "- Why it matters: Not provided.",
-        `- Anchor quote: "${item.anchorQuote}"`,
-        sourceUrl ? `- Original source: ${sourceUrl}` : "- Original source: Not available.",
-        ""
-      );
+    if (additionalDataPoints.length > 0) {
+      lines.push("### Additional Retrieved Context", "");
+      for (const item of additionalDataPoints) {
+        lines.push(...formatLocalEvidenceItem(item), "");
+      }
     }
   }
 
@@ -278,18 +322,17 @@ export function registerQueryTools(server: McpServer): void {
       description:
         "Full progressive-disclosure analyst query. Use this for any question that needs " +
         "a rigorous cited answer traceable to original sources.\n\n" +
-        "Returns three layers in order:\n" +
-        "  1. Current positions [P#] — the curator's synthesized stances (answer most questions here)\n" +
-        "  2. Curator observations [O#] and mental models [M#] — connective insights and frameworks\n" +
-        "  3. Data point evidence [E#] — atomic claims with anchor quotes and resolved source links\n\n" +
+        "Returns a composed answer first, with paragraph-local evidence directly beneath " +
+        "the paragraphs that cite it. Each evidence item includes source title, author, " +
+        "date, interpretation, anchor quote, and original source link. Also includes " +
+        "current positions [P#], cited evidence, and additional retrieved data point context.\n\n" +
         "Args:\n" +
         "  - projectId (string): The project to search\n" +
         "  - question (string): The analyst's question\n" +
         "  - limit (number, optional): Data points to retrieve, 1-20, default 12\n" +
         "  - themeId / positionId / sourceId (string, optional): Scope to a narrower context\n" +
         "  - carriedDataPointIds (string[], optional): Data point IDs to carry from prior turns\n\n" +
-        "Compose the answer yourself from this pack. Lead with positions, support with evidence, " +
-        "and cite every substantive claim with its label. Do not use cm_search for this — " +
+        "Use the composed answer as the primary response. Do not use cm_search for this — " +
         "cm_search is for exploration only.",
       inputSchema: {
         projectId: z.string().describe("Project ID to search"),
