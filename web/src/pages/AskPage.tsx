@@ -174,7 +174,7 @@ export default function AskPage() {
 
         {/* Input area — sticky at bottom */}
         {turns.length > 0 && (
-          <div className="sticky bottom-0 mt-6 -mx-4 bg-primary/95 px-4 pt-4 pb-6 backdrop-blur supports-[backdrop-filter]:bg-primary/80">
+          <div className="sticky bottom-0 z-10 mt-6 -mx-4 border-t border-secondary bg-primary px-4 pt-4 pb-6">
             {!reachedTurnLimit && (
               <HeroAskInput
                 value={input}
