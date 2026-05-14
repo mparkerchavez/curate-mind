@@ -8,7 +8,8 @@
  * - cm_get_position_detail: Layer 2 — full evidence chain
  * - cm_get_data_point: Layer 3 — includes anchor quote
  * - cm_get_source_text: Layer 4 — full source text
- * - cm_search: Semantic search across all entity types
+ * - cm_ask: Analyst query with progressive disclosure (positions → observations → mental models → data points)
+ * - cm_search: Broad exploration across all entity types (signal-finding, not analyst answers)
  * - cm_get_tag_trends: Tag usage counts
  * - cm_get_position_history: Version history
  * - cm_list_sources: List sources by status
@@ -53,6 +54,25 @@ function buildDeepLinkUrl(baseUrl: string | null | undefined, anchorQuote?: stri
   return cleaned ? `${baseUrl}#:~:text=${encodeURIComponent(cleaned)}` : baseUrl;
 }
 
+function resolveSourceLink(
+  source: any,
+  anchorQuote?: string | null
+): { url: string | null; label: string | null } {
+  let base: string | null = null;
+  let label: string | null = null;
+
+  if (source.storageUrl) {
+    base = source.storageUrl;
+    label = "Open PDF";
+  } else if (source.canonicalUrl && source.resolvedLinkKind !== "internal") {
+    base = source.canonicalUrl;
+    label = "Open source";
+  }
+
+  const url = base ? buildDeepLinkUrl(base, anchorQuote) : null;
+  return { url, label };
+}
+
 function formatEvidencePackMarkdown(result: any): string {
   const items = Array.isArray(result.evidencePack) ? result.evidencePack : [];
   const lines: string[] = [
@@ -88,10 +108,7 @@ function formatEvidencePackMarkdown(result: any): string {
       source.publishedDate ? String(source.publishedDate) : null,
       source.tier ? `tier ${source.tier}` : null,
     ].filter(Boolean);
-    const sourceUrl = buildDeepLinkUrl(
-      source.resolvedUrl ?? source.storageUrl ?? source.canonicalUrl,
-      item.anchorQuote
-    );
+    const { url: sourceUrl } = resolveSourceLink(source, item.anchorQuote);
 
     lines.push(
       `### [${item.label}] ${sourceBits.join(" ")}`,
@@ -107,11 +124,143 @@ function formatEvidencePackMarkdown(result: any): string {
     );
   }
 
+  const enrichedResult = {
+    ...result,
+    evidencePack: Array.isArray(result.evidencePack)
+      ? result.evidencePack.map((item: any) => ({
+          ...item,
+          resolvedLink: resolveSourceLink(item.source ?? {}, item.anchorQuote),
+        }))
+      : [],
+  };
+
   lines.push(
     "## Machine-Readable Evidence",
     "",
     "```json",
-    JSON.stringify(stripEmbeddingsDeep(result), null, 2),
+    JSON.stringify(stripEmbeddingsDeep(enrichedResult), null, 2),
+    "```"
+  );
+
+  return truncateIfNeeded(lines.join("\n"));
+}
+
+function formatAnalystPackMarkdown(result: any): string {
+  const positions: any[] = Array.isArray(result.positions) ? result.positions : [];
+  const observations: any[] = Array.isArray(result.observations) ? result.observations : [];
+  const mentalModels: any[] = Array.isArray(result.mentalModels) ? result.mentalModels : [];
+  const dataPoints: any[] = Array.isArray(result.dataPoints) ? result.dataPoints : [];
+
+  const lines: string[] = [
+    "# Curate Mind Analyst Pack",
+    "",
+    `**Question:** ${result.question}`,
+    "",
+    "## How to Use This Pack",
+    "",
+    "- Lead your answer with positions (Layer 1) — these are the curator's synthesized stances.",
+    "- Support claims with observations [O#], mental models [M#], and data point evidence [E#].",
+    "- Every substantive claim should carry at least one inline label.",
+    "- Anchor quotes are for verification; surface them when a specific claim needs it.",
+    "- If the pack does not support an answer, say so rather than filling gaps.",
+    "",
+  ];
+
+  // ── Context ──────────────────────────────────────────────────
+  if (result.context?.summary) {
+    lines.push("## Context", "", result.context.summary, "");
+  }
+
+  // ── Layer 1: Positions ────────────────────────────────────────
+  lines.push("## Layer 1 — Current Positions", "");
+  if (positions.length === 0) {
+    lines.push("No positions found for this question. The corpus may not have positions yet — use cm_search for exploration instead.", "");
+  } else {
+    positions.forEach((p, i) => {
+      const label = `P${i + 1}`;
+      const themeLine = p.themeTitle ? ` — ${p.themeTitle}` : "";
+      const evidenceLine = `${p.supportingEvidenceCount} supporting · ${p.counterEvidenceCount} counter`;
+      lines.push(
+        `### [${label}] ${p.title}${themeLine}`,
+        "",
+        `**Stance:** ${p.currentStance || "No stance recorded yet."}`,
+        `**Evidence attached:** ${evidenceLine}`,
+        `**Position ID:** ${p.positionId}`,
+        ""
+      );
+    });
+  }
+
+  // ── Layer 2a: Curator Observations ───────────────────────────
+  lines.push("## Layer 2 — Curator Observations", "");
+  if (observations.length === 0) {
+    lines.push("No observations matched this question.", "");
+  } else {
+    observations.forEach((o, i) => {
+      lines.push(`**[O${i + 1}]** ${o.content}`, "");
+    });
+  }
+
+  // ── Layer 2b: Mental Models ───────────────────────────────────
+  lines.push("## Layer 2 — Mental Models", "");
+  if (mentalModels.length === 0) {
+    lines.push("No mental models matched this question.", "");
+  } else {
+    mentalModels.forEach((m, i) => {
+      lines.push(
+        `**[M${i + 1}] ${m.term}** (${m.modelType})`,
+        "",
+        m.description,
+        ""
+      );
+    });
+  }
+
+  // ── Layer 2c: Data Points ─────────────────────────────────────
+  lines.push("## Layer 2 — Data Point Evidence", "");
+  if (dataPoints.length === 0) {
+    lines.push("No data points retrieved.", "");
+  } else {
+    for (const item of dataPoints) {
+      const source = item.source ?? {};
+      const sourceBits = [
+        source.title ? String(source.title) : "Unknown source",
+        source.authorName ? `by ${source.authorName}` : null,
+        source.publisherName ? `(${source.publisherName})` : null,
+        source.publishedDate ? String(source.publishedDate) : null,
+        source.tier ? `tier ${source.tier}` : null,
+      ].filter(Boolean);
+      const { url: sourceUrl } = resolveSourceLink(source, item.anchorQuote);
+
+      lines.push(
+        `### [${item.label}] ${sourceBits.join(" ")}`,
+        "",
+        `- Data point ID: ${item.dataPointId}`,
+        `- Origin: ${item.origin}`,
+        `- Evidence type: ${item.evidenceType}${item.confidence ? `; confidence: ${item.confidence}` : ""}`,
+        `- Interpretation: ${item.interpretation}`,
+        item.whyItMatters ? `- Why it matters: ${item.whyItMatters}` : "- Why it matters: Not provided.",
+        `- Anchor quote: "${item.anchorQuote}"`,
+        sourceUrl ? `- Original source: ${sourceUrl}` : "- Original source: Not available.",
+        ""
+      );
+    }
+  }
+
+  // ── Machine-readable JSON ─────────────────────────────────────
+  const enrichedResult = {
+    ...result,
+    dataPoints: dataPoints.map((item: any) => ({
+      ...item,
+      resolvedLink: resolveSourceLink(item.source ?? {}, item.anchorQuote),
+    })),
+  };
+
+  lines.push(
+    "## Machine-Readable Pack",
+    "",
+    "```json",
+    JSON.stringify(stripEmbeddingsDeep(enrichedResult), null, 2),
     "```"
   );
 
@@ -119,6 +268,80 @@ function formatEvidencePackMarkdown(result: any): string {
 }
 
 export function registerQueryTools(server: McpServer): void {
+  // ============================================================
+  // cm_ask — Progressive disclosure analyst query (Mode 2)
+  // ============================================================
+  server.registerTool(
+    "cm_ask",
+    {
+      title: "Analyst Ask",
+      description:
+        "Full progressive-disclosure analyst query. Use this for any question that needs " +
+        "a rigorous cited answer traceable to original sources.\n\n" +
+        "Returns three layers in order:\n" +
+        "  1. Current positions [P#] — the curator's synthesized stances (answer most questions here)\n" +
+        "  2. Curator observations [O#] and mental models [M#] — connective insights and frameworks\n" +
+        "  3. Data point evidence [E#] — atomic claims with anchor quotes and resolved source links\n\n" +
+        "Args:\n" +
+        "  - projectId (string): The project to search\n" +
+        "  - question (string): The analyst's question\n" +
+        "  - limit (number, optional): Data points to retrieve, 1-20, default 12\n" +
+        "  - themeId / positionId / sourceId (string, optional): Scope to a narrower context\n" +
+        "  - carriedDataPointIds (string[], optional): Data point IDs to carry from prior turns\n\n" +
+        "Compose the answer yourself from this pack. Lead with positions, support with evidence, " +
+        "and cite every substantive claim with its label. Do not use cm_search for this — " +
+        "cm_search is for exploration only.",
+      inputSchema: {
+        projectId: z.string().describe("Project ID to search"),
+        question: z.string().min(1).describe("The analyst question to answer"),
+        limit: z.number().int().min(1).max(20).optional()
+          .describe("Data points to retrieve (default 12)"),
+        themeId: z.string().optional().describe("Optional theme scope"),
+        positionId: z.string().optional().describe("Optional position scope"),
+        sourceId: z.string().optional().describe("Optional source scope"),
+        carriedDataPointIds: z.array(z.string()).optional()
+          .describe("Data point IDs to carry forward from earlier turns"),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ projectId, question, limit, themeId, positionId, sourceId, carriedDataPointIds }) => {
+      try {
+        const result = await convexAction(api.chat.askAnalyst, {
+          projectId: asId<"projects">(projectId),
+          question,
+          limit,
+          themeId: themeId ? asId<"researchThemes">(themeId) : undefined,
+          positionId: positionId ? asId<"researchPositions">(positionId) : undefined,
+          sourceId: sourceId ? asId<"sources">(sourceId) : undefined,
+          carriedDataPointIds: carriedDataPointIds?.map((id) => asId<"dataPoints">(id)),
+        });
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: formatAnalystPackMarkdown(result),
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Error running analyst query: ${error instanceof Error ? error.message : String(error)}`,
+            },
+          ],
+        };
+      }
+    }
+  );
+
   // ============================================================
   // cm_retrieve_evidence_pack — Retrieval-only Ask experience
   // ============================================================
@@ -472,8 +695,13 @@ export function registerQueryTools(server: McpServer): void {
     {
       title: "Search Knowledge Base",
       description:
-        "Semantic vector search across data points, positions, observations, " +
-        "and mental models. Uses OpenAI embeddings for similarity matching.\n\n" +
+        "Broad exploration search across all entity types (data points, positions, " +
+        "observations, mental models). Use this for Mode 1 tasks: scanning new sources " +
+        "for signals, finding emerging narratives, pressure-testing a brief or idea, " +
+        "or early corpus work before positions exist.\n\n" +
+        "Do NOT use this for analyst questions that need cited, verifiable answers — " +
+        "use cm_ask instead. cm_search returns raw JSON without citation structure or " +
+        "resolved source links.\n\n" +
         "Args:\n" +
         "  - queryText (string): What to search for\n" +
         "  - limit (number, optional): Max results per entity type (default 5)\n\n" +

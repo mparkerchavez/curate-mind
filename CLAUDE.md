@@ -101,6 +101,40 @@ After extraction waves, data points need to be connected to Research Positions. 
 
 ---
 
+## MCP Query Protocol
+
+The MCP has two distinct query modes. Using the wrong tool produces shallow or uncitable answers.
+
+### Mode 1 — Explore & Synthesize (`cm_search`)
+
+Use when: scanning new sources for signals, finding emerging narratives, pressure-testing a brief or idea against the corpus, or doing early corpus work before positions exist.
+
+`cm_search` searches across all entity types (data points, positions, observations, mental models) and returns broad results for Claude to synthesize. The output is meant to spark a reaction — an observation, a perspective, a challenge. Citation rigor is not the goal.
+
+**Trigger phrases:** "what signals are emerging", "what does the corpus say about", "challenge this brief", "what patterns do you see", "help me think through".
+
+### Mode 2 — Analyst & Verify (`cm_ask`)
+
+Use when: the corpus has positions and the question requires a rigorous cited answer traceable to original sources.
+
+`cm_ask` implements progressive disclosure. Always follow this layer order in the response:
+
+1. **Layer 1 — Positions first.** What does Maicol currently think about this topic? Current stance is the starting point, not evidence.
+2. **Layer 2 — Evidence next.** Curator observations and mental models that connect claims to positions; data points as atomic grounding.
+3. **Layers 3–4 — Verification on demand.** Anchor quotes and resolved source links are included in the pack; surface them when a specific claim needs verification.
+
+Every substantive claim in the answer should carry an inline label drawn from the analyst pack: `[P1]` for position stances, `[O1]` for observations, `[M1]` for mental models, `[E1]` for data point evidence.
+
+**Trigger phrases:** "what's my position on", "analyze", "what does the research show", "give me a cited answer", "write the brief", "write it up".
+
+### Boundary rules
+
+- Do not use `cm_search` to produce cited analyst answers. It returns raw JSON without source links or citation structure.
+- Do not use `cm_ask` for early corpus exploration when positions do not exist yet. `cm_search` is faster and more appropriate.
+- Do not construct curatemind.io URLs manually. Source links are resolved server-side in the analyst pack.
+
+---
+
 ## User Personas
 
 - **Research Persona (Maicol):** Curates sources, runs extraction pipeline, writes observations. Full MCP access.
@@ -162,3 +196,5 @@ The project owner is a citizen developer. The project owner works with Claude (C
 - Do not assign tags during Pass 1 extraction. Tags are assigned in Pass 3 with a holistic view of all DPs.
 - Do not store data in markdown files as a primary store. Convex is the source of truth.
 - Do not modify the CRIS Convex project or database. It is archived.
+- Do not use `cm_search` to answer analyst questions. It is an exploration tool only.
+- Do not construct source URLs manually in responses. The `cm_ask` pack includes resolved links.
