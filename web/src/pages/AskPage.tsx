@@ -17,6 +17,7 @@ import { OpenSourceSection } from "@/components/OpenSourceSection";
 import { SiteFooter } from "@/components/SiteFooter";
 import { EXAMPLE_PROMPTS } from "@/config/homepage";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { useScrollHighlightedClaim } from "@/hooks/use-linked-evidence-scroll";
 import { cn } from "@/lib/cn";
 import { renderAnswerBlocks, USER_TURN_LIMIT } from "@/lib/workspace-utils";
 
@@ -59,13 +60,11 @@ export default function AskPage() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [turns.length]);
 
-  useEffect(() => {
-    if (!activeAnswer || !highlightedEvidenceId) return;
-    const selector = `[data-dp-id="${CSS.escape(highlightedEvidenceId)}"]`;
-    const activeAnswerEl = document.querySelector('[data-active-answer="true"]');
-    const el = activeAnswerEl?.querySelector(selector) ?? document.querySelector(selector);
-    el?.scrollIntoView({ behavior: "smooth", block: "center" });
-  }, [activeAnswer, highlightedEvidenceId]);
+  useScrollHighlightedClaim({
+    highlightedEvidenceId,
+    enabled: !!activeAnswer,
+    rootSelector: '[data-active-answer="true"]',
+  });
 
   return (
     <div className="flex min-h-full flex-col bg-primary">

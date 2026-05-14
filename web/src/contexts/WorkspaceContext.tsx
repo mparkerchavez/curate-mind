@@ -169,8 +169,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   /* ── Evidence sections ── */
   const evidenceSections = useMemo<EvidenceSection[]>(() => {
-    if (activeAnswer) {
-      const citedSet = new Set(activeAnswer.citedDataPointIds);
+    if (routeKind === "ask" && activeAnswer) {
+      const citedSet = new Set([
+        ...activeAnswer.citedDataPointIds,
+        ...(activeAnswer.citations ?? []).map((c) => c.dataPointId).filter(Boolean),
+      ]);
       const carriedSet = new Set(activeAnswer.carriedDataPointIds);
       const cited = activeAnswer.retrievedDataPoints.filter((dp: any) => citedSet.has(dp._id));
       const carried = activeAnswer.retrievedDataPoints.filter(
@@ -189,7 +192,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         { key: "retrieved", title: "New context retrieved", subtitle: "Fresh adjacent evidence used to ground this answer.", items: retrieved, variant: "context" as const, labelByDpId },
       ].filter((s) => s.items.length > 0);
     }
-    if (positionDetail?.currentVersion) {
+    if (routeKind === "position" && positionDetail?.currentVersion) {
       const version = positionDetail.currentVersion;
       const supportingDetails = version.supportingEvidenceDetails ?? [];
       const counterDetails = version.counterEvidenceDetails ?? [];
@@ -211,11 +214,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         { key: "counter", title: "Counter evidence", subtitle: "Signals that narrow, qualify, or challenge the current stance.", items: counterDetails, variant: "counter" as const, labelByDpId: counterLabels, referencedDpIds },
       ].filter((s) => s.items.length > 0);
     }
-    if (sourceDetail) {
+    if (routeKind === "source" && sourceDetail) {
       return [{ key: "source", title: "Linked data points", subtitle: "Claims extracted from this source.", items: sourceDetail.dataPoints ?? [] }].filter((s) => s.items.length > 0);
     }
     return [];
-  }, [activeAnswer, positionDetail, sourceDetail]);
+  }, [activeAnswer, positionDetail, routeKind, sourceDetail]);
 
   const value = useMemo<WorkspaceState>(
     () => ({

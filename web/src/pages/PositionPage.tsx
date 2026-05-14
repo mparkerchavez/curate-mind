@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useMemo, useRef } from "react";
 import { Badge } from "@/components/base/badges/badges";
 import { LoadingIndicator } from "@/components/application/loading-indicator/loading-indicator";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { useScrollHighlightedClaim } from "@/hooks/use-linked-evidence-scroll";
 import { formatDateLabel, renderAnswerBlocks } from "@/lib/workspace-utils";
 
 export default function PositionPage() {
@@ -9,15 +10,7 @@ export default function PositionPage() {
   const stanceRef = useRef<HTMLDivElement | null>(null);
 
   // When the highlighted evidence changes, scroll the matching claim in the body into view.
-  useEffect(() => {
-    if (!highlightedEvidenceId || !stanceRef.current) return;
-    const target = stanceRef.current.querySelector<HTMLElement>(
-      `[data-dp-id="${highlightedEvidenceId}"]`,
-    );
-    if (target) {
-      target.scrollIntoView({ behavior: "smooth", block: "center" });
-    }
-  }, [highlightedEvidenceId]);
+  useScrollHighlightedClaim({ highlightedEvidenceId, rootRef: stanceRef });
 
   // All hooks must be called before any early return (React rules of hooks)
   const version = positionDetail?.currentVersion;

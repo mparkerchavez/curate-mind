@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { ArrowUpRight } from "@untitledui/icons";
 import { Button } from "@/components/base/buttons/button";
 import { cn } from "@/lib/cn";
+import { getEvidenceCardId } from "@/lib/linked-evidence";
 import {
   formatAuthorsShort,
   formatDateLabel,
@@ -16,6 +17,8 @@ type Props = {
   labelByDpId?: Record<string, string>;
   /** When provided, clicking a claim row calls this with the data point ID. */
   onClaimClick?: (dpId: string) => void;
+  /** Optional allow-list for rows that have a matching inline claim on the left. */
+  clickableIds?: Set<string>;
   /**
    * When true, rows render in a subdued "Also attached" style: no click-to-scroll
    * affordance, muted claim text, smaller marker. Used for evidence that is
@@ -50,6 +53,7 @@ export default function SourceEvidenceGroup({
   citedIds,
   labelByDpId,
   onClaimClick,
+  clickableIds,
   dimmed = false,
 }: Props) {
   const source = group.source;
@@ -144,14 +148,17 @@ export default function SourceEvidenceGroup({
           {group.claims.map((claim: any, idx: number) => {
             const isHighlighted = highlightedId === claim._id;
             const isCited = citedSet.has(claim._id);
-            const isClickable = !!onClaimClick && !dimmed;
+            const isClickable =
+              !!onClaimClick &&
+              !dimmed &&
+              (!clickableIds || clickableIds.has(claim._id));
             const label = labelByDpId?.[claim._id];
             const isCounter = label?.startsWith("C") ?? false;
             const markerText = label ?? String(idx + 1);
             return (
               <li
                 key={claim._id}
-                id={`evidence-card-${claim._id}`}
+                id={getEvidenceCardId(claim._id)}
                 className={cn(
                   "flex items-baseline gap-4 rounded-lg py-1.5 transition-colors",
                   isHighlighted ? (isCounter ? "-mx-2 bg-warning-primary px-2" : "-mx-2 bg-success-primary px-2") : "",

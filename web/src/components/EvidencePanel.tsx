@@ -1,8 +1,9 @@
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { Badge } from "@/components/base/badges/badges";
 import SourceEvidenceGroup from "@/components/SourceEvidenceGroup";
 import { LegendPopover } from "@/components/LegendPopover";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { useScrollHighlightedEvidence } from "@/hooks/use-linked-evidence-scroll";
 import { groupDataPointsBySource } from "@/lib/workspace-utils";
 import { EVIDENCE_LEGEND_ROWS } from "@/lib/legend-copy";
 import { cn } from "@/lib/cn";
@@ -40,16 +41,7 @@ type RenderSection = {
 export default function EvidencePanel() {
   const { routeKind, evidenceSections, highlightedEvidenceId, handleCitationClick } = useWorkspace();
 
-  // Scroll to highlighted evidence card when it changes
-  useEffect(() => {
-    if (!highlightedEvidenceId) return;
-    // Small delay to let React render the highlight first
-    const timer = setTimeout(() => {
-      const el = document.getElementById(`evidence-card-${highlightedEvidenceId}`);
-      el?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    }, 50);
-    return () => clearTimeout(timer);
-  }, [highlightedEvidenceId]);
+  useScrollHighlightedEvidence({ highlightedEvidenceId });
 
   const renderSections = useMemo<RenderSection[]>(() => {
     // Position context: any incoming section carries referencedDpIds. Split
@@ -156,8 +148,14 @@ export default function EvidencePanel() {
           const isCounter = section.variant === "counter";
           const groups = groupDataPointsBySource(section.items);
           const citedIds = section.cited ? section.items.map((dp: any) => dp._id) : undefined;
+          const clickableIds =
+            routeKind === "ask" && section.labelByDpId
+              ? new Set(Object.keys(section.labelByDpId))
+              : undefined;
           const canClickClaims =
-            !section.dimmed && (routeKind !== "ask" || section.cited);
+            !section.dimmed &&
+            routeKind !== "source" &&
+            (routeKind !== "ask" || (clickableIds?.size ?? 0) > 0);
           // Title carries the section color + weight; background stays neutral.
           // Borders on top and bottom of the sticky header frame it as a bar
           // so it reads as a header whether pinned or inline.
@@ -199,6 +197,7 @@ export default function EvidencePanel() {
                         highlightedId={highlightedEvidenceId}
                         citedIds={citedIds}
                         labelByDpId={section.labelByDpId}
+                        clickableIds={clickableIds}
                         onClaimClick={canClickClaims ? handleCitationClick : undefined}
                         dimmed={section.dimmed}
                       />
