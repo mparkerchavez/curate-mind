@@ -532,6 +532,25 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.055);
 }
 
+.cm-ask-composer-stack {
+  border-radius: 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: #121212;
+  box-shadow: 0 20px 56px rgba(0, 0, 0, 0.42);
+  overflow: hidden;
+}
+
+.cm-ask-composer-stack .cm-ask-input {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.cm-ask-shelf {
+  background: #171717;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
 .cm-prompt-chip {
   background: #101010;
   border-color: rgba(255, 255, 255, 0.2);
@@ -561,6 +580,17 @@
   box-shadow:
     0 0 0 1px rgba(16, 24, 40, 0.02),
     0 12px 32px rgba(16, 24, 40, 0.12);
+}
+
+[data-theme="light"] .cm-ask-composer-stack {
+  border-color: rgba(16, 24, 40, 0.14);
+  background: #ffffff;
+  box-shadow: 0 16px 36px rgba(16, 24, 40, 0.1);
+}
+
+[data-theme="light"] .cm-ask-shelf {
+  background: #f3f4f6;
+  border-top-color: rgba(16, 24, 40, 0.12);
 }
 
 [data-theme="light"] .cm-prompt-chip {

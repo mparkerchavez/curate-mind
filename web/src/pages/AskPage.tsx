@@ -174,29 +174,31 @@ export default function AskPage() {
 
         {/* Input area — sticky at bottom */}
         {turns.length > 0 && (
-          <div className="sticky bottom-0 z-10 mt-6 -mx-4 border-t border-secondary bg-primary px-4 pt-4 pb-6">
-            {!reachedTurnLimit && (
-              <HeroAskInput
-                value={input}
-                onChange={setInput}
-                onSubmit={() => void handleAskQuestion()}
-                disabled={pending}
-                placeholder="Ask about AI strategy, adoption, agentic workflows..."
-                inputRef={askInputRef}
-              />
-            )}
-            <div className="mx-auto mt-3 flex w-full max-w-2xl items-center justify-between gap-3">
-              <DemoLimitStatus title={statusTitle} description={statusDescription} align="left" />
-              {threadComplete && (
-                <Button
-                  size="sm"
-                  color="primary"
-                  iconLeading={RefreshCcw01}
-                  onClick={resetConversation}
-                >
-                  Start a new thread
-                </Button>
+          <div className="sticky bottom-0 z-10 mt-6 -mx-4 px-4 pt-4 pb-6">
+            <div className="cm-ask-composer-stack mx-auto w-full max-w-2xl">
+              {!reachedTurnLimit && (
+                <HeroAskInput
+                  value={input}
+                  onChange={setInput}
+                  onSubmit={() => void handleAskQuestion()}
+                  disabled={pending}
+                  placeholder="Ask about AI strategy, adoption, agentic workflows..."
+                  inputRef={askInputRef}
+                />
               )}
+              <div className="cm-ask-shelf mx-auto flex min-h-9 items-center justify-between gap-3 px-5 py-2">
+                <DemoLimitStatus title={statusTitle} description={statusDescription} align="left" />
+                {threadComplete && (
+                  <Button
+                    size="sm"
+                    color="primary"
+                    iconLeading={RefreshCcw01}
+                    onClick={resetConversation}
+                  >
+                    Start a new thread
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -217,12 +219,18 @@ function DemoLimitStatus({
   description: string;
   align?: "left" | "center";
 }) {
+  const className =
+    align === "center"
+      ? "mt-2 text-center text-xs leading-5 text-tertiary"
+      : "min-w-0 truncate text-left text-xs leading-5 text-tertiary";
+
   return (
-    <div className={align === "center" ? "mt-3 text-center" : "min-w-0 text-left"}>
-      <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
+    <p className={className}>
+      <span className="font-medium text-tertiary">
         {title}
-      </p>
-      <p className="mt-1 text-xs text-tertiary">{description}</p>
-    </div>
+      </span>
+      <span className="px-2 text-quaternary">·</span>
+      {description}
+    </p>
   );
 }
