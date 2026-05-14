@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, RefreshCcw01 } from "@untitledui/icons";
+import { RefreshCcw01 } from "@untitledui/icons";
 
 // Cycling status messages shown while the AI is processing.
 // Each step advances every PENDING_INTERVAL_MS until the last one,
@@ -12,13 +12,13 @@ const PENDING_MESSAGES = [
 ];
 const PENDING_INTERVAL_MS = 2500;
 import { Button } from "@/components/base/buttons/button";
-import { TextAreaBase } from "@/components/base/textarea/textarea";
+import { ExamplePromptChips } from "@/components/ExamplePromptChips";
+import { HeroAskInput } from "@/components/HeroAskInput";
 import { OpenSourceSection } from "@/components/OpenSourceSection";
 import { SiteFooter } from "@/components/SiteFooter";
 import { EXAMPLE_PROMPTS } from "@/config/homepage";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useScrollHighlightedClaim } from "@/hooks/use-linked-evidence-scroll";
-import { cn } from "@/lib/cn";
 import { renderAnswerBlocks, USER_TURN_LIMIT } from "@/lib/workspace-utils";
 
 export default function AskPage() {
@@ -40,10 +40,21 @@ export default function AskPage() {
   } = useWorkspace();
 
   const bottomRef = useRef<HTMLDivElement>(null);
+  const askInputRef = useRef<HTMLTextAreaElement>(null);
   const suggestions = EXAMPLE_PROMPTS;
   const questionsRemaining = Math.max(USER_TURN_LIMIT - userTurnsCount, 0);
   const nextQuestionNumber = Math.min(userTurnsCount + 1, USER_TURN_LIMIT);
   const threadComplete = reachedTurnLimit && !pending;
+  const statusTitle = reachedTurnLimit
+    ? pending
+      ? "Final question in progress"
+      : "Thread complete"
+    : `Question ${nextQuestionNumber} of ${USER_TURN_LIMIT}`;
+  const statusDescription = reachedTurnLimit
+    ? pending
+      ? "Composing the last answer in this thread."
+      : "Start a new thread to ask another question."
+    : `${questionsRemaining} question${questionsRemaining === 1 ? "" : "s"} left in this thread.`;
 
   // Cycle the pending status message while the query is in flight.
   const [pendingIdx, setPendingIdx] = useState(0);
@@ -69,48 +80,51 @@ export default function AskPage() {
     rootSelector: '[data-active-answer="true"]',
   });
 
+  function handlePromptSelect(prompt: string) {
+    setInput(prompt);
+    requestAnimationFrame(() => {
+      const el = askInputRef.current;
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(el.value.length, el.value.length);
+    });
+  }
+
   return (
     <div className="flex min-h-full flex-col bg-primary">
       <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col px-6 py-8">
         {turns.length === 0 ? (
-          /* Initial state — suggestions only. The header already names the
-             page (nav + breadcrumb), and the prompts themselves explain the
-             feature better than a hero block could. */
-          <div className="-mx-4 space-y-2 px-4 pb-3">
-            <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
-              Suggested prompts
-            </p>
-            {suggestions.map((prompt) => (
-              <button
-                key={prompt}
-                type="button"
-                onClick={() => void handleAskQuestion(prompt)}
-                className="cm-surface-raised group w-full rounded-xl border px-4 py-3 text-left text-sm leading-6 text-secondary transition hover:border-brand hover:bg-secondary_hover"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <span>{prompt}</span>
-                  <ArrowRight className="mt-0.5 size-4 shrink-0 text-quaternary transition group-hover:translate-x-0.5 group-hover:text-brand-secondary" />
-                </div>
-              </button>
-            ))}
+          <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center py-8 text-center">
+            <div className="mb-5">
+              <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
+                {statusTitle}
+              </p>
+              <p className="mt-1 text-sm text-tertiary">{statusDescription}</p>
+            </div>
+            <HeroAskInput
+              value={input}
+              onChange={setInput}
+              onSubmit={() => void handleAskQuestion()}
+              disabled={pending || reachedTurnLimit}
+              placeholder="Ask about AI strategy, adoption, agentic workflows..."
+              inputRef={askInputRef}
+            />
+            <ExamplePromptChips
+              prompts={suggestions}
+              onSelect={handlePromptSelect}
+              disabled={pending || reachedTurnLimit}
+            />
           </div>
         ) : (
           /* Conversation */
-          <div className="space-y-4">
+          <div className="space-y-5">
             {turns.map((turn, idx) => (
               <div key={idx}>
-                <div
-                  className={cn(
-                    "rounded-xl border px-4 py-3",
-                    turn.role === "user"
-                      ? "border-brand bg-brand-primary"
-                      : "border-secondary bg-primary",
-                  )}
-                >
-                  <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
-                    {turn.role === "user" ? "You" : "Research assistant"}
-                  </p>
-                  {turn.role === "assistant" ? (
+                {turn.role === "assistant" ? (
+                  <div className="rounded-xl border border-secondary bg-primary px-4 py-3">
+                    <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
+                      Research assistant
+                    </p>
                     <div
                       className="cm-readable-prose mt-2 space-y-3 text-sm leading-7 text-secondary"
                       data-active-answer={activeAnswer === turn.answerState ? "true" : undefined}
@@ -127,10 +141,14 @@ export default function AskPage() {
                         },
                       )}
                     </div>
-                  ) : (
-                    <p className="mt-2 text-sm leading-7 text-secondary">{turn.content}</p>
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  <div className="flex justify-end">
+                    <div className="max-w-[78%] rounded-2xl rounded-br-md bg-brand-solid px-4 py-3 text-left text-sm leading-6 text-primary_on-brand shadow-xs-skeuomorphic">
+                      {turn.content}
+                    </div>
+                  </div>
+                )}
 
                 {/* Evidence renders in the right-side EvidencePanel (AppShell) */}
               </div>
@@ -159,77 +177,40 @@ export default function AskPage() {
         )}
 
         {/* Input area — sticky at bottom */}
-        <div className="sticky bottom-0 mt-6 -mx-4 px-4 pt-4 pb-6">
-          <div className="cm-form-surface rounded-2xl border p-4">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <div>
-                <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
-                  {reachedTurnLimit
-                    ? pending
-                      ? "Final question in progress"
-                      : "Thread complete"
-                    : `Question ${nextQuestionNumber} of ${USER_TURN_LIMIT}`}
-                </p>
-                <p className="mt-1 text-xs text-tertiary">
-                  {reachedTurnLimit
-                    ? pending
-                      ? "Composing the last answer in this thread."
-                      : "Start a new thread to ask another question."
-                    : `${questionsRemaining} question${questionsRemaining === 1 ? "" : "s"} left in this thread.`}
-                </p>
-              </div>
-              {threadComplete && (
-                <Button
-                  size="sm"
-                  color="primary"
-                  iconLeading={RefreshCcw01}
-                  onClick={resetConversation}
-                >
-                  Start a new thread
-                </Button>
-              )}
-            </div>
-            {!reachedTurnLimit && (
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  void handleAskQuestion();
-                }}
-                // Shared-element target for the View Transitions morph from
-                // the home page's hero input. Must match HeroAskInput's form
-                // view-transition-name.
-                style={{ viewTransitionName: "curate-ask-input" }}
-              >
-                <TextAreaBase
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      void handleAskQuestion();
-                    }
-                  }}
-                  rows={3}
-                  disabled={pending}
-                  placeholder="Ask about AI strategy, adoption, agentic workflows..."
-                  className="min-h-[4.5rem] resize-none bg-transparent shadow-none ring-0 focus:ring-0"
-                />
-                <div className="mt-3 flex items-center justify-between">
-                  <p className="text-xs text-tertiary">Enter to send · Shift + Enter for new line</p>
+        {turns.length > 0 && (
+          <div className="sticky bottom-0 mt-6 -mx-4 px-4 pt-4 pb-6">
+            <div className="cm-form-surface rounded-2xl border p-4">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
+                    {statusTitle}
+                  </p>
+                  <p className="mt-1 text-xs text-tertiary">{statusDescription}</p>
+                </div>
+                {threadComplete && (
                   <Button
-                    type="submit"
                     size="sm"
                     color="primary"
-                    iconTrailing={ArrowRight}
-                    disabled={pending || !input.trim()}
+                    iconLeading={RefreshCcw01}
+                    onClick={resetConversation}
                   >
-                    {pending ? "Asking..." : "Ask"}
+                    Start a new thread
                   </Button>
-                </div>
-              </form>
-            )}
+                )}
+              </div>
+              {!reachedTurnLimit && (
+                <HeroAskInput
+                  value={input}
+                  onChange={setInput}
+                  onSubmit={() => void handleAskQuestion()}
+                  disabled={pending}
+                  placeholder="Ask about AI strategy, adoption, agentic workflows..."
+                  inputRef={askInputRef}
+                />
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       <OpenSourceSection />
