@@ -43,18 +43,19 @@ export default function AskPage() {
   const askInputRef = useRef<HTMLTextAreaElement>(null);
   const suggestions = EXAMPLE_PROMPTS;
   const questionsRemaining = Math.max(USER_TURN_LIMIT - userTurnsCount, 0);
-  const nextQuestionNumber = Math.min(userTurnsCount + 1, USER_TURN_LIMIT);
   const threadComplete = reachedTurnLimit && !pending;
-  const statusTitle = reachedTurnLimit
-    ? pending
-      ? "Final question in progress"
-      : "Thread complete"
-    : `Question ${nextQuestionNumber} of ${USER_TURN_LIMIT}`;
+  const questionsUsed = Math.min(userTurnsCount, USER_TURN_LIMIT);
+  const statusTitle =
+    userTurnsCount === 0
+      ? "Demo chat"
+      : `Demo chat · ${questionsUsed} of ${USER_TURN_LIMIT} used`;
   const statusDescription = reachedTurnLimit
     ? pending
       ? "Composing the last answer in this thread."
-      : "Start a new thread to ask another question."
-    : `${questionsRemaining} question${questionsRemaining === 1 ? "" : "s"} left in this thread.`;
+      : "You've used the 3-question demo limit for this thread."
+    : userTurnsCount === 0
+      ? "Ask up to 3 questions in this demo thread."
+      : `${questionsRemaining} question${questionsRemaining === 1 ? "" : "s"} remaining in this demo thread.`;
 
   // Cycle the pending status message while the query is in flight.
   const [pendingIdx, setPendingIdx] = useState(0);
@@ -95,12 +96,6 @@ export default function AskPage() {
       <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col px-6 py-8">
         {turns.length === 0 ? (
           <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center py-8 text-center">
-            <div className="mb-5">
-              <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
-                {statusTitle}
-              </p>
-              <p className="mt-1 text-sm text-tertiary">{statusDescription}</p>
-            </div>
             <HeroAskInput
               value={input}
               onChange={setInput}
@@ -109,6 +104,7 @@ export default function AskPage() {
               placeholder="Ask about AI strategy, adoption, agentic workflows..."
               inputRef={askInputRef}
             />
+            <DemoLimitStatus title={statusTitle} description={statusDescription} />
             <ExamplePromptChips
               prompts={suggestions}
               onSelect={handlePromptSelect}
@@ -178,35 +174,28 @@ export default function AskPage() {
 
         {/* Input area — sticky at bottom */}
         {turns.length > 0 && (
-          <div className="sticky bottom-0 mt-6 -mx-4 px-4 pt-4 pb-6">
-            <div className="cm-form-surface rounded-2xl border p-4">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
-                    {statusTitle}
-                  </p>
-                  <p className="mt-1 text-xs text-tertiary">{statusDescription}</p>
-                </div>
-                {threadComplete && (
-                  <Button
-                    size="sm"
-                    color="primary"
-                    iconLeading={RefreshCcw01}
-                    onClick={resetConversation}
-                  >
-                    Start a new thread
-                  </Button>
-                )}
-              </div>
-              {!reachedTurnLimit && (
-                <HeroAskInput
-                  value={input}
-                  onChange={setInput}
-                  onSubmit={() => void handleAskQuestion()}
-                  disabled={pending}
-                  placeholder="Ask about AI strategy, adoption, agentic workflows..."
-                  inputRef={askInputRef}
-                />
+          <div className="sticky bottom-0 mt-6 -mx-4 bg-primary/95 px-4 pt-4 pb-6 backdrop-blur supports-[backdrop-filter]:bg-primary/80">
+            {!reachedTurnLimit && (
+              <HeroAskInput
+                value={input}
+                onChange={setInput}
+                onSubmit={() => void handleAskQuestion()}
+                disabled={pending}
+                placeholder="Ask about AI strategy, adoption, agentic workflows..."
+                inputRef={askInputRef}
+              />
+            )}
+            <div className="mx-auto mt-3 flex w-full max-w-2xl items-center justify-between gap-3">
+              <DemoLimitStatus title={statusTitle} description={statusDescription} align="left" />
+              {threadComplete && (
+                <Button
+                  size="sm"
+                  color="primary"
+                  iconLeading={RefreshCcw01}
+                  onClick={resetConversation}
+                >
+                  Start a new thread
+                </Button>
               )}
             </div>
           </div>
@@ -215,6 +204,25 @@ export default function AskPage() {
 
       <OpenSourceSection />
       <SiteFooter />
+    </div>
+  );
+}
+
+function DemoLimitStatus({
+  title,
+  description,
+  align = "center",
+}: {
+  title: string;
+  description: string;
+  align?: "left" | "center";
+}) {
+  return (
+    <div className={align === "center" ? "mt-3 text-center" : "min-w-0 text-left"}>
+      <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
+        {title}
+      </p>
+      <p className="mt-1 text-xs text-tertiary">{description}</p>
     </div>
   );
 }
