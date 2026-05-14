@@ -14,6 +14,8 @@ import {
   computeStanceReferencedDpIds,
 } from "@/lib/workspace-utils";
 
+type EvidenceSelectionOrigin = "claim" | "evidence" | "auto";
+
 type WorkspaceState = {
   /* project */
   projectId: Id<"projects"> | null;
@@ -43,8 +45,10 @@ type WorkspaceState = {
   reachedTurnLimit: boolean;
   /* evidence highlighting */
   highlightedEvidenceId: string | null;
-  handleCitationClick: (dpId: string) => void;
-  focusAnswerEvidence: (answerState: AssistantAnswer, dpId?: string) => void;
+  highlightedEvidenceOrigin: EvidenceSelectionOrigin | null;
+  highlightedEvidenceNonce: number;
+  handleCitationClick: (dpId: string, origin?: EvidenceSelectionOrigin) => void;
+  focusAnswerEvidence: (answerState: AssistantAnswer, dpId?: string, origin?: EvidenceSelectionOrigin) => void;
   evidenceSections: EvidenceSection[];
   /* mobile */
   mobilePane: "main" | "chat";
@@ -95,6 +99,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [highlightedEvidenceId, setHighlightedEvidenceId] = useState<string | null>(null);
+  const [highlightedEvidenceOrigin, setHighlightedEvidenceOrigin] = useState<EvidenceSelectionOrigin | null>(null);
+  const [highlightedEvidenceNonce, setHighlightedEvidenceNonce] = useState(0);
   const [mobilePane, setMobilePane] = useState<"main" | "chat">("main");
 
   const userTurnsCount = turns.filter((t) => t.role === "user").length;
@@ -139,7 +145,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
       setTurns([...nextTurns, { role: "assistant", content: result.answer, answerState }]);
       setActiveAnswer(answerState);
-      setHighlightedEvidenceId(answerState.citedDataPointIds[0] ?? answerState.retrievedDataPoints[0]?._id ?? null);
+      selectEvidence(
+        answerState.citedDataPointIds[0] ?? answerState.retrievedDataPoints[0]?._id ?? null,
+        "auto",
+      );
     } catch (err: any) {
       setTurns(nextTurns);
       setError(err?.message ?? "Something went wrong while querying the corpus.");
@@ -154,16 +163,28 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     setInput("");
     setError(null);
     setHighlightedEvidenceId(null);
+    setHighlightedEvidenceOrigin(null);
   }
 
-  function handleCitationClick(dpId: string) {
+  function selectEvidence(dpId: string | null, origin: EvidenceSelectionOrigin) {
     setHighlightedEvidenceId(dpId);
+    setHighlightedEvidenceOrigin(dpId ? origin : null);
+    setHighlightedEvidenceNonce((n) => n + 1);
   }
 
-  function focusAnswerEvidence(answerState: AssistantAnswer, dpId?: string) {
+  function handleCitationClick(dpId: string, origin: EvidenceSelectionOrigin = "claim") {
+    selectEvidence(dpId, origin);
+  }
+
+  function focusAnswerEvidence(
+    answerState: AssistantAnswer,
+    dpId?: string,
+    origin: EvidenceSelectionOrigin = "claim",
+  ) {
     setActiveAnswer(answerState);
-    setHighlightedEvidenceId(
+    selectEvidence(
       dpId ?? answerState.citedDataPointIds[0] ?? answerState.retrievedDataPoints[0]?._id ?? null,
+      origin,
     );
   }
 
@@ -248,6 +269,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       userTurnsCount,
       reachedTurnLimit,
       highlightedEvidenceId,
+      highlightedEvidenceOrigin,
+      highlightedEvidenceNonce,
       handleCitationClick,
       focusAnswerEvidence,
       evidenceSections,
@@ -255,7 +278,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       setMobilePane,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [projectId, projectName, loading, routeKind, scopeLabel, themes, allPositions, themePositions, positionDetail, sourceDetail, activeTheme, turns, activeAnswer, input, pending, error, userTurnsCount, reachedTurnLimit, highlightedEvidenceId, evidenceSections, mobilePane],
+    [projectId, projectName, loading, routeKind, scopeLabel, themes, allPositions, themePositions, positionDetail, sourceDetail, activeTheme, turns, activeAnswer, input, pending, error, userTurnsCount, reachedTurnLimit, highlightedEvidenceId, highlightedEvidenceOrigin, highlightedEvidenceNonce, evidenceSections, mobilePane],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

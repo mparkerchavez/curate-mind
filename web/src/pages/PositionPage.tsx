@@ -6,11 +6,22 @@ import { useScrollHighlightedClaim } from "@/hooks/use-linked-evidence-scroll";
 import { formatDateLabel, renderAnswerBlocks } from "@/lib/workspace-utils";
 
 export default function PositionPage() {
-  const { positionDetail, handleCitationClick, highlightedEvidenceId } = useWorkspace();
+  const {
+    positionDetail,
+    handleCitationClick,
+    highlightedEvidenceId,
+    highlightedEvidenceOrigin,
+    highlightedEvidenceNonce,
+  } = useWorkspace();
   const stanceRef = useRef<HTMLDivElement | null>(null);
 
   // When the highlighted evidence changes, scroll the matching claim in the body into view.
-  useScrollHighlightedClaim({ highlightedEvidenceId, rootRef: stanceRef });
+  useScrollHighlightedClaim({
+    highlightedEvidenceId,
+    enabled: highlightedEvidenceOrigin !== "claim",
+    triggerKey: highlightedEvidenceNonce,
+    rootRef: stanceRef,
+  });
 
   // All hooks must be called before any early return (React rules of hooks)
   const version = positionDetail?.currentVersion;

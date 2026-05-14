@@ -39,9 +39,18 @@ type RenderSection = {
  * in the stance.
  */
 export default function EvidencePanel() {
-  const { routeKind, evidenceSections, highlightedEvidenceId, handleCitationClick } = useWorkspace();
+  const {
+    routeKind,
+    evidenceSections,
+    highlightedEvidenceId,
+    highlightedEvidenceNonce,
+    handleCitationClick,
+  } = useWorkspace();
 
-  useScrollHighlightedEvidence({ highlightedEvidenceId });
+  useScrollHighlightedEvidence({
+    highlightedEvidenceId,
+    triggerKey: highlightedEvidenceNonce,
+  });
 
   const renderSections = useMemo<RenderSection[]>(() => {
     // Position context: any incoming section carries referencedDpIds. Split
@@ -198,7 +207,11 @@ export default function EvidencePanel() {
                         citedIds={citedIds}
                         labelByDpId={section.labelByDpId}
                         clickableIds={clickableIds}
-                        onClaimClick={canClickClaims ? handleCitationClick : undefined}
+                        onClaimClick={
+                          canClickClaims
+                            ? (dpId) => handleCitationClick(dpId, "evidence")
+                            : undefined
+                        }
                         dimmed={section.dimmed}
                       />
                     ))}

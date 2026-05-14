@@ -34,6 +34,8 @@ export default function AskPage() {
     userTurnsCount,
     activeAnswer,
     highlightedEvidenceId,
+    highlightedEvidenceOrigin,
+    highlightedEvidenceNonce,
     focusAnswerEvidence,
   } = useWorkspace();
 
@@ -62,7 +64,8 @@ export default function AskPage() {
 
   useScrollHighlightedClaim({
     highlightedEvidenceId,
-    enabled: !!activeAnswer,
+    enabled: !!activeAnswer && highlightedEvidenceOrigin !== "claim",
+    triggerKey: highlightedEvidenceNonce,
     rootSelector: '[data-active-answer="true"]',
   });
 

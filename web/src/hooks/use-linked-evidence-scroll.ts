@@ -7,6 +7,7 @@ import {
 type ClaimScrollOptions = {
   highlightedEvidenceId: string | null;
   enabled?: boolean;
+  triggerKey?: number;
   rootRef?: RefObject<ParentNode>;
   rootSelector?: string;
 };
@@ -14,11 +15,13 @@ type ClaimScrollOptions = {
 type EvidenceScrollOptions = {
   highlightedEvidenceId: string | null;
   enabled?: boolean;
+  triggerKey?: number;
 };
 
 export function useScrollHighlightedClaim({
   highlightedEvidenceId,
   enabled = true,
+  triggerKey,
   rootRef,
   rootSelector,
 }: ClaimScrollOptions) {
@@ -30,12 +33,13 @@ export function useScrollHighlightedClaim({
       (rootSelector ? document.querySelector(rootSelector) : document);
 
     scrollClaimAnchorIntoView(highlightedEvidenceId, root);
-  }, [enabled, highlightedEvidenceId, rootRef, rootSelector]);
+  }, [enabled, highlightedEvidenceId, rootRef, rootSelector, triggerKey]);
 }
 
 export function useScrollHighlightedEvidence({
   highlightedEvidenceId,
   enabled = true,
+  triggerKey,
 }: EvidenceScrollOptions) {
   useEffect(() => {
     if (!enabled || !highlightedEvidenceId) return;
@@ -46,5 +50,5 @@ export function useScrollHighlightedEvidence({
     });
 
     return () => cancelAnimationFrame(frame);
-  }, [enabled, highlightedEvidenceId]);
+  }, [enabled, highlightedEvidenceId, triggerKey]);
 }
