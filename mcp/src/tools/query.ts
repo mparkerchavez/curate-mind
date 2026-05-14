@@ -40,7 +40,156 @@ function truncateIfNeeded(text: string): string {
   return text;
 }
 
+function buildDeepLinkUrl(baseUrl: string | null | undefined, anchorQuote?: string | null): string | null {
+  if (!baseUrl) return null;
+  if (!anchorQuote) return baseUrl;
+
+  const words = anchorQuote.trim().split(/\s+/).slice(0, 10).join(" ");
+  const cleaned = words
+    .replace(/[\u2018\u2019\u201C\u201D]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return cleaned ? `${baseUrl}#:~:text=${encodeURIComponent(cleaned)}` : baseUrl;
+}
+
+function formatEvidencePackMarkdown(result: any): string {
+  const items = Array.isArray(result.evidencePack) ? result.evidencePack : [];
+  const lines: string[] = [
+    "# Curate Mind Evidence Pack",
+    "",
+    `Question: ${result.question}`,
+    "",
+    "## How To Use",
+    "",
+    "- Compose the answer yourself from this evidence pack.",
+    "- Cite every substantive claim inline with one or more labels, for example [E1].",
+    "- Use `Interpretation` as the curated claim, `Why it matters` as the curator's interpretation, and `Anchor quote` as the verification quote.",
+    "- If the pack does not support an answer, say the evidence is thin instead of filling gaps.",
+    "",
+    "## Context",
+    "",
+    result.context?.summary ?? "No scope summary returned.",
+    "",
+    "## Evidence Register",
+    "",
+  ];
+
+  if (items.length === 0) {
+    lines.push("No evidence was retrieved for this question.");
+  }
+
+  for (const item of items) {
+    const source = item.source ?? {};
+    const sourceBits = [
+      source.title ? String(source.title) : "Unknown source",
+      source.authorName ? `by ${source.authorName}` : null,
+      source.publisherName ? `(${source.publisherName})` : null,
+      source.publishedDate ? String(source.publishedDate) : null,
+      source.tier ? `tier ${source.tier}` : null,
+    ].filter(Boolean);
+    const sourceUrl = buildDeepLinkUrl(
+      source.resolvedUrl ?? source.storageUrl ?? source.canonicalUrl,
+      item.anchorQuote
+    );
+
+    lines.push(
+      `### [${item.label}] ${sourceBits.join(" ")}`,
+      "",
+      `- Data point ID: ${item.dataPointId}`,
+      `- Origin: ${item.origin}`,
+      `- Evidence type: ${item.evidenceType}${item.confidence ? `; confidence: ${item.confidence}` : ""}`,
+      `- Interpretation: ${item.interpretation}`,
+      item.whyItMatters ? `- Why it matters: ${item.whyItMatters}` : "- Why it matters: Not provided.",
+      `- Anchor quote: "${item.anchorQuote}"`,
+      sourceUrl ? `- Original source: ${sourceUrl}` : "- Original source: Not available.",
+      ""
+    );
+  }
+
+  lines.push(
+    "## Machine-Readable Evidence",
+    "",
+    "```json",
+    JSON.stringify(stripEmbeddingsDeep(result), null, 2),
+    "```"
+  );
+
+  return truncateIfNeeded(lines.join("\n"));
+}
+
 export function registerQueryTools(server: McpServer): void {
+  // ============================================================
+  // cm_retrieve_evidence_pack — Retrieval-only Ask experience
+  // ============================================================
+  server.registerTool(
+    "cm_retrieve_evidence_pack",
+    {
+      title: "Retrieve Evidence Pack",
+      description:
+        "Retrieve a citation-ready evidence pack for a question without generating " +
+        "the final answer. Use this before answering analytical questions when every " +
+        "claim needs inline citations. Returns labeled evidence items ([E1], [E2], ...), " +
+        "each with interpretation, curator note, anchor quote, and original source link.\n\n" +
+        "Args:\n" +
+        "  - projectId (string): The project to search\n" +
+        "  - question (string): The user's question\n" +
+        "  - limit (number, optional): Fresh evidence items to retrieve, 1-20, default 12\n" +
+        "  - themeId / positionId / sourceId (string, optional): Scope retrieval\n" +
+        "  - carriedDataPointIds (string[], optional): Evidence labels to carry from prior turns\n\n" +
+        "Returns: Markdown instructions plus a machine-readable JSON evidence pack. " +
+        "The calling model should compose the final answer and cite every substantive claim.",
+      inputSchema: {
+        projectId: z.string().describe("Project ID to search"),
+        question: z.string().min(1).describe("Question to retrieve evidence for"),
+        limit: z.number().int().min(1).max(20).optional()
+          .describe("Number of fresh evidence items to retrieve (default 12)"),
+        themeId: z.string().optional().describe("Optional theme scope"),
+        positionId: z.string().optional().describe("Optional position scope"),
+        sourceId: z.string().optional().describe("Optional source scope"),
+        carriedDataPointIds: z.array(z.string()).optional()
+          .describe("Data point IDs to carry forward from earlier turns"),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ projectId, question, limit, themeId, positionId, sourceId, carriedDataPointIds }) => {
+      try {
+        const result = await convexAction(api.chat.retrieveEvidencePack, {
+          projectId: asId<"projects">(projectId),
+          question,
+          limit,
+          themeId: themeId ? asId<"researchThemes">(themeId) : undefined,
+          positionId: positionId ? asId<"researchPositions">(positionId) : undefined,
+          sourceId: sourceId ? asId<"sources">(sourceId) : undefined,
+          carriedDataPointIds: carriedDataPointIds?.map((id) => asId<"dataPoints">(id)),
+        });
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: formatEvidencePackMarkdown(result),
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Error retrieving evidence pack: ${error instanceof Error ? error.message : String(error)}`,
+            },
+          ],
+        };
+      }
+    }
+  );
+
   // ============================================================
   // cm_get_themes — Layer 1
   // ============================================================

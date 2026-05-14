@@ -64,6 +64,18 @@ type ScopeContext = {
   sourceId?: string;
 };
 
+type EvidencePackItem = {
+  label: string;
+  dataPointId: string;
+  origin: EvidenceOrigin;
+  interpretation: string;
+  whyItMatters?: string;
+  anchorQuote: string;
+  evidenceType: string;
+  confidence?: string;
+  source: CitedDataPoint["source"];
+};
+
 export const askGrounded = action({
   args: {
     question: v.string(),
@@ -271,6 +283,93 @@ export const askGrounded = action({
       citations,
       retrievedDataPoints: retrieved,
       context: {
+        themeId: scope.themeId,
+        positionId: scope.positionId,
+        sourceId: scope.sourceId,
+      },
+    };
+  },
+});
+
+export const retrieveEvidencePack = action({
+  args: {
+    question: v.string(),
+    projectId: v.id("projects"),
+    themeId: v.optional(v.id("researchThemes")),
+    positionId: v.optional(v.id("researchPositions")),
+    sourceId: v.optional(v.id("sources")),
+    carriedDataPointIds: v.optional(v.array(v.id("dataPoints"))),
+    limit: v.optional(v.number()),
+  },
+  handler: async (
+    ctx,
+    args
+  ): Promise<{
+    question: string;
+    instructions: string[];
+    evidencePack: EvidencePackItem[];
+    carriedDataPointIds: string[];
+    freshDataPointIds: string[];
+    context: {
+      summary: string;
+      themeId?: string;
+      positionId?: string;
+      sourceId?: string;
+    };
+  }> => {
+    const openaiKey = process.env.OPENAI_API_KEY;
+    if (!openaiKey) throw new Error("OPENAI_API_KEY is not set in Convex env");
+
+    const scope = await resolveScopeContext(ctx, args);
+    const retrievalLimit = Math.max(1, Math.min(args.limit ?? 12, 20));
+    const embedding = await embedText(args.question, openaiKey);
+
+    const results = await ctx.vectorSearch("dataPoints", "by_embedding", {
+      vector: embedding,
+      limit: scope.allowedDataPointIds ? Math.max(72, retrievalLimit * 4) : retrievalLimit,
+    });
+
+    const rankedIds = results.map((result) => String(result._id));
+    const scopedIds = scope.allowedDataPointIds
+      ? rankedIds.filter((id) => scope.allowedDataPointIds?.has(id))
+      : rankedIds;
+    const fallbackScopedIds =
+      scope.allowedDataPointIds && scopedIds.length === 0
+        ? Array.from(scope.allowedDataPointIds)
+        : [];
+    const carriedIds = uniqueIds(args.carriedDataPointIds ?? [])
+      .map((id) => String(id))
+      .filter((id) => !scope.allowedDataPointIds || scope.allowedDataPointIds.has(id));
+    const carriedIdSet = new Set(carriedIds);
+    const freshIds = [...scopedIds, ...fallbackScopedIds]
+      .filter((id) => !carriedIdSet.has(id))
+      .slice(0, retrievalLimit);
+    const retrievedIds = uniqueIds([...carriedIds, ...freshIds]);
+    const retrieved = await hydrateDataPoints(ctx, retrievedIds);
+
+    return {
+      question: args.question,
+      instructions: [
+        "Compose the answer yourself from this evidence pack; Curate Mind has not generated the answer.",
+        "Every substantive claim in your answer should carry one or more inline labels like [E1].",
+        "Use only the labels in this pack. If the evidence is thin, say so rather than filling gaps.",
+        "Treat `interpretation` as the curated claim, `whyItMatters` as the curator's interpretive note, and `anchorQuote` as the verification quote from the original source.",
+      ],
+      evidencePack: retrieved.map((dp, index) => ({
+        label: `E${index + 1}`,
+        dataPointId: dp._id,
+        origin: carriedIdSet.has(dp._id) ? "carried" : "fresh",
+        interpretation: dp.claimText,
+        whyItMatters: dp.extractionNote,
+        anchorQuote: dp.anchorQuote,
+        evidenceType: dp.evidenceType,
+        confidence: dp.confidence,
+        source: dp.source,
+      })),
+      carriedDataPointIds: carriedIds,
+      freshDataPointIds: freshIds,
+      context: {
+        summary: scope.summary,
         themeId: scope.themeId,
         positionId: scope.positionId,
         sourceId: scope.sourceId,
