@@ -50,7 +50,7 @@
 
 **Why:** Two reasons. First, the system tracks how understanding evolves over time. Deleting a previous position version destroys intellectual history. The ability to ask "what did I believe about governance three months ago?" requires that old versions exist. Second, AI agents should never have delete permissions. An agent error that creates a bad record is recoverable (revert the pointer). An agent error that deletes a good record may be permanent.
 
-**The implementation pattern:** Research Positions have an identity record (researchPositions table) with a `currentVersionId` pointer. Updates create a new row in `positionVersions` and update the pointer. The only fields that are updated in place across the entire system are: `currentVersionId` on researchPositions, `status` on sources, and `embeddingStatus` on dataPoints.
+**The implementation pattern:** Research Positions have an identity record (researchPositions table) with a `currentVersionId` pointer. Updates create a new row in `positionVersions` and update the pointer. The routine in-place fields are `currentVersionId` on researchPositions, `status` on sources, and `embeddingStatus` on dataPoints. Decision 32 adds a narrow correction carve-out for source metadata plus data point anchor and speaker-attribution fields, with every change preserved in the append-only `corrections` table.
 
 ---
 
@@ -366,7 +366,8 @@ Allowed mutation types (with justification required):
 4. **Extraction error recovery** — If an agent writes malformed data points (e.g., missing anchors, wrong source ID), the bad records can be marked or removed rather than left as noise in the foundation.
 
 **What remains strictly append-only:**
-- Data point claim text and verbatim anchors (immutable once created)
+- Data point claim text (immutable once created)
+- Data point verbatim anchors except for logged correction writes described in Decision 32
 - Position version history (never delete old versions)
 - Curator observations and mental models (immutable once created)
 - Research Lens history (each generation is a snapshot)
@@ -398,6 +399,22 @@ Allowed mutation types (with justification required):
 **The boundary rule:** Do not use `cm_search` to produce cited answers. Do not use `cm_ask` for early corpus exploration when positions don't yet exist.
 
 **Date:** May 2026
+
+---
+
+## Decision 32: Logged Corrections for Anchors, Attribution, and Source Metadata
+
+**What:** Data points are append-only with respect to claims and tags, but their verbatim anchor and speaker-attribution fields support corrections through a logged in-place write. Source descriptive metadata fields (`publisherName`, `authorName`, `canonicalUrl`, `publishedDate`) use the same correction pattern. Every correction creates an immutable row in the `corrections` table before the target field is patched.
+
+**Why:** Pass 4 review and post-hoc audits surface small factual-plumbing errors that should not require re-extraction or pointer recovery: mistyped anchors, wrong anchor passages, missing transcript speaker attribution, or source metadata misread during intake. Versioning every typo or attribution fix would add ceremony without improving analysis. The correction row preserves the previous value and curator rationale, so the audit trail remains intact.
+
+**The implementation pattern:** `cm_correct_anchor` handles `anchor_text`, `anchor_passage`, `anchor_missing`, and two-DP `anchor_swap` corrections. `cm_correct_attribution` handles source metadata fixes and `dp_speaker_attribution`. The write happens in one Convex mutation: insert the `corrections` row, then patch the target field. For anchor swaps, both correction rows and both data point patches happen atomically in the same mutation.
+
+**Guardrails:** Anchor corrections require 10-40 words and a reason of at least 10 characters. The tool checks the source `fullText` for a case-insensitive, whitespace-tolerant substring match and returns a warning when no match is found, but allows the curator to proceed. Source URL corrections must parse as HTTP(S) URLs. Published dates must be valid `YYYY-MM-DD` ISO dates. Speaker attribution is structured metadata, not a claim rewrite.
+
+**Relationship to Decision 5:** This is a deliberate carve-out, not a repeal. The system still does not rewrite claims, delete evidence, or mutate position history. It allows a small set of verification and attribution fields to be corrected while preserving the previous value in an append-only audit table.
+
+**Date:** May 15, 2026
 
 ---
 

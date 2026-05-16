@@ -10,6 +10,7 @@
 
 import type * as backend from "../backend.js";
 import type * as chat from "../chat.js";
+import type * as corrections from "../corrections.js";
 import type * as dataPoints from "../dataPoints.js";
 import type * as mentalModels from "../mentalModels.js";
 import type * as migrations from "../migrations.js";
@@ -30,6 +31,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   backend: typeof backend;
   chat: typeof chat;
+  corrections: typeof corrections;
   dataPoints: typeof dataPoints;
   mentalModels: typeof mentalModels;
   migrations: typeof migrations;

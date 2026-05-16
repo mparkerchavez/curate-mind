@@ -114,6 +114,7 @@ export default defineSchema({
     locationStart: v.string(),
     relatedDataPoints: v.optional(v.array(v.id("dataPoints"))),
     extractionDate: v.string(),
+    speakerAttribution: v.optional(v.union(v.string(), v.null())),
     embedding: v.optional(v.array(v.float64())),
     embeddingStatus: v.optional(
       v.union(
@@ -153,7 +154,37 @@ export default defineSchema({
   }).index("by_dataPoint", ["dataPointId", "correctedAt"]),
 
   // ============================================================
-  // 4. CURATOR OBSERVATIONS - The curator's connective insights
+  // 4. CORRECTIONS - Append-only audit log for field corrections
+  // ============================================================
+  corrections: defineTable({
+    projectId: v.id("projects"),
+    targetType: v.union(v.literal("dataPoint"), v.literal("source")),
+    targetId: v.union(v.id("dataPoints"), v.id("sources")),
+    correctionType: v.union(
+      v.literal("anchor_text"),
+      v.literal("anchor_passage"),
+      v.literal("anchor_missing"),
+      v.literal("anchor_swap"),
+      v.literal("source_publisher"),
+      v.literal("source_author"),
+      v.literal("source_url"),
+      v.literal("source_published_date"),
+      v.literal("dp_speaker_attribution")
+    ),
+    previousValue: v.union(v.string(), v.null()),
+    newValue: v.string(),
+    reason: v.string(),
+    pairedTargetId: v.optional(v.id("dataPoints")),
+    correctedAt: v.number(),
+    correctedBy: v.union(
+      v.literal("curator"),
+      v.literal("agent"),
+      v.literal("pipeline")
+    ),
+  }).index("by_project_target", ["projectId", "targetType", "targetId"]),
+
+  // ============================================================
+  // 5. CURATOR OBSERVATIONS - The curator's connective insights
   // ============================================================
   curatorObservations: defineTable({
     observationText: v.string(),

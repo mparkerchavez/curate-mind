@@ -721,13 +721,14 @@ export function registerQueryTools(server: McpServer): void {
     {
       title: "Get Data Point Corrections",
       description:
-        "Return the append-only correction history for a data point, sorted by " +
-        "correctedAt ascending. Use this when an analyst or curator needs to audit " +
-        "original anchor or claim values and every correction applied over time.\n\n" +
+        "Return the append-only correction history for a data point. Use this when " +
+        "an analyst or curator needs to audit original anchor or attribution values " +
+        "and every correction applied over time.\n\n" +
         "Args:\n" +
         "  - dataPointId (string): The data point ID\n\n" +
-        "Returns: Array of correction rows with _id, correctionType, prior values, " +
-        "corrected values, reason, correctedAt, correctedBy, and previousCorrectionId.",
+        "Returns: Array of corrections rows with _id, projectId, targetType, targetId, " +
+        "correctionType, previousValue, newValue, reason, correctedAt, correctedBy, " +
+        "and pairedTargetId when relevant.",
       inputSchema: {
         dataPointId: z.string().describe("The data point ID"),
       },
@@ -740,12 +741,9 @@ export function registerQueryTools(server: McpServer): void {
     },
     async ({ dataPointId }) => {
       try {
-        const corrections = await convexQuery(
-          api.dataPoints.getDataPointCorrections,
-          {
-            dataPointId: asId<"dataPoints">(dataPointId),
-          }
-        );
+        const corrections = await convexQuery(api.corrections.getForDataPoint, {
+          dataPointId: asId<"dataPoints">(dataPointId),
+        });
 
         return {
           content: [

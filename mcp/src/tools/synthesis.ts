@@ -905,27 +905,41 @@ export function registerSynthesisTools(server: McpServer): void {
   );
 
   // ============================================================
-  // cm_correct_anchor - Append-only anchor quote correction
+  // cm_correct_anchor - Logged in-place anchor quote correction
   // ============================================================
   server.registerTool(
     "cm_correct_anchor",
     {
       title: "Correct Data Point Anchor",
       description:
-        "Append a correction for a mechanically broken data point anchor quote. " +
-        "This does not edit the original data point content. The corrected anchor " +
-        "must appear as a verbatim substring in the source fullText, which keeps " +
-        "the correction safe for verification.\n\n" +
+        "Correct a data point anchor quote while writing an immutable corrections row. " +
+        "The target data point anchor is updated in place, and the previous value is " +
+        "preserved in the append-only correction log. Anchor text must be 10-40 words. " +
+        "The tool checks the source fullText for a whitespace-tolerant, case-insensitive " +
+        "substring match and returns a warning if no match is found, but allows the write.\n\n" +
         "Args:\n" +
         "  - dataPointId (string): Data point to correct\n" +
-        "  - correctedAnchorQuote (string): Corrected verbatim source excerpt\n" +
-        "  - reason (string): Required curator explanation for the correction\n\n" +
-        "Returns: Correction ID, prior anchor, corrected anchor, and currentCorrectionId.",
+        "  - correctionType: anchor_text | anchor_passage | anchor_missing | anchor_swap\n" +
+        "  - newAnchorText (string): Required for text, passage, missing, and first DP in swap\n" +
+        "  - pairedDataPointId (string): Required for anchor_swap\n" +
+        "  - pairedNewAnchorText (string): Required for anchor_swap\n" +
+        "  - reason (string): Required curator explanation, at least 10 characters\n\n" +
+        "Returns: Correction ID(s), previous anchor(s), new anchor(s), and warnings.",
       inputSchema: {
         dataPointId: z.string().describe("Data point ID to correct"),
-        correctedAnchorQuote: z.string().min(1)
-          .describe("Corrected anchor quote. Must be a verbatim substring of the source fullText."),
-        reason: z.string().min(1)
+        correctionType: z.enum([
+          "anchor_text",
+          "anchor_passage",
+          "anchor_missing",
+          "anchor_swap",
+        ]),
+        newAnchorText: z.string().optional()
+          .describe("Corrected anchor text. Required except the schema cannot conditionally enforce it."),
+        pairedDataPointId: z.string().optional()
+          .describe("For anchor_swap, the other data point ID"),
+        pairedNewAnchorText: z.string().optional()
+          .describe("For anchor_swap, the corrected anchor for the paired data point"),
+        reason: z.string().min(10)
           .describe("Required curator explanation for this anchor correction"),
       },
       annotations: {
@@ -935,11 +949,23 @@ export function registerSynthesisTools(server: McpServer): void {
         openWorldHint: false,
       },
     },
-    async ({ dataPointId, correctedAnchorQuote, reason }) => {
+    async ({
+      dataPointId,
+      correctionType,
+      newAnchorText,
+      pairedDataPointId,
+      pairedNewAnchorText,
+      reason,
+    }) => {
       try {
-        const result = await convexMutation(api.dataPoints.correctAnchor, {
+        const result = await convexMutation(api.corrections.correctAnchor, {
           dataPointId: asId<"dataPoints">(dataPointId),
-          correctedAnchorQuote,
+          correctionType,
+          newAnchorText,
+          pairedDataPointId: pairedDataPointId
+            ? asId<"dataPoints">(pairedDataPointId)
+            : undefined,
+          pairedNewAnchorText,
           reason,
         });
 
@@ -965,30 +991,38 @@ export function registerSynthesisTools(server: McpServer): void {
   );
 
   // ============================================================
-  // cm_correct_attribution - Append-only claim attribution correction
+  // cm_correct_attribution - Logged source metadata / DP speaker attribution correction
   // ============================================================
   server.registerTool(
     "cm_correct_attribution",
     {
-      title: "Correct Data Point Attribution",
+      title: "Correct Attribution or Source Metadata",
       description:
-        "Append a correction for wrong or unverifiable attribution inside a data point claim. " +
-        "This does not edit the original data point content and is not a general claim rewrite tool. " +
-        "The corrected claim text must be within 0.5x to 2x of the current effective claim length. " +
-        "After a successful correction, embeddingStatus is set to pending so cm_generate_embeddings " +
-        "can regenerate the data point embedding from the corrected claim text.\n\n" +
+        "Correct source metadata or structured data point speaker attribution while writing " +
+        "an immutable corrections row. Source corrections update publisher, author, URL, or " +
+        "published date in place. Data point corrections update speakerAttribution only; this " +
+        "is separate from extractionNotes and should stay short, e.g. 'Name (Role)'.\n\n" +
         "Args:\n" +
-        "  - dataPointId (string): Data point to correct\n" +
-        "  - correctedClaimText (string): Claim text with corrected attribution only\n" +
-        "  - reason (string): Required curator explanation for the correction\n\n" +
-        "Returns: Correction ID, prior claim text, corrected claim text, currentCorrectionId, " +
-        "and embeddingStatus.",
+        "  - targetType: source | dataPoint\n" +
+        "  - targetId (string): Source or data point ID\n" +
+        "  - correctionType: source_publisher | source_author | source_url | " +
+        "source_published_date | dp_speaker_attribution\n" +
+        "  - newValue (string): Corrected value\n" +
+        "  - reason (string): Required curator explanation, at least 10 characters\n\n" +
+        "Returns: target, correctionId, previousValue, newValue, and fieldUpdated.",
       inputSchema: {
-        dataPointId: z.string().describe("Data point ID to correct"),
-        correctedClaimText: z.string().min(1)
-          .describe("Corrected claim text for attribution fixes only"),
-        reason: z.string().min(1)
-          .describe("Required curator explanation for this attribution correction"),
+        targetType: z.enum(["source", "dataPoint"]),
+        targetId: z.string().describe("Source or data point ID to correct"),
+        correctionType: z.enum([
+          "source_publisher",
+          "source_author",
+          "source_url",
+          "source_published_date",
+          "dp_speaker_attribution",
+        ]),
+        newValue: z.string().min(1).describe("Corrected metadata or speaker attribution value"),
+        reason: z.string().min(10)
+          .describe("Required curator explanation for this correction"),
       },
       annotations: {
         readOnlyHint: false,
@@ -997,11 +1031,16 @@ export function registerSynthesisTools(server: McpServer): void {
         openWorldHint: false,
       },
     },
-    async ({ dataPointId, correctedClaimText, reason }) => {
+    async ({ targetType, targetId, correctionType, newValue, reason }) => {
       try {
-        const result = await convexMutation(api.dataPoints.correctAttribution, {
-          dataPointId: asId<"dataPoints">(dataPointId),
-          correctedClaimText,
+        const result = await convexMutation(api.corrections.correctAttribution, {
+          targetType,
+          targetId:
+            targetType === "source"
+              ? asId<"sources">(targetId)
+              : asId<"dataPoints">(targetId),
+          correctionType,
+          newValue,
           reason,
         });
 
