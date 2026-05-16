@@ -19,7 +19,7 @@ import path from "path";
 import type { TranscriptChunk } from "@supadata/js";
 import { fileURLToPath } from "url";
 import { promisify } from "util";
-import { api, asId, convexMutation } from "../lib/convex-client.js";
+import { api, asId, convexMutation, convexQuery } from "../lib/convex-client.js";
 import {
   scrapeUrl,
   extractArticleMetadata,
@@ -68,6 +68,13 @@ const TRANSCRIPT_PARAGRAPH_GAP_SECONDS = 6;
 const PDF_EXTRACTION_TIMEOUT_MS = 270_000;
 const PDF_EXTRACTION_MAX_BUFFER_BYTES = 10 * 1024 * 1024;
 const REVIEW_STATUS_FILENAME = "review-status.json";
+const DERIVED_FROM_KINDS = [
+  "commentary",
+  "summary",
+  "presentation",
+  "translation",
+] as const;
+type DerivedFromKind = (typeof DERIVED_FROM_KINDS)[number];
 
 // Structural headings and phrases that reliably mark the end of article body
 // content. Matched against trimmed lines only. Add new patterns here as you
@@ -89,6 +96,49 @@ const reviewStatusSchema = z.object({
   ).default([]),
 });
 const execFileAsync = promisify(execFile);
+
+async function validateDerivativeSourceMetadata(args: {
+  derivedFrom?: string;
+  derivedFromKind?: string;
+}): Promise<
+  | { derivedFrom?: string; derivedFromKind?: DerivedFromKind }
+  | { error: string }
+> {
+  const derivedFrom = args.derivedFrom?.trim();
+  const derivedFromKind = args.derivedFromKind?.trim();
+
+  if (!derivedFrom && !derivedFromKind) {
+    return {};
+  }
+
+  if (derivedFrom && !derivedFromKind) {
+    return { error: "Derived from requires Derived kind" };
+  }
+
+  if (!derivedFrom && derivedFromKind) {
+    return { error: "Derived kind requires Derived from" };
+  }
+
+  if (!DERIVED_FROM_KINDS.includes(derivedFromKind as DerivedFromKind)) {
+    return {
+      error:
+        `Invalid Derived kind: ${derivedFromKind}. ` +
+        `Allowed: ${DERIVED_FROM_KINDS.join(", ")}`,
+    };
+  }
+
+  const source = await convexQuery(api.sources.getSource, {
+    sourceId: asId<"sources">(derivedFrom!),
+  }).catch(() => null);
+  if (!source) {
+    return { error: `Source not found: ${derivedFrom}` };
+  }
+
+  return {
+    derivedFrom,
+    derivedFromKind: derivedFromKind as DerivedFromKind,
+  };
+}
 
 export function registerIntakeTools(server: McpServer): void {
   // ============================================================
@@ -659,6 +709,9 @@ export function registerIntakeTools(server: McpServer): void {
         "  - canonicalUrl (string, optional): URL to original source. Required unless an original PDF/file is uploaded\n" +
         "  - publishedDate (string, optional): Original publication date\n" +
         "  - intakeNote (string, optional): Why this source was added\n\n" +
+        "Wrapper metadata may also include Derived from: <sourceId> and " +
+        "Derived kind: <commentary|summary|presentation|translation> to mark " +
+        "this source as derivative of another. Both must be present together or both absent.\n\n" +
         "Returns: The new source ID, or a duplicate warning if content hash matches.",
       inputSchema: {
         projectId: z.string().describe("Project ID this source belongs to"),
@@ -808,6 +861,20 @@ export function registerIntakeTools(server: McpServer): void {
           params.publishedDate !== undefined
             ? params.publishedDate
             : parsedMetadata.publishedDate;
+        const derivativeValidation = await validateDerivativeSourceMetadata({
+          derivedFrom: parsedMetadata.derivedFrom,
+          derivedFromKind: parsedMetadata.derivedFromKind,
+        });
+        if ("error" in derivativeValidation) {
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: `Error: ${derivativeValidation.error}`,
+              },
+            ],
+          };
+        }
 
         if (!resolvedTitle) {
           return {
@@ -888,6 +955,10 @@ export function registerIntakeTools(server: McpServer): void {
             publisherName: resolvedPublisherName,
             canonicalUrl: resolvedCanonicalUrl,
             publishedDate: resolvedPublishedDate,
+            derivedFrom: derivativeValidation.derivedFrom
+              ? asId<"sources">(derivativeValidation.derivedFrom)
+              : undefined,
+            derivedFromKind: derivativeValidation.derivedFromKind,
             intakeNote: params.intakeNote,
           }
         );
@@ -972,7 +1043,10 @@ export function registerIntakeTools(server: McpServer): void {
         "  - publisherName (string, optional): Publication or platform\n" +
         "  - publishedDate (string, optional): Original publication date\n" +
         "  - canonicalUrl (string, optional): URL to original source\n" +
+        "  - derivedFrom (string|null, optional): Source ID this source is derived from, or null to clear\n" +
+        "  - derivedFromKind (string|null, optional): commentary, summary, presentation, translation, or null to clear\n" +
         "  - repairNote (string): Short note explaining why this update is needed\n\n" +
+        "derivedFrom and derivedFromKind must be set together. To clear the relationship, pass both as null.\n\n" +
         "Returns: The sourceId, previous values, and the fields that were patched.",
       inputSchema: {
         sourceId: z.string().describe("Source ID to update"),
@@ -980,6 +1054,13 @@ export function registerIntakeTools(server: McpServer): void {
         publisherName: z.string().optional().describe("Publication or platform"),
         publishedDate: z.string().optional().describe("Original publication date"),
         canonicalUrl: z.string().optional().describe("URL to original source"),
+        derivedFrom: z.union([z.string(), z.null()]).optional()
+          .describe("Source ID this source is derived from, or null to clear with derivedFromKind"),
+        derivedFromKind: z.union([
+          z.enum(DERIVED_FROM_KINDS),
+          z.null(),
+        ]).optional()
+          .describe("Derivative relationship kind, or null to clear with derivedFrom"),
         repairNote: z.string().min(1)
           .describe("Short note explaining why this update is needed (audit trail)"),
       },
@@ -1000,6 +1081,12 @@ export function registerIntakeTools(server: McpServer): void {
             publisherName: params.publisherName,
             publishedDate: params.publishedDate,
             canonicalUrl: params.canonicalUrl,
+            derivedFrom: params.derivedFrom === undefined
+              ? undefined
+              : params.derivedFrom === null
+                ? null
+                : asId<"sources">(params.derivedFrom),
+            derivedFromKind: params.derivedFromKind,
             repairNote: params.repairNote,
           }
         );
@@ -1007,8 +1094,8 @@ export function registerIntakeTools(server: McpServer): void {
         const patchedKeys = Object.keys(result.patched);
         const summaryLines = patchedKeys.map((key) => {
           const previousValue = (result.previous as Record<string, string | null>)[key];
-          const newValue = (result.patched as Record<string, string>)[key];
-          return `  - ${key}: ${previousValue ?? "(null)"} -> ${newValue}`;
+          const newValue = (result.patched as Record<string, string | null | undefined>)[key];
+          return `  - ${key}: ${previousValue ?? "(null)"} -> ${newValue ?? "(null)"}`;
         });
 
         return {

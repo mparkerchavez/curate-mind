@@ -13,11 +13,20 @@ export type ResolvedSourceMeta = {
   publishedDate?: string;
   sourceType: Doc<"sources">["sourceType"];
   tier: Doc<"sources">["tier"];
+  derivedFrom: Id<"sources"> | null;
+  derivedFromKind: Doc<"sources">["derivedFromKind"] | null;
   storageUrl: string | null;
   resolvedUrl: string;
   resolvedLinkKind: ResolvedLinkKind;
   sourcePagePath: string;
 };
+
+const derivedFromKindValidator = v.union(
+  v.literal("commentary"),
+  v.literal("summary"),
+  v.literal("presentation"),
+  v.literal("translation")
+);
 
 function normalizeStoredUrl(value: string | undefined): string | undefined {
   if (!value) return undefined;
@@ -63,6 +72,8 @@ export async function resolveSourceMeta(
     publishedDate: source.publishedDate,
     sourceType: source.sourceType,
     tier: source.tier,
+    derivedFrom: source.derivedFrom ?? null,
+    derivedFromKind: source.derivedFromKind ?? null,
     storageUrl,
     resolvedUrl,
     resolvedLinkKind,
@@ -104,6 +115,8 @@ export const insertSource = mutation({
     contentHash: v.string(),
     storageId: v.optional(v.id("_storage")),
     wordCount: v.number(),
+    derivedFrom: v.optional(v.id("sources")),
+    derivedFromKind: v.optional(derivedFromKindValidator),
     sourceRelationships: v.optional(
       v.array(
         v.object({
@@ -119,6 +132,19 @@ export const insertSource = mutation({
     ),
   },
   handler: async (ctx, args) => {
+    if (args.derivedFrom !== undefined || args.derivedFromKind !== undefined) {
+      if (args.derivedFrom === undefined) {
+        throw new Error("derivedFromKind requires derivedFrom");
+      }
+      if (args.derivedFromKind === undefined) {
+        throw new Error("derivedFrom requires derivedFromKind");
+      }
+      const parentSource = await ctx.db.get(args.derivedFrom);
+      if (!parentSource) {
+        throw new Error(`Source not found: ${args.derivedFrom}`);
+      }
+    }
+
     // Check for duplicate via content hash
     const existing = await ctx.db
       .query("sources")
@@ -254,6 +280,8 @@ export const updateSourceDescriptiveMetadata = mutation({
     publisherName: v.optional(v.string()),
     publishedDate: v.optional(v.string()),
     canonicalUrl: v.optional(v.string()),
+    derivedFrom: v.optional(v.union(v.id("sources"), v.null())),
+    derivedFromKind: v.optional(v.union(derivedFromKindValidator, v.null())),
     repairNote: v.string(),
   },
   handler: async (ctx, args) => {
@@ -267,7 +295,10 @@ export const updateSourceDescriptiveMetadata = mutation({
       publisherName?: string;
       publishedDate?: string;
       canonicalUrl?: string;
+      derivedFrom?: Id<"sources"> | undefined;
+      derivedFromKind?: Doc<"sources">["derivedFromKind"] | undefined;
     } = {};
+    const patchedForReturn: Record<string, string | Id<"sources"> | null> = {};
 
     if (args.authorName !== undefined) {
       const trimmed = args.authorName.trim();
@@ -275,6 +306,7 @@ export const updateSourceDescriptiveMetadata = mutation({
         throw new Error("authorName must not be empty when provided");
       }
       patch.authorName = trimmed;
+      patchedForReturn.authorName = trimmed;
     }
 
     if (args.publisherName !== undefined) {
@@ -283,6 +315,7 @@ export const updateSourceDescriptiveMetadata = mutation({
         throw new Error("publisherName must not be empty when provided");
       }
       patch.publisherName = trimmed;
+      patchedForReturn.publisherName = trimmed;
     }
 
     if (args.publishedDate !== undefined) {
@@ -291,6 +324,7 @@ export const updateSourceDescriptiveMetadata = mutation({
         throw new Error("publishedDate must not be empty when provided");
       }
       patch.publishedDate = trimmed;
+      patchedForReturn.publishedDate = trimmed;
     }
 
     if (args.canonicalUrl !== undefined) {
@@ -307,11 +341,42 @@ export const updateSourceDescriptiveMetadata = mutation({
         throw new Error("canonicalUrl must be a valid URL");
       }
       patch.canonicalUrl = trimmed;
+      patchedForReturn.canonicalUrl = trimmed;
     }
 
-    if (Object.keys(patch).length === 0) {
+    if (args.derivedFrom === null || args.derivedFromKind === null) {
+      if (args.derivedFrom !== null || args.derivedFromKind !== null) {
+        throw new Error(
+          "derivedFrom and derivedFromKind must both be null to clear the relationship"
+        );
+      }
+      patch.derivedFrom = undefined;
+      patch.derivedFromKind = undefined;
+      patchedForReturn.derivedFrom = null;
+      patchedForReturn.derivedFromKind = null;
+    } else if (args.derivedFrom !== undefined || args.derivedFromKind !== undefined) {
+      if (args.derivedFrom === undefined) {
+        throw new Error("derivedFromKind requires derivedFrom");
+      }
+      if (args.derivedFromKind === undefined) {
+        throw new Error("derivedFrom requires derivedFromKind");
+      }
+      const parentSource = await ctx.db.get(args.derivedFrom);
+      if (!parentSource) {
+        throw new Error(`Source not found: ${args.derivedFrom}`);
+      }
+      if (args.derivedFrom === args.sourceId) {
+        throw new Error("derivedFrom cannot reference the source being updated");
+      }
+      patch.derivedFrom = args.derivedFrom;
+      patch.derivedFromKind = args.derivedFromKind;
+      patchedForReturn.derivedFrom = args.derivedFrom;
+      patchedForReturn.derivedFromKind = args.derivedFromKind;
+    }
+
+    if (Object.keys(patchedForReturn).length === 0) {
       throw new Error(
-        "At least one of authorName, publisherName, publishedDate, or canonicalUrl must be provided"
+        "At least one of authorName, publisherName, publishedDate, canonicalUrl, derivedFrom, or derivedFromKind must be provided"
       );
     }
 
@@ -324,8 +389,10 @@ export const updateSourceDescriptiveMetadata = mutation({
         publisherName: source.publisherName ?? null,
         publishedDate: source.publishedDate ?? null,
         canonicalUrl: source.canonicalUrl ?? null,
+        derivedFrom: source.derivedFrom ?? null,
+        derivedFromKind: source.derivedFromKind ?? null,
       },
-      patched: patch,
+      patched: patchedForReturn,
       repairNote: args.repairNote,
     };
   },
@@ -451,7 +518,11 @@ export const listByStatus = query({
         q.eq("projectId", args.projectId).eq("status", args.status)
       )
       .collect();
-    return sources.map(({ fullText, ...metadata }) => metadata);
+    return sources.map(({ fullText, ...metadata }) => ({
+      ...metadata,
+      derivedFrom: metadata.derivedFrom ?? null,
+      derivedFromKind: metadata.derivedFromKind ?? null,
+    }));
   },
 });
 
@@ -465,7 +536,11 @@ export const listAll = query({
       .query("sources")
       .withIndex("by_projectId", (q) => q.eq("projectId", args.projectId))
       .collect();
-    return sources.map(({ fullText, ...metadata }) => metadata);
+    return sources.map(({ fullText, ...metadata }) => ({
+      ...metadata,
+      derivedFrom: metadata.derivedFrom ?? null,
+      derivedFromKind: metadata.derivedFromKind ?? null,
+    }));
   },
 });
 

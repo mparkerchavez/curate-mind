@@ -66,3 +66,19 @@ test("parseSourceMetadataHeader accepts metadata lines without list bullets", ()
   assert.equal(parsed.sourceType, "report");
   assert.equal(parsed.canonicalUrl, "https://example.com/research");
 });
+
+test("parseSourceMetadataHeader accepts derivative source metadata", () => {
+  const parsed = parseSourceMetadataHeader(`# Keynote
+
+## Metadata
+* **Type:** Video
+* **URL:** https://example.com/keynote
+* **Derived from:** kd75c4dkcxmg2mawsebr15p37s86kcrb
+* **Derived kind:** presentation
+
+---
+`);
+
+  assert.equal(parsed.derivedFrom, "kd75c4dkcxmg2mawsebr15p37s86kcrb");
+  assert.equal(parsed.derivedFromKind, "presentation");
+});

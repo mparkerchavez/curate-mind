@@ -164,6 +164,8 @@ function sanitizeSource(source: any) {
     intakeNote: source.intakeNote ?? null,
     urlAccessibility: source.urlAccessibility,
     wordCount: source.wordCount,
+    derivedFrom: source.derivedFrom ?? null,
+    derivedFromKind: source.derivedFromKind ?? null,
     sourceRelationships: source.sourceRelationships ?? [],
     sourceSynthesis: source.sourceSynthesis ?? null,
     ingestedDate: source.ingestedDate,

@@ -7,6 +7,7 @@
  * - cm_get_positions: Layer 1 — positions within a theme
  * - cm_get_position_detail: Layer 2 — full evidence chain
  * - cm_get_data_point: Layer 3 — includes anchor quote
+ * - cm_get_source: Source metadata without full text
  * - cm_get_source_text: Layer 4 — full source text
  * - cm_ask: Analyst query with progressive disclosure (positions → observations → mental models → data points)
  * - cm_search: Broad exploration across all entity types (signal-finding, not analyst answers)
@@ -768,6 +769,62 @@ export function registerQueryTools(server: McpServer): void {
   );
 
   // ============================================================
+  // cm_get_source - Source metadata without full text
+  // ============================================================
+  server.registerTool(
+    "cm_get_source",
+    {
+      title: "Get Source Metadata",
+      description:
+        "Get metadata for one source without full text. Includes derivative " +
+        "source fields derivedFrom and derivedFromKind when present.\n\n" +
+        "Args:\n" +
+        "  - sourceId (string): The source ID\n\n" +
+        "Returns: Source metadata without full text.",
+      inputSchema: {
+        sourceId: z.string().describe("The source ID"),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ sourceId }) => {
+      try {
+        const source = await convexQuery(api.sources.getSource, {
+          sourceId: asId<"sources">(sourceId),
+        });
+
+        if (!source) {
+          return {
+            content: [
+              { type: "text" as const, text: `Source ${sourceId} not found.` },
+            ],
+          };
+        }
+
+        const text = truncateIfNeeded(
+          JSON.stringify(stripEmbeddingsDeep(source), null, 2)
+        );
+        return {
+          content: [{ type: "text" as const, text }],
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+            },
+          ],
+        };
+      }
+    }
+  );
+
+  // ============================================================
   // cm_get_source_text — Layer 4 (full source text)
   // ============================================================
   server.registerTool(
@@ -1012,7 +1069,8 @@ export function registerQueryTools(server: McpServer): void {
     {
       title: "List Sources",
       description:
-        "List sources, optionally filtered by pipeline status.\n\n" +
+        "List sources, optionally filtered by pipeline status. Includes " +
+        "derivedFrom and derivedFromKind compactly when a source is derivative.\n\n" +
         "Args:\n" +
         "  - status (string, optional): Filter by status (indexed, extracted, failed). Omit for all.\n\n" +
         "Returns: Source metadata (without full text).",
@@ -1044,8 +1102,12 @@ export function registerQueryTools(server: McpServer): void {
 
         // Return compact format to avoid truncation: one line per source
         const lines = sources.map(
-          (source) =>
-            `${source._id} | ${source.title} | ${source.wordCount || "?"} words | ${source.publisherName || "?"} | tier ${source.tier || "?"}`
+          (source) => {
+            const derived = source.derivedFrom
+              ? ` | derivedFrom ${source.derivedFrom} (${source.derivedFromKind ?? "unknown"})`
+              : "";
+            return `${source._id} | ${source.title} | ${source.wordCount || "?"} words | ${source.publisherName || "?"} | tier ${source.tier || "?"}${derived}`;
+          }
         );
         const text = `Found ${sources.length} sources:\n` + lines.join("\n");
         return {

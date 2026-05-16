@@ -43,6 +43,15 @@ export default defineSchema({
     contentHash: v.string(),
     storageId: v.optional(v.id("_storage")),
     wordCount: v.number(),
+    derivedFrom: v.optional(v.id("sources")),
+    derivedFromKind: v.optional(
+      v.union(
+        v.literal("commentary"),
+        v.literal("summary"),
+        v.literal("presentation"),
+        v.literal("translation")
+      )
+    ),
     sourceRelationships: v.optional(
       v.array(
         v.object({

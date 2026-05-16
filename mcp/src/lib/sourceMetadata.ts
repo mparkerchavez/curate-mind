@@ -23,6 +23,8 @@ export type ParsedSourceMetadata = {
   canonicalUrl?: string;
   publishedDate?: string;
   sourceType?: SourceType;
+  derivedFrom?: string;
+  derivedFromKind?: string;
 };
 
 const METADATA_HEADER_LINE_LIMIT = 20;
@@ -55,7 +57,9 @@ export function parseSourceMetadataHeader(content: string): ParsedSourceMetadata
       break;
     }
 
-    const match = line.match(/^(?:\*\s+)?\*\*(.+?):\*\*\s*(.+)\s*$/);
+    const match =
+      line.match(/^(?:\*\s+)?\*\*(.+?):\*\*\s*(.+)\s*$/) ??
+      line.match(/^(?:\*\s+)?([^:*]+):\s*(.+)\s*$/);
     if (!match) {
       continue;
     }
@@ -91,6 +95,16 @@ export function parseSourceMetadataHeader(content: string): ParsedSourceMetadata
 
     if (key === "url") {
       parsed.canonicalUrl = normalizeSourceUrl(cleanedValue);
+      continue;
+    }
+
+    if (key === "derived from") {
+      parsed.derivedFrom = cleanedValue;
+      continue;
+    }
+
+    if (key === "derived kind") {
+      parsed.derivedFromKind = cleanedValue;
     }
   }
 
