@@ -23,13 +23,43 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { api, asId, convexAction, convexQuery } from "../lib/convex-client.js";
-import { stripEmbeddingsDeep } from "../lib/response-shaping.js";
+import {
+  clampPagination,
+  paginate,
+  stripEmbeddingsDeep,
+  takeItemsWithinJsonLimit,
+} from "../lib/response-shaping.js";
 
 const CHARACTER_LIMIT = 25000;
 
 type SourceListItem = typeof api.sources.listAll["_returnType"][number];
 type TagLookupResult = typeof api.tags.getTagBySlug["_returnType"];
 type DataPointsByTagResult = typeof api.tags.getDataPointsByTag["_returnType"];
+type DataPointBySourceResult =
+  typeof api.dataPoints.listDataPointsBySource["_returnType"][number];
+type TagTrendItem = {
+  name: string;
+  category?: string;
+  dataPointCount: number;
+  [key: string]: unknown;
+};
+
+function toLeanDataPoint(dp: DataPointBySourceResult) {
+  return {
+    _id: dp._id,
+    dpSequenceNumber: dp.dpSequenceNumber,
+    claimText: dp.claimText,
+    evidenceType: dp.evidenceType,
+    confidence: dp.confidence,
+  };
+}
+
+function getPositionHeadlines(currentPositions: string): string[] {
+  return currentPositions
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith("["));
+}
 
 function truncateIfNeeded(text: string): string {
   if (text.length > CHARACTER_LIMIT) {
@@ -789,18 +819,32 @@ export function registerQueryTools(server: McpServer): void {
   );
 
   // ============================================================
-  // cm_get_tag_trends — Tag usage counts
+  // cm_get_tag_trends - Tag usage counts
   // ============================================================
   server.registerTool(
     "cm_get_tag_trends",
     {
       title: "Get Tag Trends",
       description:
-        "Get tag usage counts across all data points. Shows which topics " +
-        "have the most evidence, useful for spotting emerging trends.\n\n" +
-        "Returns: Tags sorted by data point count (most used first). " +
-        "Embedding vectors are stripped from the response to keep it within token caps.",
-      inputSchema: {},
+        "Get paginated tag usage counts across all data points. Shows which " +
+        "topics have the most evidence, useful for spotting emerging trends.\n\n" +
+        "Args:\n" +
+        "  - limit (number, optional): Page size, default 50, max 200\n" +
+        "  - offset (number, optional): Zero-based page offset, default 0\n" +
+        "  - category (string, optional): Filter tags by category\n" +
+        "  - projectId (string, optional): Accepted for caller compatibility. Tag usage counts are currently global.\n\n" +
+        "Returns: Page object with items sorted by dataPointCount descending, " +
+        "plus total, offset, limit, and hasMore.",
+      inputSchema: {
+        limit: z.number().int().min(1).max(200).optional()
+          .describe("Page size (default 50, max 200)"),
+        offset: z.number().int().min(0).optional()
+          .describe("Zero-based page offset (default 0)"),
+        category: z.string().optional()
+          .describe("Optional tag category filter"),
+        projectId: z.string().optional()
+          .describe("Optional project ID for compatibility. Tag counts are currently global."),
+      },
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
@@ -808,14 +852,25 @@ export function registerQueryTools(server: McpServer): void {
         openWorldHint: false,
       },
     },
-    async () => {
+    async ({ limit, offset, category }) => {
       try {
-        const trends = await convexQuery(api.tags.getTagUsageCounts);
+        const trends = await convexQuery(api.tags.getTagUsageCounts) as TagTrendItem[];
+        const filtered = category
+          ? trends.filter((tag) => tag.category === category)
+          : trends;
+        filtered.sort((a, b) => {
+          const countDelta = b.dataPointCount - a.dataPointCount;
+          if (countDelta !== 0) return countDelta;
+          return a.name.localeCompare(b.name);
+        });
+        const pagination = clampPagination(limit, offset, 50, 200);
+        const page = paginate(filtered, pagination.limit, pagination.offset);
+
         return {
           content: [
             {
               type: "text" as const,
-              text: JSON.stringify(stripEmbeddingsDeep(trends), null, 2),
+              text: JSON.stringify(stripEmbeddingsDeep(page), null, 2),
             },
           ],
         };
@@ -949,22 +1004,26 @@ export function registerQueryTools(server: McpServer): void {
   );
 
   // ============================================================
-  // cm_get_research_lens — Get the current Research Lens
+  // cm_get_research_lens - Get the current Research Lens
   // ============================================================
   server.registerTool(
     "cm_get_research_lens",
     {
       title: "Get Current Research Lens",
       description:
-        "Get the most recent Research Lens for a project — a compressed snapshot " +
+        "Get the most recent Research Lens for a project: a compressed snapshot " +
         "of current positions, open questions, and surprise signals. Used by " +
         "Pass 2 enrichment as context.\n\n" +
         "Args:\n" +
         "  - projectId (string): The project to get the lens for\n\n" +
-        "Returns: The current Research Lens or null if none exists yet. " +
-        "Embedding vectors are stripped from the response to keep it within token caps.",
+        "  - mode (\"summary\" | \"full\", optional): Summary is default and returns " +
+        "metadata, openQuestions, surpriseSignals, and positionHeadlines. Full " +
+        "returns the complete lens including currentPositions.\n\n" +
+        "Returns: The current Research Lens or null if none exists yet.",
       inputSchema: {
         projectId: z.string().describe("Project ID"),
+        mode: z.enum(["summary", "full"]).optional()
+          .describe("Response mode. Default summary keeps payloads small; full returns complete position bodies."),
       },
       annotations: {
         readOnlyHint: true,
@@ -973,7 +1032,7 @@ export function registerQueryTools(server: McpServer): void {
         openWorldHint: false,
       },
     },
-    async ({ projectId }) => {
+    async ({ projectId, mode }) => {
       try {
         const lens = await convexQuery(api.researchLens.getCurrentLens, {
           projectId: asId<"projects">(projectId),
@@ -991,11 +1050,24 @@ export function registerQueryTools(server: McpServer): void {
           };
         }
 
+        const payload = mode === "full"
+          ? lens
+          : {
+              _id: lens._id,
+              _creationTime: lens._creationTime,
+              projectId: lens.projectId,
+              generatedDate: lens.generatedDate,
+              triggeredBy: lens.triggeredBy,
+              openQuestions: lens.openQuestions,
+              surpriseSignals: lens.surpriseSignals,
+              positionHeadlines: getPositionHeadlines(lens.currentPositions),
+            };
+
         return {
           content: [
             {
               type: "text" as const,
-              text: JSON.stringify(stripEmbeddingsDeep(lens), null, 2),
+              text: JSON.stringify(stripEmbeddingsDeep(payload), null, 2),
             },
           ],
         };
@@ -1013,23 +1085,29 @@ export function registerQueryTools(server: McpServer): void {
   );
 
   // ============================================================
-  // cm_get_data_points_by_tag — Retrieve DPs by tag slug
+  // cm_get_data_points_by_tag - Retrieve DPs by tag slug
   // ============================================================
   server.registerTool(
     "cm_get_data_points_by_tag",
     {
       title: "Get Data Points by Tag",
       description:
-        "Retrieve all data points linked to a specific tag. Returns clean data " +
+        "Retrieve a paginated page of data points linked to a specific tag. Returns clean data " +
         "(ID, claim text, evidence type, confidence, source title, source tier) " +
         "without embeddings. Useful for building evidence pools for position linking.\n\n" +
         "Args:\n" +
         "  - projectId (string): The project ID\n" +
-        "  - tagSlug (string): The tag slug to filter by (e.g., 'specification-bottleneck')\n\n" +
-        "Returns: Array of data points with source metadata.",
+        "  - tagSlug (string): The tag slug to filter by (e.g., 'specification-bottleneck')\n" +
+        "  - limit (number, optional): Page size, default 100, max 200\n" +
+        "  - offset (number, optional): Zero-based page offset, default 0\n\n" +
+        "Returns: Page object with items, total, offset, limit, and hasMore.",
       inputSchema: {
         projectId: z.string().describe("Project ID"),
         tagSlug: z.string().describe("Tag slug to filter by (e.g., 'governance', 'specification-bottleneck')"),
+        limit: z.number().int().min(1).max(200).optional()
+          .describe("Page size (default 100, max 200)"),
+        offset: z.number().int().min(0).optional()
+          .describe("Zero-based page offset (default 0)"),
       },
       annotations: {
         readOnlyHint: true,
@@ -1038,7 +1116,17 @@ export function registerQueryTools(server: McpServer): void {
         openWorldHint: false,
       },
     },
-    async ({ projectId, tagSlug }: { projectId: string; tagSlug: string }) => {
+    async ({
+      projectId,
+      tagSlug,
+      limit,
+      offset,
+    }: {
+      projectId: string;
+      tagSlug: string;
+      limit?: number;
+      offset?: number;
+    }) => {
       try {
         // First, look up the tag by slug
         const tag: TagLookupResult = await convexQuery(api.tags.getTagBySlug, {
@@ -1061,12 +1149,56 @@ export function registerQueryTools(server: McpServer): void {
           }
         );
 
-        const summary = `Found ${dataPoints.length} data points for tag "${tag.name}" (${tagSlug}):\n\n` +
-          JSON.stringify(stripEmbeddingsDeep(dataPoints), null, 2);
+        const pagination = clampPagination(limit, offset, 100, 200);
+        const requestedPage = paginate(
+          dataPoints,
+          pagination.limit,
+          pagination.offset
+        );
+        const bounded = takeItemsWithinJsonLimit(
+          stripEmbeddingsDeep(requestedPage.items),
+          (items) => ({
+            tag: {
+              _id: tag._id,
+              name: tag.name,
+              slug: tag.slug,
+              category: tag.category,
+            },
+            items,
+            total: requestedPage.total,
+            offset: requestedPage.offset,
+            limit: items.length,
+            hasMore: requestedPage.offset + items.length < requestedPage.total,
+          })
+        );
+        const returnedLimit = bounded.truncatedBySize
+          ? bounded.items.length
+          : requestedPage.limit;
+        const payload = {
+          tag: {
+            _id: tag._id,
+            name: tag.name,
+            slug: tag.slug,
+            category: tag.category,
+          },
+          items: bounded.items,
+          total: requestedPage.total,
+          offset: requestedPage.offset,
+          limit: returnedLimit,
+          requestedLimit: requestedPage.limit,
+          hasMore: requestedPage.offset + returnedLimit < requestedPage.total,
+          nextOffset: requestedPage.offset + returnedLimit,
+          note: bounded.truncatedBySize
+            ? "Returned fewer records than requested to stay under the safe response size. Continue with nextOffset."
+            : undefined,
+        };
 
         return {
           content: [
-            { type: "text" as const, text: truncateIfNeeded(summary) },
+            {
+              type: "text" as const,
+              text: JSON.stringify(stripEmbeddingsDeep(payload), null, 2),
+            },
           ],
         };
       } catch (error) {
@@ -1083,24 +1215,32 @@ export function registerQueryTools(server: McpServer): void {
   );
 
   // ============================================================
-  // cm_get_data_points_batch — Fetch multiple DPs in one call
+  // cm_get_data_points_batch - Fetch multiple DPs in one call
   // ============================================================
   server.registerTool(
     "cm_get_data_points_batch",
     {
       title: "Get Data Points in Batch",
       description:
-        "Fetch multiple data points by ID in a single call (Layer 3 — Analyst only). " +
+        "Fetch multiple data points by ID in a single call (Layer 3, Analyst only). " +
         "Returns the same shape as cm_get_data_point for each ID: full context including " +
         "verbatim anchor quote, source metadata, and tags. " +
-        "Use this instead of calling cm_get_data_point in a loop — one call replaces N calls. " +
-        "Missing IDs return null in the result array (position is preserved).\n\n" +
+        "Use this instead of calling cm_get_data_point in a loop. One call replaces N calls. " +
+        "Missing IDs return null in the result array (position is preserved). " +
+        "The input ID array is paginated so large batches stay below host token caps.\n\n" +
         "Args:\n" +
-        "  - dataPointIds (string[]): The data point IDs to fetch\n\n" +
-        "Returns: Array of data point records (null for any ID not found).",
+        "  - dataPointIds (string[]): The data point IDs to fetch\n" +
+        "  - limit (number, optional): Page size over the input IDs, default 25, max 50\n" +
+        "  - offset (number, optional): Zero-based offset over the input IDs, default 0\n\n" +
+        "Returns: Page object with items, total, offset, limit, hasMore, found, and missing. " +
+        "If a page would exceed the safe response size, fewer items are returned with a note.",
       inputSchema: {
         dataPointIds: z.array(z.string()).min(1)
           .describe("Array of data point IDs to fetch"),
+        limit: z.number().int().min(1).max(50).optional()
+          .describe("Page size over input IDs (default 25, max 50)"),
+        offset: z.number().int().min(0).optional()
+          .describe("Zero-based offset over input IDs (default 0)"),
       },
       annotations: {
         readOnlyHint: true,
@@ -1109,23 +1249,53 @@ export function registerQueryTools(server: McpServer): void {
         openWorldHint: false,
       },
     },
-    async ({ dataPointIds }) => {
+    async ({ dataPointIds, limit, offset }) => {
       try {
+        const pagination = clampPagination(limit, offset, 25, 50);
+        const pageIds = dataPointIds.slice(
+          pagination.offset,
+          pagination.offset + pagination.limit
+        );
         const results = await convexQuery(api.dataPoints.getDataPointsBatch, {
-          dataPointIds: dataPointIds.map((id) => asId<"dataPoints">(id)),
+          dataPointIds: pageIds.map((id) => asId<"dataPoints">(id)),
         });
 
-        const found = results.filter(Boolean).length;
-        const missing = results.length - found;
+        const strippedResults = stripEmbeddingsDeep(results);
+        const bounded = takeItemsWithinJsonLimit(strippedResults, (items) => ({
+          items,
+          total: dataPointIds.length,
+          offset: pagination.offset,
+          limit: items.length,
+          hasMore: pagination.offset + items.length < dataPointIds.length,
+        }));
+        const returnedLimit = bounded.truncatedBySize
+          ? bounded.items.length
+          : pagination.limit;
+        const found = bounded.items.filter(Boolean).length;
+        const missing = bounded.items.length - found;
 
-        const text =
-          `Fetched ${found} of ${dataPointIds.length} data points` +
-          (missing > 0 ? ` (${missing} not found, returned as null)` : "") +
-          ".\n\n" +
-          JSON.stringify(stripEmbeddingsDeep(results), null, 2);
+        const payload = {
+          items: bounded.items,
+          total: dataPointIds.length,
+          offset: pagination.offset,
+          limit: returnedLimit,
+          requestedLimit: pagination.limit,
+          hasMore: pagination.offset + returnedLimit < dataPointIds.length,
+          nextOffset: pagination.offset + returnedLimit,
+          found,
+          missing,
+          note: bounded.truncatedBySize
+            ? "Returned fewer records than requested to stay under the safe response size. Continue with nextOffset."
+            : undefined,
+        };
 
         return {
-          content: [{ type: "text" as const, text: truncateIfNeeded(text) }],
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(payload, null, 2),
+            },
+          ],
         };
       } catch (error) {
         return {
@@ -1141,24 +1311,33 @@ export function registerQueryTools(server: McpServer): void {
   );
 
   // ============================================================
-  // cm_list_data_points_by_source — Lean DP list scoped to one source
+  // cm_list_data_points_by_source - Lean DP list scoped to one source
   // ============================================================
   server.registerTool(
     "cm_list_data_points_by_source",
     {
       title: "List Data Points by Source",
       description:
-        "Returns all data points extracted from a specific source, ordered by " +
-        "sequence number. Lean response: includes claim text, anchor quote, " +
-        "evidence type, confidence, sequence number, and extraction metadata, " +
-        "but NOT embeddings, tag joins, or source metadata fanout. Use this in " +
+        "Returns a paginated page of data points extracted from a specific source, ordered by " +
+        "sequence number. Lean mode includes ID, sequence number, claim text, " +
+        "evidence type, and confidence. Full mode includes the full source-scoped " +
+        "data point records without embeddings. Use this in " +
         "extraction and processing workflows where you know the source ID and " +
         "want its DPs without paying for embeddings.\n\n" +
         "Args:\n" +
-        "  - sourceId (string): The source ID\n\n" +
-        "Returns: Array of data points ordered by dpSequenceNumber.",
+        "  - sourceId (string): The source ID\n" +
+        "  - limit (number, optional): Page size, default 100, max 200\n" +
+        "  - offset (number, optional): Zero-based page offset, default 0\n" +
+        "  - fields (\"lean\" | \"full\", optional): Lean is default and safest for large sources\n\n" +
+        "Returns: Page object with items, total, offset, limit, hasMore, and fields.",
       inputSchema: {
         sourceId: z.string().describe("The source ID"),
+        limit: z.number().int().min(1).max(200).optional()
+          .describe("Page size (default 100, max 200)"),
+        offset: z.number().int().min(0).optional()
+          .describe("Zero-based page offset (default 0)"),
+        fields: z.enum(["lean", "full"]).optional()
+          .describe("Response fields. Lean is default; full includes anchor and extraction metadata."),
       },
       annotations: {
         readOnlyHint: true,
@@ -1167,7 +1346,7 @@ export function registerQueryTools(server: McpServer): void {
         openWorldHint: false,
       },
     },
-    async ({ sourceId }) => {
+    async ({ sourceId, limit, offset, fields }) => {
       try {
         const dataPoints = await convexQuery(
           api.dataPoints.listDataPointsBySource,
@@ -1176,12 +1355,51 @@ export function registerQueryTools(server: McpServer): void {
           }
         );
 
-        const text =
-          `Found ${dataPoints.length} data points for source ${sourceId}.\n\n` +
-          JSON.stringify(stripEmbeddingsDeep(dataPoints), null, 2);
+        const fieldMode = fields ?? "lean";
+        const shaped = fieldMode === "lean"
+          ? dataPoints.map(toLeanDataPoint)
+          : stripEmbeddingsDeep(dataPoints);
+        const pagination = clampPagination(limit, offset, 100, 200);
+        const requestedPage = paginate(
+          shaped,
+          pagination.limit,
+          pagination.offset
+        );
+        const bounded = takeItemsWithinJsonLimit(
+          requestedPage.items,
+          (items) => ({
+            items,
+            total: requestedPage.total,
+            offset: requestedPage.offset,
+            limit: items.length,
+            hasMore: requestedPage.offset + items.length < requestedPage.total,
+            fields: fieldMode,
+          })
+        );
+        const returnedLimit = bounded.truncatedBySize
+          ? bounded.items.length
+          : requestedPage.limit;
+        const payload = {
+          items: bounded.items,
+          total: requestedPage.total,
+          offset: requestedPage.offset,
+          limit: returnedLimit,
+          requestedLimit: requestedPage.limit,
+          hasMore: requestedPage.offset + returnedLimit < requestedPage.total,
+          nextOffset: requestedPage.offset + returnedLimit,
+          fields: fieldMode,
+          note: bounded.truncatedBySize
+            ? "Returned fewer records than requested to stay under the safe response size. Continue with nextOffset."
+            : undefined,
+        };
 
         return {
-          content: [{ type: "text" as const, text: truncateIfNeeded(text) }],
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(payload, null, 2),
+            },
+          ],
         };
       } catch (error) {
         return {

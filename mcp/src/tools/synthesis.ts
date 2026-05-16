@@ -29,6 +29,37 @@ type PendingObservation =
 type PendingMentalModel =
   typeof api.mentalModels.getMentalModelsNeedingEmbeddings["_returnType"][number];
 
+const EMBEDDING_CONCURRENCY = 5;
+
+async function processWithConcurrency<T>(
+  items: T[],
+  worker: (item: T) => Promise<void>
+): Promise<{ processed: number; errors: number }> {
+  let nextIndex = 0;
+  let processed = 0;
+  let errors = 0;
+
+  async function runWorker(): Promise<void> {
+    while (nextIndex < items.length) {
+      const item = items[nextIndex++];
+      try {
+        await worker(item);
+        processed++;
+      } catch {
+        errors++;
+      }
+    }
+  }
+
+  const workers = Array.from(
+    { length: Math.min(EMBEDDING_CONCURRENCY, items.length) },
+    () => runWorker()
+  );
+  await Promise.all(workers);
+
+  return { processed, errors };
+}
+
 export function registerSynthesisTools(server: McpServer): void {
   // ============================================================
   // cm_list_projects — List all projects
@@ -806,7 +837,7 @@ export function registerSynthesisTools(server: McpServer): void {
   );
 
   // ============================================================
-  // cm_generate_embeddings — Batch generate embeddings
+  // cm_generate_embeddings - Batch generate embeddings
   // ============================================================
   server.registerTool(
     "cm_generate_embeddings",
@@ -816,11 +847,11 @@ export function registerSynthesisTools(server: McpServer): void {
         "Generate OpenAI embeddings for entities that are pending. Processes " +
         "data points, observations, and mental models that need embeddings.\n\n" +
         "Args:\n" +
-        "  - limit (number, optional): Max entities to process (default 20)\n\n" +
+        "  - limit (number, optional): Max entities to process per type, default 20, max 50, 25 recommended\n\n" +
         "Returns: Number of embeddings generated per entity type.",
       inputSchema: {
-        limit: z.number().int().min(1).max(100).optional()
-          .describe("Max entities to process per type (default 20)"),
+        limit: z.number().int().min(1).max(50).optional()
+          .describe("Max entities to process per type (default 20, max 50, 25 recommended)"),
       },
       annotations: {
         readOnlyHint: false,
@@ -840,18 +871,18 @@ export function registerSynthesisTools(server: McpServer): void {
           { limit: batchLimit }
         );
 
-        for (const dp of pendingDPs) {
-          try {
+        const dpResults = await processWithConcurrency(
+          pendingDPs,
+          async (dp) => {
             const embedding = await generateEmbedding(dp.claimText);
             await convexMutation(api.dataPoints.setEmbedding, {
               dataPointId: dp._id,
               embedding,
             });
-            results.dataPoints++;
-          } catch {
-            results.errors++;
           }
-        }
+        );
+        results.dataPoints += dpResults.processed;
+        results.errors += dpResults.errors;
 
         // Process observations
         const pendingObs: PendingObservation[] = await convexQuery(
@@ -859,18 +890,18 @@ export function registerSynthesisTools(server: McpServer): void {
           { limit: batchLimit }
         );
 
-        for (const obs of pendingObs) {
-          try {
+        const obsResults = await processWithConcurrency(
+          pendingObs,
+          async (obs) => {
             const embedding = await generateEmbedding(obs.observationText);
             await convexMutation(api.observations.setEmbedding, {
               observationId: obs._id,
               embedding,
             });
-            results.observations++;
-          } catch {
-            results.errors++;
           }
-        }
+        );
+        results.observations += obsResults.processed;
+        results.errors += obsResults.errors;
 
         // Process mental models
         const pendingModels: PendingMentalModel[] = await convexQuery(
@@ -878,8 +909,9 @@ export function registerSynthesisTools(server: McpServer): void {
           { limit: batchLimit }
         );
 
-        for (const model of pendingModels) {
-          try {
+        const modelResults = await processWithConcurrency(
+          pendingModels,
+          async (model) => {
             const embedding = await generateEmbedding(
               `${model.title}: ${model.description}`
             );
@@ -887,11 +919,10 @@ export function registerSynthesisTools(server: McpServer): void {
               mentalModelId: model._id,
               embedding,
             });
-            results.mentalModels++;
-          } catch {
-            results.errors++;
           }
-        }
+        );
+        results.mentalModels += modelResults.processed;
+        results.errors += modelResults.errors;
 
         return {
           content: [
