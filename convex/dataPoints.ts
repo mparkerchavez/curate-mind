@@ -2,6 +2,22 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { resolveSourceMeta } from "./sources";
 
+async function resolveProjectTag(ctx: any, projectId: any, slug: string) {
+  const tag = await ctx.db
+    .query("tags")
+    .withIndex("by_projectId_slug", (q: any) =>
+      q.eq("projectId", projectId).eq("slug", slug)
+    )
+    .first();
+
+  if (tag?.retired && tag.redirectedToTagId) {
+    const redirectedTag = await ctx.db.get(tag.redirectedToTagId);
+    return redirectedTag ?? tag;
+  }
+
+  return tag;
+}
+
 export async function resolveEffectiveContent(ctx: any, dp: any) {
   let anchorQuote = dp.anchorQuote;
   let claimText = dp.claimText;
@@ -84,6 +100,10 @@ export const insertDataPoint = mutation({
   handler: async (ctx, args) => {
     const { tagSlugs, ...dpFields } = args;
     const now = new Date().toISOString();
+    const source = await ctx.db.get(args.sourceId);
+    if (!source) {
+      throw new Error(`Source ${args.sourceId} not found`);
+    }
 
     // Insert the data point
     const dpId = await ctx.db.insert("dataPoints", {
@@ -94,10 +114,7 @@ export const insertDataPoint = mutation({
 
     // Link tags via junction table
     for (const slug of tagSlugs) {
-      const tag = await ctx.db
-        .query("tags")
-        .withIndex("by_slug", (q) => q.eq("slug", slug))
-        .first();
+      const tag = await resolveProjectTag(ctx, source.projectId, slug);
 
       if (tag) {
         await ctx.db.insert("dataPointTags", {
@@ -145,6 +162,10 @@ export const insertBatch = mutation({
   handler: async (ctx, args) => {
     const now = new Date().toISOString();
     const insertedIds: string[] = [];
+    const source = await ctx.db.get(args.sourceId);
+    if (!source) {
+      throw new Error(`Source ${args.sourceId} not found`);
+    }
 
     for (const dp of args.dataPoints) {
       const { tagSlugs, ...dpFields } = dp;
@@ -158,10 +179,7 @@ export const insertBatch = mutation({
 
       // Link tags
       for (const slug of tagSlugs) {
-        const tag = await ctx.db
-          .query("tags")
-          .withIndex("by_slug", (q) => q.eq("slug", slug))
-          .first();
+        const tag = await resolveProjectTag(ctx, source.projectId, slug);
 
         if (tag) {
           await ctx.db.insert("dataPointTags", {
@@ -319,6 +337,16 @@ export const updateTagsBatch = mutation({
     const results: { dataPointId: string; tagsAdded: number; tagsSkipped: number }[] = [];
 
     for (const update of args.updates) {
+      const dp = await ctx.db.get(update.dataPointId);
+      if (!dp) {
+        throw new Error(`Data point ${update.dataPointId} not found`);
+      }
+
+      const source = await ctx.db.get(dp.sourceId);
+      if (!source) {
+        throw new Error(`Source ${dp.sourceId} not found for data point ${update.dataPointId}`);
+      }
+
       const existingLinks = await ctx.db
         .query("dataPointTags")
         .withIndex("by_dataPointId", (q) => q.eq("dataPointId", update.dataPointId))
@@ -330,10 +358,7 @@ export const updateTagsBatch = mutation({
       let skipped = 0;
 
       for (const slug of update.tagSlugs) {
-        const tag = await ctx.db
-          .query("tags")
-          .withIndex("by_slug", (q) => q.eq("slug", slug))
-          .first();
+        const tag = await resolveProjectTag(ctx, source.projectId, slug);
 
         if (!tag) {
           skipped++;
@@ -355,6 +380,81 @@ export const updateTagsBatch = mutation({
         dataPointId: update.dataPointId as string,
         tagsAdded: added,
         tagsSkipped: skipped,
+      });
+    }
+
+    return results;
+  },
+});
+
+// ============================================================
+// Remove one tag from a batch of data points (curator maintenance)
+// Validates all DP IDs and project-scoped tag vocabulary before writing any.
+// Only dataPointTags join rows are deleted; data point records stay append-only.
+// ============================================================
+export const removeTagBatch = mutation({
+  args: {
+    dataPointIds: v.array(v.id("dataPoints")),
+    tagSlug: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const tagByProjectId = new Map<string, { _id: any }>();
+    const validatedDataPoints: {
+      dataPointId: typeof args.dataPointIds[number];
+      tagId: any;
+    }[] = [];
+
+    for (const dataPointId of args.dataPointIds) {
+      const dp = await ctx.db.get(dataPointId);
+      if (!dp) {
+        throw new Error(`Data point ${dataPointId} not found`);
+      }
+
+      const source = await ctx.db.get(dp.sourceId);
+      if (!source) {
+        throw new Error(`Source ${dp.sourceId} not found for data point ${dataPointId}`);
+      }
+
+      const projectId = source.projectId.toString();
+      let tag = tagByProjectId.get(projectId);
+
+      if (!tag) {
+        const projectTag = await ctx.db
+          .query("tags")
+          .withIndex("by_projectId_slug", (q) =>
+            q.eq("projectId", source.projectId).eq("slug", args.tagSlug)
+          )
+          .first();
+
+        if (!projectTag) {
+          throw new Error(`Tag ${args.tagSlug} not found in project ${source.projectId}`);
+        }
+
+        tag = projectTag;
+        tagByProjectId.set(projectId, tag);
+      }
+
+      validatedDataPoints.push({ dataPointId, tagId: tag._id });
+    }
+
+    const results: { dataPointId: string; tagsRemoved: number; tagsSkipped: number }[] = [];
+
+    for (const item of validatedDataPoints) {
+      const existingLinks = await ctx.db
+        .query("dataPointTags")
+        .withIndex("by_dataPointId", (q) => q.eq("dataPointId", item.dataPointId))
+        .collect();
+
+      const linksToRemove = existingLinks.filter((link) => link.tagId === item.tagId);
+
+      for (const link of linksToRemove) {
+        await ctx.db.delete(link._id);
+      }
+
+      results.push({
+        dataPointId: item.dataPointId as string,
+        tagsRemoved: linksToRemove.length,
+        tagsSkipped: linksToRemove.length > 0 ? 0 : 1,
       });
     }
 

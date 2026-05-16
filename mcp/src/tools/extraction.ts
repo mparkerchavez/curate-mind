@@ -6,6 +6,7 @@
  * - cm_save_data_points: Persist extracted data points to Convex
  * - cm_enrich_data_points_batch: Add Pass 3 enrichment to a batch of data points
  * - cm_update_data_points_tags_batch: Add tags to a batch of data points (Pass 3)
+ * - cm_remove_data_point_tag_batch: Remove one tag from a batch of data points
  * - cm_save_source_synthesis: Persist the Pass 1 analytical summary
  * - cm_save_mental_models: Persist mental models flagged during extraction
  * - cm_update_source_status: Mark a source as extracted or failed
@@ -89,6 +90,73 @@ export function registerExtractionTools(server: McpServer): void {
             {
               type: "text" as const,
               text: `Error retrieving source: ${error instanceof Error ? error.message : String(error)}`,
+            },
+          ],
+        };
+      }
+    }
+  );
+
+  // ============================================================
+  // cm_remove_data_point_tag_batch — Remove one tag from a batch of DPs
+  // ============================================================
+  server.registerTool(
+    "cm_remove_data_point_tag_batch",
+    {
+      title: "Remove Data Point Tag in Batch",
+      description:
+        "Remove one tag slug from a batch of data points. This is a curator-only " +
+        "maintenance tool for vocabulary cleanup. It deletes only tag-link join rows; " +
+        "data point records remain append-only and unchanged. " +
+        "All DP IDs and each DP's project-scoped tag vocabulary are validated before any writes — " +
+        "if one ID is invalid, or the tag slug does not exist in a DP's project, the entire " +
+        "batch fails and nothing is written.\n\n" +
+        "Args:\n" +
+        "  - dataPointIds (string[]): Data point IDs to remove the tag from\n" +
+        "  - tagSlug (string): Tag slug to remove\n\n" +
+        "Returns: Array of {dataPointId, tagsRemoved, tagsSkipped} for each DP.",
+      inputSchema: {
+        dataPointIds: z.array(z.string()).min(1)
+          .describe("Data point IDs to remove the tag from"),
+        tagSlug: z.string().min(1).describe("Tag slug to remove"),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ dataPointIds, tagSlug }) => {
+      try {
+        const result = await convexMutation(api.dataPoints.removeTagBatch, {
+          dataPointIds: dataPointIds.map((id) => asId<"dataPoints">(id)),
+          tagSlug,
+        });
+
+        type TagRemovalResult = { dataPointId: string; tagsRemoved: number; tagsSkipped: number };
+        const totalRemoved = result.reduce((sum: number, r: TagRemovalResult) => sum + r.tagsRemoved, 0);
+        const totalSkipped = result.reduce((sum: number, r: TagRemovalResult) => sum + r.tagsSkipped, 0);
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text:
+                `Tag "${tagSlug}" removed for ${result.length} data points.\n` +
+                `Total removed: ${totalRemoved}, Total skipped: ${totalSkipped}\n` +
+                result
+                  .map((r: TagRemovalResult) => `  ${r.dataPointId}: -${r.tagsRemoved} removed, ${r.tagsSkipped} skipped`)
+                  .join("\n"),
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Error removing tag: ${error instanceof Error ? error.message : String(error)}`,
             },
           ],
         };

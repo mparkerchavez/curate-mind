@@ -2,6 +2,25 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { resolveEffectiveContent } from "./dataPoints";
 
+async function resolveRetiredTag(ctx: any, tag: any) {
+  if (!tag?.retired || !tag.redirectedToTagId) return tag;
+
+  const redirectedTag = await ctx.db.get(tag.redirectedToTagId);
+  if (!redirectedTag) return tag;
+
+  return {
+    ...redirectedTag,
+    redirectedFrom: {
+      _id: tag._id,
+      name: tag.name,
+      slug: tag.slug,
+      category: tag.category,
+      retiredAt: tag.retiredAt,
+      retirementReason: tag.retirementReason,
+    },
+  };
+}
+
 // ============================================================
 // Create a new tag (slug-based deduplication)
 // ============================================================
@@ -20,6 +39,14 @@ export const createTag = mutation({
         q.eq("projectId", args.projectId).eq("slug", args.slug)
       )
       .first();
+
+    if (existing?.retired && existing.redirectedToTagId) {
+      return {
+        created: false,
+        tagId: existing.redirectedToTagId,
+        redirectedFromTagId: existing._id,
+      };
+    }
 
     if (existing) {
       return { created: false, tagId: existing._id };
@@ -55,6 +82,10 @@ export const getOrCreateTag = mutation({
       )
       .first();
 
+    if (existing?.retired && existing.redirectedToTagId) {
+      return existing.redirectedToTagId;
+    }
+
     if (existing) return existing._id;
 
     return await ctx.db.insert("tags", {
@@ -70,12 +101,17 @@ export const getOrCreateTag = mutation({
 // List all tags
 // ============================================================
 export const listTags = query({
-  args: { projectId: v.id("projects") },
+  args: {
+    projectId: v.id("projects"),
+    includeRetired: v.optional(v.boolean()),
+  },
   handler: async (ctx, args) => {
-    return await ctx.db
+    const tags = await ctx.db
       .query("tags")
       .withIndex("by_projectId", (q) => q.eq("projectId", args.projectId))
       .collect();
+
+    return args.includeRetired ? tags : tags.filter((tag) => !tag.retired);
   },
 });
 
@@ -85,12 +121,14 @@ export const listTags = query({
 export const getTagBySlug = query({
   args: { projectId: v.id("projects"), slug: v.string() },
   handler: async (ctx, args) => {
-    return await ctx.db
+    const tag = await ctx.db
       .query("tags")
       .withIndex("by_projectId_slug", (q) =>
         q.eq("projectId", args.projectId).eq("slug", args.slug)
       )
       .first();
+
+    return await resolveRetiredTag(ctx, tag);
   },
 });
 
@@ -100,10 +138,12 @@ export const getTagBySlug = query({
 export const listByCategory = query({
   args: { category: v.string() },
   handler: async (ctx, args) => {
-    return await ctx.db
+    const tags = await ctx.db
       .query("tags")
       .withIndex("by_category", (q) => q.eq("category", args.category))
       .collect();
+
+    return tags.filter((tag) => !tag.retired);
   },
 });
 
@@ -114,7 +154,7 @@ export const listByCategory = query({
 export const getTagUsageCounts = query({
   args: {},
   handler: async (ctx) => {
-    const tags = await ctx.db.query("tags").collect();
+    const tags = (await ctx.db.query("tags").collect()).filter((tag) => !tag.retired);
 
     const tagCounts = await Promise.all(
       tags.map(async (tag) => {
@@ -133,6 +173,63 @@ export const getTagUsageCounts = query({
     // Sort by usage count descending
     tagCounts.sort((a, b) => b.dataPointCount - a.dataPointCount);
     return tagCounts;
+  },
+});
+
+// ============================================================
+// Retire a tag slug and redirect future lookups to a canonical tag
+// ============================================================
+export const retireTag = mutation({
+  args: {
+    projectId: v.id("projects"),
+    fromSlug: v.string(),
+    toSlug: v.string(),
+    reason: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    if (args.fromSlug === args.toSlug) {
+      throw new Error("Cannot retire a tag to itself");
+    }
+
+    const fromTag = await ctx.db
+      .query("tags")
+      .withIndex("by_projectId_slug", (q) =>
+        q.eq("projectId", args.projectId).eq("slug", args.fromSlug)
+      )
+      .first();
+
+    const toTag = await ctx.db
+      .query("tags")
+      .withIndex("by_projectId_slug", (q) =>
+        q.eq("projectId", args.projectId).eq("slug", args.toSlug)
+      )
+      .first();
+
+    if (!fromTag) {
+      throw new Error(`Tag not found: ${args.fromSlug}`);
+    }
+    if (!toTag) {
+      throw new Error(`Canonical tag not found: ${args.toSlug}`);
+    }
+    if (toTag.retired) {
+      throw new Error(`Canonical tag is retired: ${args.toSlug}`);
+    }
+
+    const now = new Date().toISOString();
+    await ctx.db.patch(fromTag._id, {
+      retired: true,
+      retiredAt: now,
+      redirectedToTagId: toTag._id,
+      retirementReason: args.reason,
+    });
+
+    return {
+      retiredTagId: fromTag._id,
+      retiredSlug: fromTag.slug,
+      redirectedToTagId: toTag._id,
+      redirectedToSlug: toTag.slug,
+      retiredAt: now,
+    };
   },
 });
 

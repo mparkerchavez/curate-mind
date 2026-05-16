@@ -288,6 +288,10 @@ export default defineSchema({
     name: v.string(),
     slug: v.string(),
     category: v.optional(v.string()),
+    retired: v.optional(v.boolean()),
+    retiredAt: v.optional(v.string()),
+    redirectedToTagId: v.optional(v.id("tags")),
+    retirementReason: v.optional(v.string()),
   })
     .index("by_projectId", ["projectId"])
     .index("by_projectId_slug", ["projectId", "slug"])

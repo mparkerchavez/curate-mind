@@ -7,6 +7,7 @@
  * - cm_update_position: Create a new version (append-only)
  * - cm_update_research_lens: Regenerate the Research Lens
  * - cm_create_tag: Create a new tag in the controlled vocabulary
+ * - cm_retire_tag: Retire a tag slug and redirect it to a canonical tag
  * - cm_generate_embeddings: Generate embeddings for pending entities
  */
 
@@ -19,6 +20,7 @@ type CreatePositionResult = typeof api.positions.createPosition["_returnType"];
 type UpdatePositionResult = typeof api.positions.updatePosition["_returnType"];
 type LinkEvidenceBatchResult = typeof api.positions.linkEvidenceBatch["_returnType"];
 type CreateTagResult = typeof api.tags.createTag["_returnType"];
+type RetireTagResult = typeof api.tags.retireTag["_returnType"];
 type ActivePositionForLens = NonNullable<
   typeof api.researchLens.getActivePositionsForLens["_returnType"][number]
 >;
@@ -572,6 +574,72 @@ export function registerSynthesisTools(server: McpServer): void {
             {
               type: "text" as const,
               text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+            },
+          ],
+        };
+      }
+    }
+  );
+
+  // ============================================================
+  // cm_retire_tag — Soft-retire a tag and redirect it
+  // ============================================================
+  server.registerTool(
+    "cm_retire_tag",
+    {
+      title: "Retire Tag",
+      description:
+        "Soft-retire a tag slug in the controlled vocabulary and redirect future " +
+        "lookups to a canonical replacement. This preserves historical references " +
+        "while keeping retired tags out of default tag lists and trend counts. " +
+        "This does not move or remove any existing data point tag links; use " +
+        "cm_remove_data_point_tag_batch first when cleaning up duplicate DP tags.\n\n" +
+        "Args:\n" +
+        "  - projectId (string): Project ID\n" +
+        "  - fromSlug (string): Tag slug to retire\n" +
+        "  - toSlug (string): Canonical replacement slug\n" +
+        "  - reason (string, optional): Human-readable reason\n\n" +
+        "Returns: Retirement and redirect details.",
+      inputSchema: {
+        projectId: z.string().describe("Project ID"),
+        fromSlug: z.string().min(1).describe("Tag slug to retire"),
+        toSlug: z.string().min(1).describe("Canonical replacement slug"),
+        reason: z.string().optional().describe("Optional retirement reason"),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ projectId, fromSlug, toSlug, reason }) => {
+      try {
+        const result: RetireTagResult = await convexMutation(api.tags.retireTag, {
+          projectId: asId<"projects">(projectId),
+          fromSlug,
+          toSlug,
+          reason,
+        });
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text:
+                `Tag retired.\n` +
+                `Retired: ${result.retiredSlug} (${result.retiredTagId})\n` +
+                `Redirects to: ${result.redirectedToSlug} (${result.redirectedToTagId})\n` +
+                `Retired at: ${result.retiredAt}`,
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Error retiring tag: ${error instanceof Error ? error.message : String(error)}`,
             },
           ],
         };
