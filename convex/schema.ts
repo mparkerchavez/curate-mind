@@ -113,6 +113,7 @@ export default defineSchema({
         v.literal("failed")
       )
     ),
+    currentCorrectionId: v.optional(v.id("dataPointCorrections")),
   })
     .index("by_sourceId", ["sourceId"])
     .index("by_extractionDate", ["extractionDate"])
@@ -124,7 +125,26 @@ export default defineSchema({
     }),
 
   // ============================================================
-  // 3. CURATOR OBSERVATIONS — The curator's connective insights
+  // 3. DATA POINT CORRECTIONS - Append-only anchor and attribution fixes
+  // ============================================================
+  dataPointCorrections: defineTable({
+    dataPointId: v.id("dataPoints"),
+    correctionType: v.union(
+      v.literal("anchor"),
+      v.literal("attribution")
+    ),
+    priorAnchorQuote: v.optional(v.string()),
+    priorClaimText: v.optional(v.string()),
+    correctedAnchorQuote: v.optional(v.string()),
+    correctedClaimText: v.optional(v.string()),
+    reason: v.string(),
+    correctedAt: v.number(),
+    correctedBy: v.optional(v.string()),
+    previousCorrectionId: v.optional(v.id("dataPointCorrections")),
+  }).index("by_dataPoint", ["dataPointId", "correctedAt"]),
+
+  // ============================================================
+  // 4. CURATOR OBSERVATIONS - The curator's connective insights
   // ============================================================
   curatorObservations: defineTable({
     observationText: v.string(),

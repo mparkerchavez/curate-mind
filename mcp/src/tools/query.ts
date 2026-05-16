@@ -49,8 +49,10 @@ function toLeanDataPoint(dp: DataPointBySourceResult) {
     _id: dp._id,
     dpSequenceNumber: dp.dpSequenceNumber,
     claimText: dp.claimText,
+    anchorQuote: dp.anchorQuote,
     evidenceType: dp.evidenceType,
     confidence: dp.confidence,
+    correctionStatus: dp.correctionStatus,
   };
 }
 
@@ -657,10 +659,14 @@ export function registerQueryTools(server: McpServer): void {
       title: "Get Data Point Detail",
       description:
         "Get a single data point with full context including the verbatim " +
-        "anchor quote (Layer 3 — Analyst only). Includes source metadata and tags.\n\n" +
+        "anchor quote (Layer 3, Analyst only). Returned claimText and anchorQuote " +
+        "are effective values: corrected where an append-only correction exists, " +
+        "otherwise original extraction values. Includes source metadata, tags, " +
+        "and correctionStatus.\n\n" +
         "Args:\n" +
         "  - dataPointId (string): The data point ID\n\n" +
-        "Returns: Data point with anchor quote, source info, and tags.",
+        "Returns: Data point with effective claim text, effective anchor quote, " +
+        "source info, tags, and correctionStatus.",
       inputSchema: {
         dataPointId: z.string().describe("The data point ID"),
       },
@@ -690,6 +696,61 @@ export function registerQueryTools(server: McpServer): void {
             {
               type: "text" as const,
               text: JSON.stringify(stripEmbeddingsDeep(dp), null, 2),
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+            },
+          ],
+        };
+      }
+    }
+  );
+
+  // ============================================================
+  // cm_get_data_point_corrections - Audit correction history
+  // ============================================================
+  server.registerTool(
+    "cm_get_data_point_corrections",
+    {
+      title: "Get Data Point Corrections",
+      description:
+        "Return the append-only correction history for a data point, sorted by " +
+        "correctedAt ascending. Use this when an analyst or curator needs to audit " +
+        "original anchor or claim values and every correction applied over time.\n\n" +
+        "Args:\n" +
+        "  - dataPointId (string): The data point ID\n\n" +
+        "Returns: Array of correction rows with _id, correctionType, prior values, " +
+        "corrected values, reason, correctedAt, correctedBy, and previousCorrectionId.",
+      inputSchema: {
+        dataPointId: z.string().describe("The data point ID"),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ dataPointId }) => {
+      try {
+        const corrections = await convexQuery(
+          api.dataPoints.getDataPointCorrections,
+          {
+            dataPointId: asId<"dataPoints">(dataPointId),
+          }
+        );
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(corrections, null, 2),
             },
           ],
         };
@@ -1093,8 +1154,10 @@ export function registerQueryTools(server: McpServer): void {
       title: "Get Data Points by Tag",
       description:
         "Retrieve a paginated page of data points linked to a specific tag. Returns clean data " +
-        "(ID, claim text, evidence type, confidence, source title, source tier) " +
-        "without embeddings. Useful for building evidence pools for position linking.\n\n" +
+        "(ID, effective claim text, effective anchor quote, correctionStatus, evidence type, " +
+        "confidence, source title, source tier) without embeddings. Effective means corrected " +
+        "where an append-only correction exists, otherwise original extraction values. Useful " +
+        "for building evidence pools for position linking.\n\n" +
         "Args:\n" +
         "  - projectId (string): The project ID\n" +
         "  - tagSlug (string): The tag slug to filter by (e.g., 'specification-bottleneck')\n" +
@@ -1224,7 +1287,8 @@ export function registerQueryTools(server: McpServer): void {
       description:
         "Fetch multiple data points by ID in a single call (Layer 3, Analyst only). " +
         "Returns the same shape as cm_get_data_point for each ID: full context including " +
-        "verbatim anchor quote, source metadata, and tags. " +
+        "effective claim text, effective verbatim anchor quote, correctionStatus, source metadata, and tags. " +
+        "Effective means corrected where an append-only correction exists, otherwise original extraction values. " +
         "Use this instead of calling cm_get_data_point in a loop. One call replaces N calls. " +
         "Missing IDs return null in the result array (position is preserved). " +
         "The input ID array is paginated so large batches stay below host token caps.\n\n" +
@@ -1319,9 +1383,10 @@ export function registerQueryTools(server: McpServer): void {
       title: "List Data Points by Source",
       description:
         "Returns a paginated page of data points extracted from a specific source, ordered by " +
-        "sequence number. Lean mode includes ID, sequence number, claim text, " +
-        "evidence type, and confidence. Full mode includes the full source-scoped " +
-        "data point records without embeddings. Use this in " +
+        "sequence number. Lean mode includes ID, sequence number, effective claim text, " +
+        "effective anchor quote, evidence type, confidence, and correctionStatus. Full mode " +
+        "includes the full source-scoped data point records without embeddings. Effective " +
+        "means corrected where an append-only correction exists, otherwise original extraction values. Use this in " +
         "extraction and processing workflows where you know the source ID and " +
         "want its DPs without paying for embeddings.\n\n" +
         "Args:\n" +

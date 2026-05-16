@@ -837,6 +837,128 @@ export function registerSynthesisTools(server: McpServer): void {
   );
 
   // ============================================================
+  // cm_correct_anchor - Append-only anchor quote correction
+  // ============================================================
+  server.registerTool(
+    "cm_correct_anchor",
+    {
+      title: "Correct Data Point Anchor",
+      description:
+        "Append a correction for a mechanically broken data point anchor quote. " +
+        "This does not edit the original data point content. The corrected anchor " +
+        "must appear as a verbatim substring in the source fullText, which keeps " +
+        "the correction safe for verification.\n\n" +
+        "Args:\n" +
+        "  - dataPointId (string): Data point to correct\n" +
+        "  - correctedAnchorQuote (string): Corrected verbatim source excerpt\n" +
+        "  - reason (string): Required curator explanation for the correction\n\n" +
+        "Returns: Correction ID, prior anchor, corrected anchor, and currentCorrectionId.",
+      inputSchema: {
+        dataPointId: z.string().describe("Data point ID to correct"),
+        correctedAnchorQuote: z.string().min(1)
+          .describe("Corrected anchor quote. Must be a verbatim substring of the source fullText."),
+        reason: z.string().min(1)
+          .describe("Required curator explanation for this anchor correction"),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ dataPointId, correctedAnchorQuote, reason }) => {
+      try {
+        const result = await convexMutation(api.dataPoints.correctAnchor, {
+          dataPointId: asId<"dataPoints">(dataPointId),
+          correctedAnchorQuote,
+          reason,
+        });
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+            },
+          ],
+        };
+      }
+    }
+  );
+
+  // ============================================================
+  // cm_correct_attribution - Append-only claim attribution correction
+  // ============================================================
+  server.registerTool(
+    "cm_correct_attribution",
+    {
+      title: "Correct Data Point Attribution",
+      description:
+        "Append a correction for wrong or unverifiable attribution inside a data point claim. " +
+        "This does not edit the original data point content and is not a general claim rewrite tool. " +
+        "The corrected claim text must be within 0.5x to 2x of the current effective claim length. " +
+        "After a successful correction, embeddingStatus is set to pending so cm_generate_embeddings " +
+        "can regenerate the data point embedding from the corrected claim text.\n\n" +
+        "Args:\n" +
+        "  - dataPointId (string): Data point to correct\n" +
+        "  - correctedClaimText (string): Claim text with corrected attribution only\n" +
+        "  - reason (string): Required curator explanation for the correction\n\n" +
+        "Returns: Correction ID, prior claim text, corrected claim text, currentCorrectionId, " +
+        "and embeddingStatus.",
+      inputSchema: {
+        dataPointId: z.string().describe("Data point ID to correct"),
+        correctedClaimText: z.string().min(1)
+          .describe("Corrected claim text for attribution fixes only"),
+        reason: z.string().min(1)
+          .describe("Required curator explanation for this attribution correction"),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ dataPointId, correctedClaimText, reason }) => {
+      try {
+        const result = await convexMutation(api.dataPoints.correctAttribution, {
+          dataPointId: asId<"dataPoints">(dataPointId),
+          correctedClaimText,
+          reason,
+        });
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+            },
+          ],
+        };
+      }
+    }
+  );
+
+  // ============================================================
   // cm_generate_embeddings - Batch generate embeddings
   // ============================================================
   server.registerTool(

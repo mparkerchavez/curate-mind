@@ -2,6 +2,59 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { resolveSourceMeta } from "./sources";
 
+export async function resolveEffectiveContent(ctx: any, dp: any) {
+  let anchorQuote = dp.anchorQuote;
+  let claimText = dp.claimText;
+  let anchorCorrected = false;
+  let attributionCorrected = false;
+  let latestCorrectionAt: number | null = null;
+  let latestReason: string | null = null;
+  let currentCorrectionId = dp.currentCorrectionId;
+
+  while (currentCorrectionId) {
+    const correction = await ctx.db.get(currentCorrectionId);
+    if (!correction) break;
+
+    if (latestCorrectionAt === null) {
+      latestCorrectionAt = correction.correctedAt;
+      latestReason = correction.reason;
+    }
+
+    if (
+      correction.correctionType === "anchor" &&
+      !anchorCorrected &&
+      correction.correctedAnchorQuote
+    ) {
+      anchorQuote = correction.correctedAnchorQuote;
+      anchorCorrected = true;
+    }
+
+    if (
+      correction.correctionType === "attribution" &&
+      !attributionCorrected &&
+      correction.correctedClaimText
+    ) {
+      claimText = correction.correctedClaimText;
+      attributionCorrected = true;
+    }
+
+    if (anchorCorrected && attributionCorrected) break;
+    currentCorrectionId = correction.previousCorrectionId;
+  }
+
+  return {
+    anchorQuote,
+    claimText,
+    correctionStatus: {
+      hasCorrection: Boolean(dp.currentCorrectionId),
+      anchorCorrected,
+      attributionCorrected,
+      latestCorrectionAt,
+      latestReason,
+    },
+  };
+}
+
 // ============================================================
 // Insert a single data point (immutable once created)
 // ============================================================
@@ -196,7 +249,12 @@ export const getDataPointsNeedingEmbeddings = query({
       )
       .take(limit);
 
-    return dps;
+    return await Promise.all(
+      dps.map(async (dp) => ({
+        ...dp,
+        ...(await resolveEffectiveContent(ctx, dp)),
+      }))
+    );
   },
 });
 
@@ -224,8 +282,11 @@ export const getDataPoint = query({
       tagLinks.map(async (link) => await ctx.db.get(link.tagId))
     );
 
+    const effectiveContent = await resolveEffectiveContent(ctx, dp);
+
     return {
       ...dp,
+      ...effectiveContent,
       source: sourceMetadata,
       tags: tags.filter(Boolean),
     };
@@ -313,7 +374,12 @@ export const getBySource = query({
       .collect();
 
     dps.sort((a, b) => a.dpSequenceNumber - b.dpSequenceNumber);
-    return dps;
+    return await Promise.all(
+      dps.map(async (dp) => ({
+        ...dp,
+        ...(await resolveEffectiveContent(ctx, dp)),
+      }))
+    );
   },
 });
 
@@ -330,7 +396,12 @@ export const listDataPointsBySource = query({
       .collect();
 
     dps.sort((a, b) => a.dpSequenceNumber - b.dpSequenceNumber);
-    return dps.map(({ embedding, ...rest }) => rest);
+    return await Promise.all(
+      dps.map(async ({ embedding, ...rest }) => ({
+        ...rest,
+        ...(await resolveEffectiveContent(ctx, rest)),
+      }))
+    );
   },
 });
 
@@ -363,13 +434,153 @@ export const getDataPointsBatch = query({
         tagLinks.map(async (link) => await ctx.db.get(link.tagId))
       );
 
+      const effectiveContent = await resolveEffectiveContent(ctx, dp);
+
       results.push({
         ...dp,
+        ...effectiveContent,
         source: sourceMetadata,
         tags: tags.filter(Boolean),
       });
     }
 
     return results;
+  },
+});
+
+// ============================================================
+// Append-only correction for mechanically broken anchor quotes
+// ============================================================
+export const correctAnchor = mutation({
+  args: {
+    dataPointId: v.id("dataPoints"),
+    correctedAnchorQuote: v.string(),
+    reason: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const reason = args.reason.trim();
+    if (!reason) {
+      throw new Error("Reason is required");
+    }
+
+    const correctedAnchorQuote = args.correctedAnchorQuote.trim();
+    if (!correctedAnchorQuote) {
+      throw new Error("Corrected anchor quote is required");
+    }
+
+    const dp = await ctx.db.get(args.dataPointId);
+    if (!dp) {
+      throw new Error(`Data point not found: ${args.dataPointId}`);
+    }
+
+    const effectiveContent = await resolveEffectiveContent(ctx, dp);
+    if (correctedAnchorQuote === effectiveContent.anchorQuote) {
+      throw new Error("No-op: corrected anchor matches current anchor");
+    }
+
+    const source = await ctx.db.get(dp.sourceId);
+    if (!source || !source.fullText.includes(correctedAnchorQuote)) {
+      throw new Error(
+        "Corrected anchor not found in source text. Anchor must be a verbatim substring."
+      );
+    }
+
+    const correctionId = await ctx.db.insert("dataPointCorrections", {
+      dataPointId: args.dataPointId,
+      correctionType: "anchor",
+      priorAnchorQuote: effectiveContent.anchorQuote,
+      correctedAnchorQuote,
+      reason,
+      correctedAt: Date.now(),
+      previousCorrectionId: dp.currentCorrectionId,
+    });
+
+    await ctx.db.patch(args.dataPointId, {
+      currentCorrectionId: correctionId,
+    });
+
+    return {
+      correctionId,
+      priorAnchorQuote: effectiveContent.anchorQuote,
+      correctedAnchorQuote,
+      currentCorrectionId: correctionId,
+    };
+  },
+});
+
+// ============================================================
+// Append-only correction for wrong or unverifiable claim attribution
+// ============================================================
+export const correctAttribution = mutation({
+  args: {
+    dataPointId: v.id("dataPoints"),
+    correctedClaimText: v.string(),
+    reason: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const reason = args.reason.trim();
+    if (!reason) {
+      throw new Error("Reason is required");
+    }
+
+    const correctedClaimText = args.correctedClaimText.trim();
+    if (!correctedClaimText) {
+      throw new Error("Corrected claim text is required");
+    }
+
+    const dp = await ctx.db.get(args.dataPointId);
+    if (!dp) {
+      throw new Error(`Data point not found: ${args.dataPointId}`);
+    }
+
+    const effectiveContent = await resolveEffectiveContent(ctx, dp);
+    if (correctedClaimText === effectiveContent.claimText) {
+      throw new Error("No-op: corrected claim text matches current claim text");
+    }
+
+    const currentLength = Math.max(effectiveContent.claimText.length, 1);
+    const ratio = correctedClaimText.length / currentLength;
+    if (ratio < 0.5 || ratio > 2) {
+      throw new Error(
+        "Corrected claim text length is outside the allowed 0.5x to 2x attribution-fix range. Substantive claim revisions are not supported by this tool."
+      );
+    }
+
+    const correctionId = await ctx.db.insert("dataPointCorrections", {
+      dataPointId: args.dataPointId,
+      correctionType: "attribution",
+      priorClaimText: effectiveContent.claimText,
+      correctedClaimText,
+      reason,
+      correctedAt: Date.now(),
+      previousCorrectionId: dp.currentCorrectionId,
+    });
+
+    await ctx.db.patch(args.dataPointId, {
+      currentCorrectionId: correctionId,
+      embeddingStatus: "pending",
+    });
+
+    return {
+      correctionId,
+      priorClaimText: effectiveContent.claimText,
+      correctedClaimText,
+      currentCorrectionId: correctionId,
+      embeddingStatus: "pending",
+      note: "embeddingStatus is now pending so cm_generate_embeddings can regenerate from the corrected claim text.",
+    };
+  },
+});
+
+// ============================================================
+// Audit trail for all corrections applied to one data point
+// ============================================================
+export const getDataPointCorrections = query({
+  args: { dataPointId: v.id("dataPoints") },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("dataPointCorrections")
+      .withIndex("by_dataPoint", (q) => q.eq("dataPointId", args.dataPointId))
+      .collect();
   },
 });

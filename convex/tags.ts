@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { resolveEffectiveContent } from "./dataPoints";
 
 // ============================================================
 // Create a new tag (slug-based deduplication)
@@ -152,12 +153,15 @@ export const getDataPointsByTag = query({
         if (!dp) return null;
 
         const source = await ctx.db.get(dp.sourceId);
+        const effectiveContent = await resolveEffectiveContent(ctx, dp);
         return {
           _id: dp._id,
-          claimText: dp.claimText,
+          claimText: effectiveContent.claimText,
+          anchorQuote: effectiveContent.anchorQuote,
           evidenceType: dp.evidenceType,
           confidence: dp.confidence,
           extractionDate: dp.extractionDate,
+          correctionStatus: effectiveContent.correctionStatus,
           sourceTitle: source?.title,
           sourceTier: source?.tier,
         };
