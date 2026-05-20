@@ -1,347 +1,422 @@
 ---
 name: cm-batch-orchestrator
-description: "Curate Mind Batch Orchestrator. Coordinates extraction across multiple sources by spawning sub-agents. Each source gets two sub-agents (Pass 1+2 combined, then Pass 3) that write directly to Convex. The orchestrator collects compact summaries and flags, then presents a consolidated Pass 4 curator review. Use whenever the user says 'process sources', 'run extraction on all pending', 'extract these sources', 'batch process', or wants to process more than one source through the pipeline."
+description: "Curate Mind Weekly Extract orchestrator. Coordinates source processing across many sources by spawning sub-agents that run the Extract, Secondary Capture, and Enrich stages, then emits an Extraction Flag Report for the Weekly Review chat. Use whenever the user says 'process sources', 'run extraction on all pending', 'extract these sources', 'batch process', 'start the weekly extract', or wants to process more than one source through the pipeline."
 ---
 
-# Curate Mind — Batch Orchestrator
+# Curate Mind, Weekly Extract orchestrator
 
-You coordinate the extraction pipeline across multiple sources. Your job is queue management, sub-agent spawning, progress tracking, and presenting the consolidated curator review. You do NOT do extraction yourself — sub-agents do that work and write directly to Convex.
+You coordinate source processing across many sources. Your job is queue management, sub-agent spawning, progress tracking, and producing the Extraction Flag Report. You do not do the extraction work yourself. Sub-agents do that and write directly to Convex.
 
-## When to Use This Skill
+For a single high-value source where the curator wants to watch and engage with every stage, use the `cm-deep-extract` skill instead.
 
-- User wants to process multiple sources: "process all pending", "extract these 10 sources"
-- User wants to run a weekly extraction batch
-- Any time more than one source needs the full pipeline
+## Project profile customization (placeholders for future wiring)
 
-For a single high-value source where the user wants to watch and engage, use **cm-deep-extract** instead.
+The fields below will be read from the project profile by a later schema change (see `Customization_Design_Proposal_2026-05-20.md`, sections 7 and 16). Until that change lands, treat the values in the right column as the defaults applied to every project.
 
-## Three-Chat Workflow (Default for Batches)
+| Field | Default for now | What it controls |
+|---|---|---|
+| Domain focus | (defer to project description) | Frames what counts as "on topic" when sub-agents select claims to extract. |
+| Secondary Capture enabled | true | Whether the Secondary Capture stage runs at all. |
+| Secondary Capture label | "Mental Models" | The user-facing name for the Secondary Capture items. |
+| Secondary Capture description | "Frameworks, analogies, terms, metaphors, principles." | The seed prompt that tells the Secondary Capture sub-agent what to look for. |
+| High-value evidence types | statistic, framework, prediction, case-study, observation, recommendation | The evidence-type taxonomy the Extract sub-agent uses. |
+| Tag strategy notes | "Lowercase hyphenated noun phrases. 1 to 4 tags per data point. Prefer specific over generic." | Guides the Enrich sub-agent's tag assignment. |
+| Confidence rubric notes | "strong = well-supported and specific. moderate = plausible but lacks strong quantitative backing. suggestive = speculative or anecdotal." | Guides the Enrich sub-agent's confidence calls. |
+| Preferred output style | Analytical, concise, no em dashes. | Shapes extraction notes, source synthesis, and progress reports. |
 
-Processing a weekly batch runs across three separate chats. Each phase holds a different work shape and hands off via a compact artifact.
+Until the profile wiring lands, this skill uses the defaults above. When the wiring lands, the values come from a `cm_get_project_profile` call at the start of the orchestrator.
+
+## When to use this skill
+
+- The curator wants to process several sources at once: "process all pending", "extract these ten sources".
+- The curator wants to run a weekly batch.
+- Any time more than one source needs to move through the full pipeline.
+
+For a single high-value source the curator wants to engage with closely, use the `cm-deep-extract` skill instead.
+
+## Open every activation with the three-block signpost
+
+Before doing any work, emit these three blocks in order. They tell the curator where they are, what this chat does, and what comes next. The same three-block pattern is required at every cross-chat handoff later in the workflow.
 
 ```
-Phase 1 — Extract  →  [Pass 4 Flag Report]  →  Phase 2 — Review
-Phase 2 — Review   →  [Decisions Document]  →  Phase 3 — Integrate
+## Where you are in the process
+
+You are in the Weekly Extract stage of the Curate Mind workflow. Weekly Extract is the first of three stages: Weekly Extract, then Weekly Review, then Weekly Integrate. Each runs in its own chat.
+
+## What happens in this chat
+
+This chat reads the sources you have queued, then for each source runs three sub-agents in sequence: Extract (pulls atomic claims with verbatim anchor quotes and writes a short source synthesis), Secondary Capture (rereads the source with a fresh context window and captures the configured secondary item type, default "Mental Models"), and Enrich (loads the data points back from Convex and applies tags, confidence, extraction notes, and links between related data points). Each sub-agent writes its results to Convex directly. This chat closes by producing the Extraction Flag Report, which lists only the items that need a human judgment call.
+
+## What comes next
+
+After this chat finishes, you will open a new chat and paste the Extraction Flag Report into the Weekly Review stage. I will give you the exact copy-paste opener at the end of this chat. Weekly Review is where you walk through the flagged items and produce the Decisions Document that drives Weekly Integrate.
 ```
 
-**When to use three-chat:** Any batch with more than 5 sources, or any batch where mixed-quality flags are expected. Splitting phases keeps each chat's context focused on one kind of task and means a rate-limit hit during extraction doesn't abort curator work.
+## Three-chat workflow (default for weekly batches)
 
-**When single-chat is acceptable:** Small batches (5 or fewer sources, low-complexity material) where the curator wants speed over isolation. In single-chat mode, invoke cm-curator-review directly after Step 5 instead of emitting the flag report.
+Processing a weekly batch runs across three separate chats. Each chat holds a different work shape and hands off via a compact artifact.
+
+```
+Weekly Extract  (this chat)
+        |
+        v
+[Extraction Flag Report]
+        |
+        v
+Weekly Review   (cm-curator-review)
+        |
+        v
+[Decisions Document]
+        |
+        v
+Weekly Integrate (cm-evidence-linker)
+```
+
+**When to use three-chat mode:** Any batch with more than five sources, or any batch where mixed-quality flags are expected. Splitting the work across chats keeps each chat's context focused on one kind of task and means a rate-limit hit during extraction does not abort curator work.
+
+**When single-chat mode is acceptable:** Small batches (five sources or fewer, low-complexity material) where the curator wants speed over isolation. In single-chat mode, invoke `cm-curator-review` directly after step 5 instead of emitting the Extraction Flag Report as a cross-chat handoff.
 
 **How the handoffs work:**
-- Phase 1 (Extract — this skill) closes by emitting the Pass 4 Flag Report with a ready-to-paste opener for Phase 2.
-- Phase 2 (Review — cm-curator-review) closes by emitting the Decisions Document with a ready-to-paste opener for Phase 3.
-- You do not need to remember commands. Each phase tells you exactly how to start the next one.
+- Weekly Extract (this skill) closes by emitting the Extraction Flag Report with a ready-to-paste opener for Weekly Review.
+- Weekly Review (`cm-curator-review`) closes by emitting the Decisions Document with a ready-to-paste opener for Weekly Integrate.
+- The curator does not need to remember commands. Each chat tells them exactly how to start the next one.
 
-## Step-by-Step Process
+## Step by step
 
 ### 1. Build the queue
 
-Determine which sources to process:
+Determine which sources to process.
 
-**"All pending" or "all indexed":**
-Call `cm_list_sources` with the projectId and filter by status `indexed`. Present the list for confirmation.
-
-**Specific sources:**
-Verify each exists and is at `indexed` status. Skip any already `extracted`.
-
-**A count ("process the next 5"):**
-Call `cm_list_sources` with status `indexed`, present the first N.
+- "All pending" or "all indexed": call `cm_list_sources` with the project identifier and filter for status `indexed`. Present the list and ask the curator to confirm.
+- A specific list: verify each source exists and is at `indexed` status. Skip any already at `extracted`.
+- A count ("process the next five"): call `cm_list_sources` with status `indexed` and present the first N entries.
 
 Present the queue for confirmation before starting:
 
 ```
-## Extraction Queue
+## Extraction queue
 
-**Project:** [project name]
-**Sources to process:** [count]
-**Batch size:** 2 sources in parallel (default). Say "4 sources at a time" to run faster at higher TPM cost.
+Project: [project name]
+Sources to process: [count]
+Sources in parallel: 2 by default. Say "four sources at a time" to run faster at higher token-per-minute cost.
 
-| # | Title | Type | Tier | Words |
-|---|-------|------|------|-------|
-| 1 | [title] | [type] | [tier] | [wordCount] |
+| # | Title | Type | Tier | Word count |
+|---|-------|------|------|------------|
+| 1 | [title] | [type] | [tier] | [word count] |
 | 2 | ... | ... | ... | ... |
 
 Ready to begin?
 ```
 
-Wait for user confirmation.
+Wait for the curator to confirm.
 
 ### 2. Process each source with sub-agents
 
-For each source, spawn **two sequential sub-agents**. Each gets a clean context window and writes directly to Convex.
+For each source, spawn sub-agents in sequence. Each sub-agent gets a clean context window and writes its results directly to Convex. The number of sub-agents per source depends on whether Secondary Capture is enabled in the project profile.
 
-#### Sub-agent 1: Pass 1 + Pass 2 (Extraction and Mental Model Scan)
+- **Sub-agent A: Extract** (always runs)
+- **Sub-agent B: Secondary Capture** (only when enabled; default is "Mental Models")
+- **Sub-agent C: Enrich** (always runs, depends on Extract and on Secondary Capture if enabled)
+
+Secondary Capture runs in its own sub-agent with a fresh context window. This is deliberate: the original architecture intent was that pattern recognition for the secondary item type should not be contaminated by the structured extraction frame. The cost is one extra source-text load per source. Projects that disable Secondary Capture skip that cost entirely.
+
+#### Sub-agent A: Extract
 
 Spawn a sub-agent with this prompt:
 
 ```
-You are running Pass 1 and Pass 2 (Extraction and Mental Model Scan) for Curate Mind.
+You are running the Extract stage for Curate Mind.
 
-Source ID: [sourceId]
-Project ID: [projectId]
+Source identifier: [source identifier]
+Project identifier: [project identifier]
 
-Do NOT invoke any skill file. Follow ONLY these instructions:
-
---- PASS 1: Core Extraction ---
+Do not invoke any skill file. Follow only the instructions below.
 
 1. Call cm_extract_source to get the source text and metadata.
 
 2. Assess document size:
-   - Under 15,000 words: process as one unit
-   - 15,000–30,000 words: 2 chunks at natural section breaks
-   - Over 30,000 words: chunks of ~10,000 words, maintaining a running dpSequenceNumber across chunks
+   - Under 15,000 words: process as one unit.
+   - 15,000 to 30,000 words: split into 2 chunks at natural section breaks.
+   - Over 30,000 words: chunks of about 10,000 words. Maintain a running sequence number across chunks.
 
-3. Extract atomic data points — each a single, specific claim worth capturing as evidence.
-   - Target 8-15 DPs per 2,000-word article; 25-50 per 10,000-word report.
+3. Extract atomic data points. Each data point is a single, specific claim worth capturing as evidence.
+   - Target 8 to 15 data points per 2,000-word article; 25 to 50 per 10,000-word report.
    - Skip generic filler, repetition, background context, and marketing language.
-   - High-value types: statistics, named frameworks, predictions with timeframes, case studies with outcomes, specific recommendations, notable observations.
-   - For each DP produce:
-     - claimText: 1-3 sentences in your words, stands alone without source context
-     - anchorQuote: 10-40 words copied verbatim from the source (target 15-25). Capture the author's reasoning, not just the conclusion. Must appear word-for-word in the source.
-     - evidenceType: statistic | framework | prediction | case-study | observation | recommendation
-     - locationType: paragraph | page | timestamp | section
-     - locationStart: e.g., "paragraph 12", "section: Enterprise Adoption"
-     - dpSequenceNumber: start at 1, increment
-   - Do NOT assign tags. Pass empty tagSlugs arrays [] for every DP.
+   - High-value evidence types: statistic, framework, prediction, case-study, observation, recommendation.
+   - For each data point produce:
+     - claimText: 1 to 3 sentences in your own words. Stands alone without source context.
+     - anchorQuote: 10 to 40 words copied verbatim from the source (target 15 to 25). Capture the author's reasoning, not just the conclusion. Must appear word-for-word in the source.
+     - evidenceType: one of the high-value types above.
+     - locationType: paragraph, page, timestamp, or section.
+     - locationStart: e.g., "paragraph 12", "section: Enterprise Adoption".
+     - dpSequenceNumber: start at 1, increment per data point.
+   - Do not assign tags. Pass an empty tag list for every data point. Tags are assigned during Enrich.
 
-4. Call cm_save_data_points with the sourceId and full DP array. Record the returned DP IDs.
+4. Call cm_save_data_points with the source identifier and the full data point array. Record the returned data point identifiers.
 
-5. Write a source synthesis (2-3 paragraphs):
-   - Para 1: Central argument/thesis and its evidence structure.
-   - Para 2: Key tensions, surprises, or notable methodology — what makes this source distinctive.
-   - Para 3: Strategic implications for the active research domain.
-   Call cm_save_source_synthesis with sourceId and synthesis text.
+5. Write a source synthesis of 2 to 3 paragraphs:
+   - Paragraph 1: central argument or thesis, and its evidence structure.
+   - Paragraph 2: key tensions, surprises, or notable methodology. What makes this source distinctive.
+   - Paragraph 3: strategic implications for the project's research domain.
+   Call cm_save_source_synthesis with the source identifier and the synthesis text. Do not use em dashes in the synthesis.
 
---- PASS 2: Mental Model Scan ---
-
-The source text from Pass 1 is already in your context. Do NOT call cm_extract_source again.
-
-6. Scan the ENTIRE source text for mental model candidates before selecting any:
-   - framework: Named models, typologies, structured ways of thinking (e.g., "The seven workforce archetypes")
-   - analogy: Comparisons that illuminate a concept (e.g., "AI agents are like interns, check their work")
-   - term: Coined or specialized vocabulary (e.g., "context engineering")
-   - metaphor: Figurative language capturing a complex idea (e.g., "the implementation chasm")
-   - principle: Rules of thumb or guiding statements (e.g., "Automate the workflow, not the task")
-   - After scanning the full source, rank all candidates by: (1) novelty — is this a named thing or a restatement of a common idea? (2) distinctiveness — would a strategist remember and reuse this? Keep the top 3-5 ranked candidates only. Commentary articles often produce 0.
-   - For each kept candidate note: title, type, 2-4 sentence description, and which dpSequenceNumber it's most closely associated with.
-   - Do NOT save anything to Convex — return candidates only.
-
-Return ONLY this compact result:
+Return only this compact result:
 - source_title: [title]
 - word_count: [n]
-- dps_saved: [count]
-- dp_ids: [comma-separated list]
-- source_synthesis_excerpt: [first 150 chars]
-- mental_model_candidates: [count]
+- data_points_saved: [count]
+- data_point_identifiers: [comma-separated list]
+- source_synthesis_excerpt: [first 150 characters]
+- status: success or failed
+- error: [message if failed]
+```
+
+Wait for Sub-agent A to complete. If it failed, log the error, skip this source, and move to the next.
+
+#### Sub-agent B: Secondary Capture
+
+Run this sub-agent only when Secondary Capture is enabled in the project profile (default: enabled, with label "Mental Models").
+
+Spawn a sub-agent with this prompt. The Secondary Capture description (defaulting to "Frameworks, analogies, terms, metaphors, principles") substitutes into the body of the prompt; the structure stays the same.
+
+```
+You are running the Secondary Capture stage for Curate Mind.
+
+Source identifier: [source identifier]
+Project identifier: [project identifier]
+Secondary Capture label: Mental Models
+Secondary Capture description: [the seed description from the project profile, defaulting to "Frameworks, analogies, terms, metaphors, principles."]
+
+Do not invoke any skill file. Your context window is fresh, deliberately. Follow only the instructions below.
+
+1. Call cm_extract_source again to retrieve the source text and metadata.
+
+2. Scan the entire source text for candidates matching the Secondary Capture description before selecting any.
+   - For the default Mental Models configuration, candidate types include:
+     - framework: named models, typologies, structured ways of thinking.
+     - analogy: comparisons that illuminate a concept.
+     - term: coined or specialized vocabulary.
+     - metaphor: figurative language capturing a complex idea.
+     - principle: rules of thumb or guiding statements.
+   - After scanning the full source, rank all candidates by:
+     (a) novelty: is this a named thing, or a restatement of a common idea?
+     (b) distinctiveness: would a strategist remember and reuse this?
+   - Keep the top 3 to 5 ranked candidates only. Commentary articles often produce 0.
+
+3. For each kept candidate note:
+   - title (short noun phrase)
+   - type (e.g., framework, analogy, term, metaphor, principle for the Mental Models default)
+   - description (2 to 4 sentences)
+   - related_dp_seq: which data point sequence number from the Extract stage is most closely associated.
+
+4. Do not save anything to Convex during this stage. Return candidates only. The Enrich sub-agent will persist them after cross-checking the Research Lens.
+
+Return only this compact result:
+- source_title: [title]
+- candidates_found: [count]
 - candidates:
-  - title: [name] | type: [type] | related_dp_seq: [n] | description: [1-2 sentences]
+  - title: [name] | type: [type] | related_dp_seq: [n] | description: [1 to 2 sentences]
   - ...
 - status: success or failed
 - error: [message if failed]
 ```
 
-Wait for Sub-agent 1 to complete. If it failed, log the error, skip this source, move to the next.
+Wait for Sub-agent B to complete. If Secondary Capture is disabled for this project, skip Sub-agent B entirely and tell Sub-agent C that no candidates were captured.
 
-#### Sub-agent 2: Pass 3 (Enrichment)
+#### Sub-agent C: Enrich
 
 Spawn a sub-agent with this prompt:
 
 ```
-You are running Pass 3 (Enrichment) for Curate Mind.
+You are running the Enrich stage for Curate Mind.
 
-Source ID: [sourceId]
-Project ID: [projectId]
-DP IDs from Pass 1: [comma-separated list from Sub-agent 1]
-Mental model candidates from Pass 2:
-[paste Sub-agent 1's candidates output]
+Source identifier: [source identifier]
+Project identifier: [project identifier]
+Data point identifiers from Extract: [comma-separated list]
+Secondary Capture candidates: [paste Sub-agent B's candidate output here, or "none captured" if Secondary Capture is disabled or returned no candidates]
 
-Do NOT invoke any skill file. Follow ONLY these instructions:
+Do not invoke any skill file. Follow only the instructions below.
 
-1. Retrieve ALL DPs in ONE call: cm_get_data_points_batch with the full DP ID list above.
-2. Retrieve the Research Lens: call cm_get_research_lens with projectId. If none exists, proceed without it and note this in your summary.
+1. Retrieve all data points in one call: cm_get_data_points_batch with the full identifier list above.
 
-3. Assign tags holistically — collect all assignments in memory. Do NOT call any tool yet.
-   - 1-4 tags per DP, at least one per DP
-   - Lowercase hyphenated: agentic-workflows, enterprise-adoption, cost-optimization
-   - Prefer specific over generic; reuse existing project tags when they fit
-   - Create new tags with cm_create_tag only when no existing tag fits (call cm_create_tag immediately when needed so the slug exists before the batch write)
-   - Record each DP's final tag assignment: {dataPointId, tagSlugs[]}
+2. Retrieve the Research Lens: call cm_get_research_lens with the project identifier. If none exists, proceed without it and note this in your summary.
 
-4. Enrich all DPs holistically — collect all enrichment in memory. Do NOT call any tool yet.
-   - confidence: strong | moderate | suggestive
-     - strong: well-supported, specific, backed by data or clear reasoning
-     - moderate: plausible but lacks strong quantitative backing (most common)
-     - suggestive: speculative, anecdotal, or limited credibility on this topic
-   - extractionNote (1-3 sentences): connect this DP to existing Research Positions, open questions in the Research Lens, or argument chains with other DPs. Do not summarize the claim — add curatorial value. Do not use em dashes.
-   - relatedDataPoints: DP IDs from same source that form argument chains
-   - Record each DP's enrichment: {dataPointId, confidence, extractionNote, relatedDataPoints?}
+3. Assign tags holistically. Collect all assignments in memory. Do not call any tool yet.
+   - 1 to 4 tags per data point, at least one per data point.
+   - Lowercase hyphenated noun phrases: agentic-workflows, enterprise-adoption, cost-optimization.
+   - Prefer specific over generic. Reuse existing project tags when they fit.
+   - Create new tags with cm_create_tag only when no existing tag fits. Call cm_create_tag immediately when needed so the slug exists before the batch write.
+   - Record each data point's final tag assignment as {dataPointId, tagSlugs}.
 
-5. Write in two batch calls (do NOT use the single-DP versions of these tools):
-   a. cm_update_data_points_tags_batch — pass all tag assignments collected in step 3
-   b. cm_enrich_data_points_batch — pass all enrichment data collected in step 4
+4. Enrich all data points holistically. Collect all enrichment in memory. Do not call any tool yet.
+   - confidence: strong, moderate, or suggestive.
+     - strong: well-supported, specific, backed by data or clear reasoning.
+     - moderate: plausible but lacks strong quantitative backing. Most common.
+     - suggestive: speculative, anecdotal, or limited credibility on this topic.
+   - extractionNote (1 to 3 sentences): connect this data point to existing Research Positions, open questions in the Research Lens, or argument chains with other data points. Do not summarize the claim. Add curatorial value. Do not use em dashes.
+   - relatedDataPoints: data point identifiers from the same source that form an argument chain.
+   - Record each data point's enrichment as {dataPointId, confidence, extractionNote, relatedDataPoints?}.
 
-6. Save mental models: for each candidate from Pass 2, check Research Lens for duplicates. If novel, call cm_add_mental_model with title, modelType, description, sourceId, and sourceDataPointId.
+5. Write in two batch calls. Do not use the single-data-point versions of these tools.
+   (a) cm_update_data_points_tags_batch: all tag assignments collected in step 3.
+   (b) cm_enrich_data_points_batch: all enrichment collected in step 4.
 
-7. Flag for curator review (flag conservatively — only items that genuinely need human judgment):
-   - confidence-mismatch: Tier 1 source + suggestive signal, or Tier 3 + strong
-   - position-contradiction: DP contradicts a current Research Position (per Research Lens)
-   - anchor-concern: anchor quote seems imprecise or could not be verified
-   - novel-signal: DP introduces a concept with no connection to any existing position
+6. Persist Secondary Capture items. For each candidate from the Secondary Capture stage, check the Research Lens for duplicates. If novel, call cm_add_mental_model with title, modelType, description, source identifier, and related data point identifier.
+   (For now, every Secondary Capture project uses the Mental Models default and the cm_add_mental_model tool. A future change will route non-default capture types into a dedicated table.)
 
-Return ONLY this compact result:
-- dps_enriched: [count]
+7. Flag items for the Review stage. Flag conservatively. Only flag items that genuinely need human judgment.
+   - confidence-mismatch: Tier 1 source with a suggestive signal, or Tier 3 source with a strong signal.
+   - position-contradiction: data point contradicts a current Research Position (per the Research Lens).
+   - anchor-concern: the anchor quote seems imprecise or could not be verified.
+   - novel-signal: the data point introduces a concept with no connection to any existing position.
+
+Return only this compact result:
+- data_points_enriched: [count]
 - tags_created: [list of new tag slugs]
-- mental_models_saved: [count]
+- secondary_capture_items_saved: [count]
 - flags_for_review: [count]
 - flags:
-  - [dpId] | [flag_type] | [brief reason]
+  - [data point identifier] | [flag_type] | [brief reason]
   - ...
 - status: success or failed
 ```
 
-Wait for Sub-agent 2 to complete.
+Wait for Sub-agent C to complete.
 
 ### 3. Collect results
 
-After both sub-agents complete for a source, merge their outputs into a single source result. Track progress:
+After all sub-agents complete for a source, merge their outputs into a single source result. Track progress:
 
 ```
 ## Progress: [completed] of [total]
 
-| # | Title | Status | DPs | Models | Flags |
-|---|-------|--------|-----|--------|-------|
-| 1 | [title] | ✅ Done | 25 | 2 | 3 |
-| 2 | [title] | ✅ Done | 12 | 0 | 0 |
-| 3 | [title] | 🔄 Processing | — | — | — |
-| 4 | [title] | ⏳ Queued | — | — | — |
-| 5 | [title] | ❌ Failed | — | — | [error] |
+| # | Title | Status | Data points | Secondary Capture items | Flags |
+|---|-------|--------|-------------|-------------------------|-------|
+| 1 | [title] | Done | 25 | 2 | 3 |
+| 2 | [title] | Done | 12 | 0 | 0 |
+| 3 | [title] | Processing | (pending) | (pending) | (pending) |
+| 4 | [title] | Queued | (pending) | (pending) | (pending) |
+| 5 | [title] | Failed | (pending) | (pending) | [error] |
 ```
 
-Show this progress update to the user after every 3-5 sources complete (not after every single one — that's too noisy).
+Show this progress update to the curator after every 3 to 5 sources complete. Do not report after every single source. That is too noisy.
 
 ### 4. Handle failures
 
 If any sub-agent fails:
-1. Log the source title and error
-2. Leave the source at `indexed` status (do not mark as `extracted` or `failed`)
-3. Skip to the next source
-4. Include the failure in the final report
+1. Log the source title and the error message.
+2. Leave the source at `indexed` status. Do not mark it as `extracted` or `failed`.
+3. Skip to the next source.
+4. Include the failure in the final report.
 
-### Pass 4 Flag Taxonomy
+### Flag taxonomy for the Extraction Flag Report
 
-When presenting the consolidated curator review, group all flags into four categories. Present Group A first, then B, then C, then D — this order matches decision impact and allows the curator's commentary on A and B to inform judgment on C and D.
+When presenting the Extraction Flag Report, group all flags into four categories. Present Group A first, then Group B, then Group C, then Group D. This order matches decision impact and lets the curator's commentary on Groups A and B inform their judgment on Groups C and D.
 
 | Group | Flag type | Decision guidance |
 |-------|-----------|-------------------|
-| A | `position-contradiction` | Potential counter-evidence or position thesis revision. Curator decides: add to counter-evidence array, update stance, or create a competing position. |
-| B | `novel-signal` | Potential new position or observation. Curator decides: create new position, save a curator observation, or hold for more evidence before acting. |
-| C | `confidence-mismatch` | Curator judgment call; usually no DP change needed. May indicate source credibility concern or an edge case in the tier-confidence heuristic. |
-| D | `anchor-concern` | Analyst-protocol issue. Cite this DP with a caveat, or flag for re-extraction if the anchor cannot be verified against the source text. |
+| A | position-contradiction | Potential counter-evidence or position thesis revision. The curator decides: add to counter-evidence, update stance, or create a competing position. |
+| B | novel-signal | Potential new position or curator observation. The curator decides: create a new position, save a curator observation, or hold for more evidence before acting. |
+| C | confidence-mismatch | Curator judgment call. Usually no data point change is needed. May indicate a source credibility concern or an edge case in the tier-versus-confidence rubric. |
+| D | anchor-concern | Verbatim quote issue. Cite this data point with a caveat, or flag it for re-extraction if the anchor cannot be verified against the source text. |
 
-For each group, present all flagged DPs in a table (dpId, source title, brief flag reason), then invite the curator's commentary before moving to the next group.
+For each group, present all flagged data points in a table (data point identifier, source title, brief flag reason). Invite the curator's commentary before moving to the next group.
 
-### 5. Emit the Pass 4 Flag Report (Phase 1 close)
+### 5. Emit the Extraction Flag Report (Weekly Extract close)
 
-After all sources complete, aggregate all flags and emit the structured Pass 4 Flag Report. This is the closing artifact for Phase 1. Present it in full so the curator can copy it into Phase 2.
+After all sources complete, aggregate all flags and emit the Extraction Flag Report. This is the closing artifact for the Weekly Extract stage. Present it in full so the curator can copy it into the Weekly Review chat.
 
 ```
-## Pass 4 Flag Report — [date]
+## Extraction Flag Report, [date]
 
-**Project:** [project name]  |  **Batch:** [date range]
-**Sources processed:** [n]  |  **Failed:** [n]
-**Total data points:** [n]  |  **Total flags:** [n]
+Project: [project name]   Batch: [date range]
+Sources processed: [n]    Failed: [n]
+Total data points: [n]    Total flags: [n]
 
----
+### Group A, Position contradictions ([n])
 
-### Group A — Position Contradictions ([n])
-
-| DP ID | Source Title | Claim (abbreviated) | Contradicts Position | Flag Reason |
+| Data point identifier | Source title | Claim (abbreviated) | Contradicts position | Flag reason |
 |---|---|---|---|---|
-| [dpId] | [title] | [first 80 chars...] | [position title] | [brief reason] |
+| [identifier] | [title] | [first 80 chars] | [position title] | [brief reason] |
 
-### Group B — Novel Signals ([n])
+### Group B, Novel signals ([n])
 
-| DP ID | Source Title | Claim (abbreviated) | Flag Reason |
+| Data point identifier | Source title | Claim (abbreviated) | Flag reason |
 |---|---|---|---|
-| [dpId] | [title] | [first 80 chars...] | [brief reason] |
+| [identifier] | [title] | [first 80 chars] | [brief reason] |
 
-### Group C — Confidence Mismatch ([n])
+### Group C, Confidence mismatch ([n])
 
-| DP ID | Source Title | Source Tier | Assigned Confidence | Flag Reason |
+| Data point identifier | Source title | Source tier | Assigned confidence | Flag reason |
 |---|---|---|---|---|
-| [dpId] | [title] | [tier] | [confidence] | [brief reason] |
+| [identifier] | [title] | [tier] | [confidence] | [brief reason] |
 
-### Group D — Anchor Concerns ([n])
+### Group D, Anchor concerns ([n])
 
-| DP ID | Source Title | Anchor (abbreviated) | Concern |
+| Data point identifier | Source title | Anchor (abbreviated) | Concern |
 |---|---|---|---|
-| [dpId] | [title] | "[first 60 chars...]" | [brief concern] |
+| [identifier] | [title] | "[first 60 chars]" | [brief concern] |
 
----
+### Source summary
 
-### Source Summary
-
-| Source Title | DPs | Mental Models | Flags | Outcome |
+| Source title | Data points | Secondary Capture items | Flags | Outcome |
 |---|---|---|---|---|
-| [title] | [n] | [n] | [n] | ✅ Processed |
-| [title] | — | — | — | ❌ Failed: [error] |
+| [title] | [n] | [n] | [n] | Processed |
+| [title] | (none) | (none) | (none) | Failed: [error] |
 ```
 
-Then present the Phase 2 opener:
+Then present the Weekly Review opener:
 
 ```
----
-Phase 1 complete.
+Weekly Extract is complete.
 
-To start Phase 2 (Review): open a new chat and paste the line below,
-followed by this flag report.
+To start the Weekly Review chat, open a new chat and paste the line below, followed by the Extraction Flag Report above.
 
-    Start Phase 2 — Curate Mind weekly batch
+    Start the Weekly Review stage for Curate Mind
 ```
 
-**Single-chat mode only:** For batches of 5 or fewer sources, skip the opener and invoke cm-curator-review directly to continue in this chat.
+**Single-chat mode only:** For batches of five sources or fewer, skip the opener and invoke the `cm-curator-review` skill directly to continue in this chat.
 
 ### 6. Final report (single-chat mode only)
 
-After cm-curator-review completes in the same chat:
+After `cm-curator-review` completes in the same chat:
 
 ```
-## Batch Extraction Complete
+## Batch extraction complete
 
-**Project:** [project name]
-**Date:** [today]
-**Sources processed:** [n] of [total]
-**Successful:** [n] | **Failed:** [n]
+Project: [project name]
+Date: [today]
+Sources processed: [n] of [total]
+Successful: [n]   Failed: [n]
 
-**Totals:**
+Totals:
 - Data points extracted: [total]
-- Mental models created: [total]
+- Secondary Capture items saved: [total]
 - New tags created: [list]
 - Flags reviewed: [total]
 
-**Failed sources (need manual attention):**
+Failed sources (need manual attention):
 [list with error details, if any]
 
-**Positions flagged for review:**
+Positions flagged for review:
 [list of positions that may need updating, if any]
 ```
 
-## Concurrency and Context Window Management
+## Parallelism and context window management
 
-**Source-level parallelism: 2 by default.** Process 2 sources in parallel — start both, collect their sub-agent results, then start the next 2. This balances throughput against TPM consumption. To run 4 sources in parallel (faster, higher TPM cost), the user must explicitly request it at queue confirmation ("4 sources at a time").
+**Source-level parallelism: two by default.** Process two sources in parallel. Start both, collect their sub-agent results, then start the next two. This balances throughput against token-per-minute consumption. To run four sources in parallel (faster, higher token-per-minute cost), the curator must explicitly request it at queue confirmation ("four sources at a time").
 
-**Sub-agents within a source are sequential** — Sub-agent 1 (Pass 1+2) must complete before Sub-agent 2 (Pass 3). Sub-agent 2 depends on the DP IDs and mental model candidates from Sub-agent 1.
+**Sub-agents within a source are sequential.** Extract must complete before Secondary Capture, and Enrich depends on the data point identifiers from Extract and the candidate output from Secondary Capture.
 
-**Session limits:** After processing ~15-20 sources, consider suggesting the user start a new session to keep the orchestrator's context window clean. The data is safe in Convex — a new session can pick up where this one left off by querying for `indexed` sources.
+**Session limits.** After processing about 15 to 20 sources, consider suggesting the curator start a new session to keep the orchestrator's context window clean. The data is safe in Convex. A new session can pick up where this one left off by querying for `indexed` sources.
 
-## First-Source Special Case
+## First-source special case
 
 If this is the very first extraction in a project (no Research Lens, no existing tags, no positions):
 
-1. Sub-agent 1 (Pass 1+2) runs normally
-2. Sub-agent 2 (Pass 3) runs without a Research Lens — note this in the summary
-3. After the first batch completes, suggest the curator:
-   - Review the tags created and adjust if needed
-   - Consider creating initial Research Themes
-   - The Research Lens can be generated after initial positions exist
+1. Sub-agent A (Extract) runs normally.
+2. Sub-agent B (Secondary Capture) runs normally if enabled. Otherwise skipped.
+3. Sub-agent C (Enrich) runs without a Research Lens. Note this in the summary.
+4. After the first batch completes, suggest that the curator:
+   - Reviews the tags created and adjusts if needed.
+   - Considers creating initial Research Themes.
+   - Generates the Research Lens after initial positions exist.
