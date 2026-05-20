@@ -1,5 +1,7 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { ChevronDown } from "@untitledui/icons";
 import { Badge } from "@/components/base/badges/badges";
+import { Button } from "@/components/base/buttons/button";
 import SourceEvidenceGroup from "@/components/SourceEvidenceGroup";
 import { LegendPopover } from "@/components/LegendPopover";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
@@ -239,29 +241,80 @@ export default function EvidencePanel() {
 }
 
 function PositionList({ positions }: { positions: any[] }) {
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set());
+
+  function togglePosition(positionKey: string) {
+    setExpandedIds((current) => {
+      const next = new Set(current);
+      if (next.has(positionKey)) {
+        next.delete(positionKey);
+      } else {
+        next.add(positionKey);
+      }
+      return next;
+    });
+  }
+
   return (
-    <ol className="space-y-4">
-      {positions.map((position, index) => (
-        <li key={position.positionId ?? index} className="rounded-lg border border-secondary bg-secondary_subtle px-3 py-3">
-          <div className="flex items-start gap-3">
-            <span className="shrink-0 text-sm font-semibold tabular-nums tracking-[0.02em] text-brand-secondary">
-              P{index + 1}
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold leading-6 text-primary">{position.title}</p>
-              {position.themeTitle && (
-                <p className="mt-0.5 text-xs leading-5 text-tertiary">{position.themeTitle}</p>
-              )}
-              {position.currentStance && (
-                <p className="mt-2 text-sm leading-6 text-secondary">{position.currentStance}</p>
-              )}
-              <p className="mt-2 text-xs leading-5 text-tertiary">
-                {position.supportingEvidenceCount ?? 0} supporting · {position.counterEvidenceCount ?? 0} counter
-              </p>
+    <ol className="space-y-3">
+      {positions.map((position, index) => {
+        const positionKey = String(position.positionId ?? index);
+        const isExpanded = expandedIds.has(positionKey);
+        const panelId = `position-stance-${positionKey.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+
+        return (
+          <li
+            key={positionKey}
+            className="rounded-lg border border-secondary bg-secondary_subtle px-3 py-3"
+          >
+            <div className="flex items-start gap-3">
+              <span className="shrink-0 text-sm font-semibold tabular-nums tracking-[0.02em] text-brand-secondary">
+                P{index + 1}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold leading-6 text-primary">{position.title}</p>
+                {position.themeTitle && (
+                  <p className="mt-0.5 text-xs leading-5 text-tertiary">{position.themeTitle}</p>
+                )}
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <Badge type="color" size="sm" color="gray">
+                    {position.supportingEvidenceCount ?? 0} supporting
+                  </Badge>
+                  <Badge type="color" size="sm" color="gray">
+                    {position.counterEvidenceCount ?? 0} counter
+                  </Badge>
+                  {position.currentStance && (
+                    <Button
+                      size="xs"
+                      color="tertiary"
+                      onClick={() => togglePosition(positionKey)}
+                      aria-expanded={isExpanded}
+                      aria-controls={panelId}
+                      iconTrailing={
+                        <ChevronDown
+                          data-icon="trailing"
+                          className={cn(
+                            "size-4 transition-transform",
+                            isExpanded ? "rotate-180" : "",
+                          )}
+                          aria-hidden="true"
+                        />
+                      }
+                    >
+                      {isExpanded ? "Hide stance" : "Show stance"}
+                    </Button>
+                  )}
+                </div>
+                {position.currentStance && isExpanded && (
+                  <div id={panelId} className="mt-3 border-t border-secondary pt-3">
+                    <p className="text-sm leading-6 text-secondary">{position.currentStance}</p>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        </li>
-      ))}
+          </li>
+        );
+      })}
     </ol>
   );
 }

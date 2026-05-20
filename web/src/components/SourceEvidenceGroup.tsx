@@ -28,23 +28,40 @@ type Props = {
 };
 
 /**
- * Build a deep-link URL that jumps to the exact spot in the source.
- *
- * For HTML articles: appends a text fragment (#:~:text=...) using the
- * anchor quote, so the browser scrolls to and highlights the passage.
- * For PDFs or when no anchor quote exists: returns the plain URL.
+ * Build a text-fragment URL that jumps to the quoted passage when the
+ * browser and source page support it.
  */
-function buildDeepLinkUrl(baseUrl: string, anchorQuote?: string | null): string {
+function buildTextFragmentUrl(baseUrl: string, anchorQuote?: string | null): string {
   if (!anchorQuote) return baseUrl;
-  // Use the first ~10 words for matching reliability
-  const words = anchorQuote.trim().split(/\s+/).slice(0, 10).join(" ");
-  // Strip smart quotes and other problematic characters
-  const cleaned = words
-    .replace(/[\u2018\u2019\u201C\u201D]/g, "")
+  const cleaned = anchorQuote
     .replace(/\s+/g, " ")
     .trim();
   if (!cleaned) return baseUrl;
-  return `${baseUrl}#:~:text=${encodeURIComponent(cleaned)}`;
+
+  try {
+    const url = new URL(baseUrl);
+    const currentHash = url.hash.replace(/^#/, "");
+    const [elementFragment] = currentHash.split(":~:");
+    const textDirective = `:~:text=${encodeURIComponent(cleaned)}`;
+    url.hash = elementFragment ? `${elementFragment}${textDirective}` : textDirective;
+    return url.toString();
+  } catch {
+    const [urlWithoutHash, hash = ""] = baseUrl.split("#");
+    const [elementFragment] = hash.split(":~:");
+    const fragment = elementFragment
+      ? `${elementFragment}:~:text=${encodeURIComponent(cleaned)}`
+      : `:~:text=${encodeURIComponent(cleaned)}`;
+    return `${urlWithoutHash}#${fragment}`;
+  }
+}
+
+function looksLikePdfUrl(url?: string | null): boolean {
+  if (!url) return false;
+  try {
+    return new URL(url).pathname.toLowerCase().endsWith(".pdf");
+  } catch {
+    return url.split(/[?#]/)[0]?.toLowerCase().endsWith(".pdf") ?? false;
+  }
 }
 
 export default function SourceEvidenceGroup({
@@ -68,29 +85,39 @@ export default function SourceEvidenceGroup({
   ].filter(Boolean);
 
   const internalHref = source?.sourcePagePath ?? (source?._id ? `/sources/${source._id}` : null);
-  const baseExternalHref =
-    source?.resolvedUrl ?? source?.storageUrl ?? source?.canonicalUrl ?? null;
-  const externalKind: "storage" | "canonical" | null =
-    source?.resolvedLinkKind === "internal"
-      ? null
-      : (source?.resolvedLinkKind ?? (source?.storageUrl ? "storage" : source?.canonicalUrl ? "canonical" : null));
   const citedSet = new Set(citedIds ?? []);
 
   // Find the highlighted claim in THIS group (if any)
   const highlightedClaim = highlightedId
     ? group.claims.find((c: any) => c._id === highlightedId)
     : null;
+  const highlightedAnchor = highlightedClaim?.anchorQuote?.trim() || null;
+  const canonicalHref = source?.canonicalUrl ?? null;
+  const storedHref = source?.storageUrl ?? null;
+  const resolvedExternalHref =
+    source?.resolvedLinkKind === "internal" ? null : (source?.resolvedUrl ?? null);
+  const canTextFragmentCanonical = Boolean(
+    highlightedAnchor && canonicalHref && !looksLikePdfUrl(canonicalHref),
+  );
 
   // Build the "Open original" URL — deep-links to the highlighted claim's
-  // anchor quote when one is selected, otherwise opens at the top of the source.
-  const externalHref = baseExternalHref
-    ? highlightedClaim?.anchorQuote
-      ? buildDeepLinkUrl(baseExternalHref, highlightedClaim.anchorQuote)
-      : baseExternalHref
-    : null;
+  // anchor quote when one is selected. Prefer the canonical page for text
+  // fragments because Convex storage links often point to uploaded files,
+  // where browser text fragments usually cannot scroll to a passage.
+  const externalHref = canTextFragmentCanonical
+    ? buildTextFragmentUrl(canonicalHref, highlightedAnchor)
+    : (resolvedExternalHref ?? storedHref ?? canonicalHref);
+  const externalKind: "storage" | "canonical" | null =
+    externalHref && externalHref === storedHref
+      ? "storage"
+      : externalHref && externalHref === canonicalHref
+        ? "canonical"
+        : source?.resolvedLinkKind === "storage" || source?.resolvedLinkKind === "canonical"
+          ? source.resolvedLinkKind
+          : null;
 
   // Button label changes when targeting a specific claim
-  const externalLabel = highlightedClaim?.anchorQuote
+  const externalLabel = canTextFragmentCanonical
     ? "Open at source"
     : externalKind === "storage"
       ? "Open file"
