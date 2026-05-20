@@ -92,6 +92,7 @@ type EvidencePackItem = {
 
 type AnalystPosition = {
   positionId: string;
+  themeId?: string;
   title: string;
   themeTitle?: string;
   currentStance: string;
@@ -429,6 +430,7 @@ export const askAnalyst = action({
         positions = [
           {
             positionId: String(detail._id),
+            themeId: detail.theme?._id ? String(detail.theme._id) : undefined,
             title: detail.title,
             themeTitle: detail.theme?.title,
             currentStance: detail.currentVersion?.currentStance ?? "",
@@ -458,6 +460,7 @@ export const askAnalyst = action({
         if (detail) {
           positions.push({
             positionId: String(detail._id),
+            themeId: detail.theme?._id ? String(detail.theme._id) : undefined,
             title: detail.title,
             themeTitle: detail.theme?.title,
             currentStance: detail.currentVersion?.currentStance ?? "",
@@ -991,6 +994,7 @@ async function fallbackRankCurrentPositions(
     if (!detail) continue;
     positions.push({
       positionId: String(detail._id),
+      themeId: detail.theme?._id ? String(detail.theme._id) : undefined,
       title: detail.title,
       themeTitle: detail.theme?.title,
       currentStance: detail.currentVersion?.currentStance ?? "",

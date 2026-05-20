@@ -56,6 +56,7 @@ export type EvidenceSection = {
 
 export type AnalystPosition = {
   positionId: string;
+  themeId?: string;
   title: string;
   themeTitle?: string;
   currentStance: string;

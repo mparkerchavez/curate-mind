@@ -221,16 +221,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       for (const c of activeAnswer.citations ?? []) {
         if (c.dataPointId && c.label) labelByDpId[c.dataPointId] = c.label;
       }
-      const secondaryItems = [
-        ...(activeAnswer.observations ?? []).map((item) => ({ ...item, kind: "observation" as const })),
-        ...(activeAnswer.mentalModels ?? []).map((item) => ({ ...item, kind: "mentalModel" as const })),
-      ];
       return [
         { key: "positions", title: "Positions", subtitle: "Relevant research positions surfaced by the analyst query.", items: activeAnswer.positions ?? [], variant: "positions" as const, kind: "positions" as const },
         { key: "evidence", title: "Evidence data points", subtitle: "Fresh evidence retrieved for this question.", items: cited, cited: true, labelByDpId },
         { key: "carried", title: "Carried from earlier questions", subtitle: "Prior cited evidence kept for thread continuity.", items: carried, variant: "carried" as const, labelByDpId },
         { key: "retrieved", title: "New context retrieved", subtitle: "Fresh adjacent evidence available to the analyst.", items: retrieved, variant: "context" as const, labelByDpId },
-        { key: "secondary", title: "Observations & models", subtitle: "Secondary analyst context for follow-up interpretation.", items: secondaryItems, variant: "secondary" as const, kind: "secondary" as const },
       ].filter((s) => s.items.length > 0);
     }
     if (routeKind === "position" && positionDetail?.currentVersion) {
