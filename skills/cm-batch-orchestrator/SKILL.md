@@ -1,9 +1,9 @@
 ---
 name: cm-batch-orchestrator
-description: "Curate Mind Weekly Extract orchestrator. Coordinates source processing across many sources by spawning sub-agents that run the Extract, Secondary Capture, and Enrich stages, then emits an Extraction Flag Report for the Weekly Review chat. Use whenever the user says 'process sources', 'run extraction on all pending', 'extract these sources', 'batch process', 'start the weekly extract', or wants to process more than one source through the pipeline."
+description: "Curate Mind Batch Extract orchestrator. Coordinates source processing across many sources by spawning sub-agents that run the Extract, Secondary Capture, and Enrich stages, then emits an Extraction Flag Report for the Batch Review chat. Use whenever the user says 'process sources', 'run extraction on all pending', 'extract these sources', 'batch process', 'start the batch extract', or wants to process more than one source through the pipeline."
 ---
 
-# Curate Mind, Weekly Extract orchestrator
+# Curate Mind, Batch Extract orchestrator
 
 You coordinate source processing across many sources. Your job is queue management, sub-agent spawning, progress tracking, and producing the Extraction Flag Report. You do not do the extraction work yourself. Sub-agents do that and write directly to Convex.
 
@@ -29,7 +29,7 @@ Until the profile wiring lands, this skill uses the defaults above. When the wir
 ## When to use this skill
 
 - The curator wants to process several sources at once: "process all pending", "extract these ten sources".
-- The curator wants to run a weekly batch.
+- The curator wants to run a batch (any number of sources from a handful to several dozen).
 - Any time more than one source needs to move through the full pipeline.
 
 For a single high-value source the curator wants to engage with closely, use the `cm-deep-extract` skill instead.
@@ -41,7 +41,7 @@ Before doing any work, emit these three blocks in order. They tell the curator w
 ```
 ## Where you are in the process
 
-You are in the Weekly Extract stage of the Curate Mind workflow. Weekly Extract is the first of three stages: Weekly Extract, then Weekly Review, then Weekly Integrate. Each runs in its own chat.
+You are in the Batch Extract stage of the Curate Mind workflow. Batch Extract is the first of three stages: Batch Extract, then Batch Review, then Batch Integrate. Each runs in its own chat.
 
 ## What happens in this chat
 
@@ -49,27 +49,27 @@ This chat reads the sources you have queued, then for each source runs three sub
 
 ## What comes next
 
-After this chat finishes, you will open a new chat and paste the Extraction Flag Report into the Weekly Review stage. I will give you the exact copy-paste opener at the end of this chat. Weekly Review is where you walk through the flagged items and produce the Decisions Document that drives Weekly Integrate.
+After this chat finishes, you will open a new chat and paste the Extraction Flag Report into the Batch Review stage. I will give you the exact copy-paste opener at the end of this chat. Batch Review is where you walk through the flagged items and produce the Decisions Document that drives Batch Integrate.
 ```
 
-## Three-chat workflow (default for weekly batches)
+## Three-chat workflow (default for multi-source batches)
 
-Processing a weekly batch runs across three separate chats. Each chat holds a different work shape and hands off via a compact artifact.
+Processing a multi-source batch runs across three separate chats. Each chat holds a different work shape and hands off via a compact artifact.
 
 ```
-Weekly Extract  (this chat)
+Batch Extract  (this chat)
         |
         v
 [Extraction Flag Report]
         |
         v
-Weekly Review   (cm-curator-review)
+Batch Review   (cm-curator-review)
         |
         v
 [Decisions Document]
         |
         v
-Weekly Integrate (cm-evidence-linker)
+Batch Integrate (cm-evidence-linker)
 ```
 
 **When to use three-chat mode:** Any batch with more than five sources, or any batch where mixed-quality flags are expected. Splitting the work across chats keeps each chat's context focused on one kind of task and means a rate-limit hit during extraction does not abort curator work.
@@ -77,8 +77,8 @@ Weekly Integrate (cm-evidence-linker)
 **When single-chat mode is acceptable:** Small batches (five sources or fewer, low-complexity material) where the curator wants speed over isolation. In single-chat mode, invoke `cm-curator-review` directly after step 5 instead of emitting the Extraction Flag Report as a cross-chat handoff.
 
 **How the handoffs work:**
-- Weekly Extract (this skill) closes by emitting the Extraction Flag Report with a ready-to-paste opener for Weekly Review.
-- Weekly Review (`cm-curator-review`) closes by emitting the Decisions Document with a ready-to-paste opener for Weekly Integrate.
+- Batch Extract (this skill) closes by emitting the Extraction Flag Report with a ready-to-paste opener for Batch Review.
+- Batch Review (`cm-curator-review`) closes by emitting the Decisions Document with a ready-to-paste opener for Batch Integrate.
 - The curator does not need to remember commands. Each chat tells them exactly how to start the next one.
 
 ## Step by step
@@ -321,9 +321,9 @@ When presenting the Extraction Flag Report, group all flags into four categories
 
 For each group, present all flagged data points in a table (data point identifier, source title, brief flag reason). Invite the curator's commentary before moving to the next group.
 
-### 5. Emit the Extraction Flag Report (Weekly Extract close)
+### 5. Emit the Extraction Flag Report (Batch Extract close)
 
-After all sources complete, aggregate all flags and emit the Extraction Flag Report. This is the closing artifact for the Weekly Extract stage. Present it in full so the curator can copy it into the Weekly Review chat.
+After all sources complete, aggregate all flags and emit the Extraction Flag Report. This is the closing artifact for the Batch Extract stage. Present it in full so the curator can copy it into the Batch Review chat.
 
 ```
 ## Extraction Flag Report, [date]
@@ -364,14 +364,14 @@ Total data points: [n]    Total flags: [n]
 | [title] | (none) | (none) | (none) | Failed: [error] |
 ```
 
-Then present the Weekly Review opener:
+Then present the Batch Review opener:
 
 ```
-Weekly Extract is complete.
+Batch Extract is complete.
 
-To start the Weekly Review chat, open a new chat and paste the line below, followed by the Extraction Flag Report above.
+To start the Batch Review chat, open a new chat and paste the line below, followed by the Extraction Flag Report above.
 
-    Start the Weekly Review stage for Curate Mind
+    Start the Batch Review stage for Curate Mind
 ```
 
 **Single-chat mode only:** For batches of five sources or fewer, skip the opener and invoke the `cm-curator-review` skill directly to continue in this chat.

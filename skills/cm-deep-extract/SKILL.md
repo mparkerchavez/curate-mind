@@ -5,7 +5,7 @@ description: "Curate Mind Deep Extract. Interactive single-source extraction for
 
 # Curate Mind, Deep Extract (interactive single source)
 
-This skill runs the full source-processing pipeline for a single source in an interactive, conversational mode. Unlike the Weekly Extract orchestrator (which processes many sources silently via sub-agents), Deep Extract shows you everything and invites your input at each stage. Use this for high-value reports, foundational papers, sources you want to engage with closely, or when you are calibrating the pipeline on a new source type.
+This skill runs the full source-processing pipeline for a single source in an interactive, conversational mode. Unlike the Batch Extract orchestrator (which processes many sources silently via sub-agents), Deep Extract shows you everything and invites your input at each stage. Use this for high-value reports, foundational papers, sources you want to engage with closely, or when you are calibrating the pipeline on a new source type.
 
 ## Project profile customization (placeholders for future wiring)
 
@@ -46,7 +46,7 @@ Before doing any extraction work, emit these three blocks in order.
 ```
 ## Where you are in the process
 
-You are in Deep Extract, the interactive single-source version of the Curate Mind source-processing pipeline. Deep Extract runs in one chat from start to finish. It is the alternative to Weekly Extract (which spawns sub-agents to handle many sources silently).
+You are in Deep Extract, the interactive single-source version of the Curate Mind source-processing pipeline. Deep Extract runs in one chat from start to finish. It is the alternative to Batch Extract (which spawns sub-agents to handle many sources silently).
 
 ## What happens in this chat
 
@@ -54,7 +54,7 @@ This chat runs four stages, interactively, in order: Extract (atomic claims with
 
 ## What comes next
 
-When this chat finishes, the source is fully processed: data points saved, Secondary Capture items saved, tags and confidence assigned, the source marked extracted, embeddings generated. The next thing to do is either run another Deep Extract on another source or start a Weekly Extract chat for a larger batch. I will tell you the source counts at the end so you can decide.
+When this chat finishes, the source is fully processed: data points saved, Secondary Capture items saved, tags and confidence assigned, the source marked extracted, embeddings generated. The next thing to do is either run another Deep Extract on another source or start a Batch Extract chat for a larger batch. I will tell you the source counts at the end so you can decide.
 ```
 
 ## Step by step
@@ -236,7 +236,7 @@ After curator approval:
 
 #### 3.5 Review stage (inline)
 
-If any items were flagged during enrichment, present them inline using the same dialogue shape that `cm-curator-review` uses (Groups A, B, C, D). Because this is an interactive session, resolve flags immediately rather than deferring to a separate Weekly Review chat.
+If any items were flagged during enrichment, present them inline using the same dialogue shape that `cm-curator-review` uses (Groups A, B, C, D). Because this is an interactive session, resolve flags immediately rather than deferring to a separate Batch Review chat.
 
 If nothing was flagged, note that the extraction is clean.
 

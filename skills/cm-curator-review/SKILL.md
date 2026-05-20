@@ -1,11 +1,11 @@
 ---
 name: cm-curator-review
-description: "Curate Mind Weekly Review stage. Takes an Extraction Flag Report from Weekly Extract, leads the curator through the flagged items in groups A, B, C, D, and produces a Decisions Document to hand off to the Weekly Integrate chat (cm-evidence-linker). Use when the user pastes an Extraction Flag Report, says 'Start the Weekly Review stage for Curate Mind', 'curator review', 'review flags', or 'show me what needs attention'."
+description: "Curate Mind Batch Review stage. Takes an Extraction Flag Report from Batch Extract, leads the curator through the flagged items in groups A, B, C, D, and produces a Decisions Document to hand off to the Batch Integrate chat (cm-evidence-linker). Use when the user pastes an Extraction Flag Report, says 'Start the Batch Review stage for Curate Mind', 'curator review', 'review flags', or 'show me what needs attention'."
 ---
 
-# Curate Mind, Weekly Review stage
+# Curate Mind, Batch Review stage
 
-You facilitate the Weekly Review. This is the human-in-the-loop quality check between Weekly Extract and Weekly Integrate. You present flagged items, guide the curator through decisions in Groups A, B, C, D, and close by producing the Decisions Document that Weekly Integrate will execute.
+You facilitate the Batch Review. This is the human-in-the-loop quality check between Batch Extract and Batch Integrate. You present flagged items, guide the curator through decisions in Groups A, B, C, D, and close by producing the Decisions Document that Batch Integrate will execute.
 
 **What this chat does:**
 - Leads the dialogue through each flag group.
@@ -13,7 +13,7 @@ You facilitate the Weekly Review. This is the human-in-the-loop quality check be
 - Calls `cm_enrich_data_point` for confidence adjustments (a low-stakes data-point-level change that needs no cross-referencing).
 
 **What this chat does not do:**
-- It does not call `cm_add_curator_observation`, `cm_create_position`, or `cm_update_position`. Those happen in the Weekly Integrate chat. The decisions are recorded in the Decisions Document instead.
+- It does not call `cm_add_curator_observation`, `cm_create_position`, or `cm_update_position`. Those happen in the Batch Integrate chat. The decisions are recorded in the Decisions Document instead.
 
 ## Project profile customization (placeholders for future wiring)
 
@@ -30,9 +30,9 @@ When the profile wiring lands, these values come from a `cm_get_project_profile`
 
 ## When to use this skill
 
-- The curator pastes an Extraction Flag Report and says "Start the Weekly Review stage for Curate Mind".
+- The curator pastes an Extraction Flag Report and says "Start the Batch Review stage for Curate Mind".
 - The curator says "curator review", "review flags", or "show me what needs attention".
-- The Weekly Extract orchestrator hands off in single-chat mode (five sources or fewer).
+- The Batch Extract orchestrator hands off in single-chat mode (five sources or fewer).
 
 ## Open every activation with the three-block signpost
 
@@ -41,7 +41,7 @@ Before doing anything else, emit these three blocks in order.
 ```
 ## Where you are in the process
 
-You are in the Weekly Review stage of the Curate Mind workflow. Weekly Extract just finished. It produced the Extraction Flag Report you pasted in. Weekly Integrate comes after this chat.
+You are in the Batch Review stage of the Curate Mind workflow. Batch Extract just finished. It produced the Extraction Flag Report you pasted in. Batch Integrate comes after this chat.
 
 ## What happens in this chat
 
@@ -49,7 +49,7 @@ This chat walks you through the flagged items, in four groups, in this order: Gr
 
 ## What comes next
 
-When the review is done, this chat closes by handing you the full Decisions Document plus a copy-paste opener for the Weekly Integrate chat. Weekly Integrate executes the document: saves curator observations, creates new positions, updates existing positions, and optionally continues with tag-based evidence linking.
+When the review is done, this chat closes by handing you the full Decisions Document plus a copy-paste opener for the Batch Integrate chat. Batch Integrate executes the document: saves curator observations, creates new positions, updates existing positions, and optionally continues with tag-based evidence linking.
 ```
 
 ## Step by step
@@ -59,7 +59,7 @@ When the review is done, this chat closes by handing you the full Decisions Docu
 Parse the pasted Extraction Flag Report and present:
 
 ```
-## Weekly Review dashboard
+## Batch Review dashboard
 
 Sources: [n processed]    Total data points: [n]
 Flags to review: [n] across [n sources]
@@ -174,12 +174,12 @@ After all flags for a source are resolved:
 - Call `cm_update_source_status` with status `extracted`.
 - Call `cm_generate_embeddings`.
 
-### 9. Produce the Decisions Document (Weekly Review close)
+### 9. Produce the Decisions Document (Batch Review close)
 
-After all four groups are complete, emit the full Decisions Document. Include every section even if empty. Write "None" in empty sections so Weekly Integrate can skip them cleanly.
+After all four groups are complete, emit the full Decisions Document. Include every section even if empty. Write "None" in empty sections so Batch Integrate can skip them cleanly.
 
 ```markdown
-# Decisions Document, week of [date]
+# Decisions Document, batch of [date]
 
 Project: [name]
 From: Extraction Flag Report ([date])
@@ -193,7 +193,7 @@ From: Extraction Flag Report ([date])
 
 ## Data point adjustments
 
-(Applied inline during review. Recorded here for the audit trail. No Weekly Integrate action needed.)
+(Applied inline during review. Recorded here for the audit trail. No Batch Integrate action needed.)
 
 | Data point identifier | Field | New value |
 |---|---|---|
@@ -207,7 +207,7 @@ Data points: [identifier 1], [identifier 2]
 Positions: [position title or identifier]
 Tags: [tag-a, tag-b]
 
-(Repeat for each observation. Use A1, A2, A3 so Weekly Integrate can cross-reference them.)
+(Repeat for each observation. Use A1, A2, A3 so Batch Integrate can cross-reference them.)
 
 ## B. New positions to create
 
@@ -217,12 +217,12 @@ Initial stance: [stance text]
 Supporting data points: [identifier 1], [identifier 2]
 Open questions: [...]
 
-(Repeat for each new position. Use B1, B2 so Weekly Integrate can cross-reference them.)
+(Repeat for each new position. Use B1, B2 so Batch Integrate can cross-reference them.)
 
 ## C. Existing position updates
 
 ### Update C1: [Position Title] (position identifier: [identifier])
-Observations to add: A1 (save first in Weekly Integrate)
+Observations to add: A1 (save first in Batch Integrate)
 Data points to add, supporting: [identifier 1]
 Data points to add, counter: [identifier 2]
 Stance note: [1 to 2 sentences on what changed and why]
@@ -235,14 +235,14 @@ Regenerate: YES or DEFER
 Reason: [e.g., "two new positions created" or "pure evidence linking, stances unchanged"]
 ```
 
-Then present the Weekly Integrate opener:
+Then present the Batch Integrate opener:
 
 ```
-Weekly Review is complete.
+Batch Review is complete.
 
-To start the Weekly Integrate chat, open a new chat and paste the line below, followed by the Decisions Document above.
+To start the Batch Integrate chat, open a new chat and paste the line below, followed by the Decisions Document above.
 
-    Start the Weekly Integrate stage for Curate Mind
+    Start the Batch Integrate stage for Curate Mind
 ```
 
 ## Research Lens: when to regenerate
@@ -254,7 +254,7 @@ The Research Lens is used during the Enrich stage to help sub-agents connect dat
 - Existing positions received substantive stance updates (thesis revision, not just evidence linking).
 
 **Defer (set DEFER) when:**
-- Weekly Integrate is pure evidence linking with no stance changes.
+- Batch Integrate is pure evidence linking with no stance changes.
 - The curator plans to process more related sources soon and wants the lens to reflect a more mature set of positions before regenerating.
 
 Positions become more useful in the lens as they accumulate evidence from multiple sources. If the curator is mid-campaign on a theme, deferring until positions stabilize produces a better lens for subsequent extraction waves.
@@ -264,16 +264,16 @@ Positions become more useful in the lens as they accumulate evidence from multip
 If the entire batch produced zero flags:
 
 ```
-## Weekly Review: no flags
+## Batch Review: no flags
 
 All [n] sources completed extraction with no flagged items.
 [total data points] data points, [total Secondary Capture items] Secondary Capture items.
 
 All sources finalized. No Decisions Document needed.
-Weekly Integrate is optional: proceed to evidence linking if desired.
+Batch Integrate is optional: proceed to evidence linking if desired.
 ```
 
-Finalize all sources via `cm_update_source_status` and `cm_generate_embeddings`. No opener needed for Weekly Integrate unless the curator wants to run evidence linking.
+Finalize all sources via `cm_update_source_status` and `cm_generate_embeddings`. No opener needed for Batch Integrate unless the curator wants to run evidence linking.
 
 ## Interaction style
 

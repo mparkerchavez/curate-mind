@@ -1,11 +1,11 @@
 ---
 name: cm-evidence-linker
-description: "Curate Mind Weekly Integrate stage. Executes a Decisions Document from Weekly Review (saving curator observations, creating new positions, updating existing positions with new evidence), then optionally continues with tag-based evidence linking. Use when the user pastes a Decisions Document, says 'Start the Weekly Integrate stage for Curate Mind', 'integrate decisions', or 'link evidence'."
+description: "Curate Mind Batch Integrate stage. Executes a Decisions Document from Batch Review (saving curator observations, creating new positions, updating existing positions with new evidence), then optionally continues with tag-based evidence linking. Use when the user pastes a Decisions Document, says 'Start the Batch Integrate stage for Curate Mind', 'integrate decisions', or 'link evidence'."
 ---
 
-# Curate Mind, Weekly Integrate stage
+# Curate Mind, Batch Integrate stage
 
-You execute the Decisions Document produced in Weekly Review, then optionally continue with tag-based evidence linking to connect remaining data points to positions.
+You execute the Decisions Document produced in Batch Review, then optionally continue with tag-based evidence linking to connect remaining data points to positions.
 
 **Reference:** `Architecture_Spec.md` Evidence Linking Pattern. Design Decisions 27, 28, 29.
 
@@ -24,7 +24,7 @@ When the profile wiring lands, these values come from a `cm_get_project_profile`
 
 ## When to use this skill
 
-- The curator pastes a Decisions Document and says "Start the Weekly Integrate stage for Curate Mind".
+- The curator pastes a Decisions Document and says "Start the Batch Integrate stage for Curate Mind".
 - The curator says "integrate decisions" or "link evidence".
 - Any standalone session for tag-based evidence linking after an extraction wave.
 
@@ -35,7 +35,7 @@ Before doing any execution, emit these three blocks in order.
 ```
 ## Where you are in the process
 
-You are in the Weekly Integrate stage of the Curate Mind workflow. Weekly Extract produced the Extraction Flag Report. Weekly Review turned that report into the Decisions Document you pasted in. Weekly Integrate is the last stage in the weekly batch.
+You are in the Batch Integrate stage of the Curate Mind workflow. Batch Extract produced the Extraction Flag Report. Batch Review turned that report into the Decisions Document you pasted in. Batch Integrate is the last stage in the batch.
 
 ## What happens in this chat
 
@@ -43,19 +43,19 @@ This chat executes the Decisions Document. It saves the curator observations, cr
 
 ## What comes next
 
-When this chat finishes, the weekly batch is closed for this week. The next thing to do is either start a new Weekly Extract chat for the next batch of pending sources, or open a Curate Mind chat against the corpus to query, write, or refine. I will recap what was changed at the end so you know which positions are most fresh.
+When this chat finishes, the batch is closed. The next thing to do is either start a new Batch Extract chat for the next batch of pending sources, or open a Curate Mind chat against the corpus to query, write, or refine. I will recap what was changed at the end so you know which positions are most fresh.
 ```
 
 ## Entry point: execute the Decisions Document
 
-When the curator pastes a Decisions Document or says "Start the Weekly Integrate stage for Curate Mind", execute it before doing anything else.
+When the curator pastes a Decisions Document or says "Start the Batch Integrate stage for Curate Mind", execute it before doing anything else.
 
 ### 1. Confirm the document
 
 Parse the pasted document and present a brief summary before executing:
 
 ```
-## Weekly Integrate
+## Batch Integrate
 
 Curator observations to save: [n]
 New positions to create: [n]
@@ -109,13 +109,13 @@ Decisions Document complete.
 Continue to tag-based evidence linking? This connects remaining data points
 to positions via tag retrieval. Useful after a large extraction wave.
 
-Say "yes" to continue, or "done" to close Weekly Integrate here.
+Say "yes" to continue, or "done" to close Batch Integrate here.
 ```
 
 If the curator says yes, proceed with the three-step workflow below. If done, close with a brief summary:
 
 ```
-## Weekly Integrate complete
+## Batch Integrate complete
 
 Observations saved: [n]
 Positions created: [n]
@@ -125,7 +125,7 @@ Research Lens: [Regenerated or Deferred]
 
 ## Tag-based evidence linking (optional continuation)
 
-The sections below cover the second part of Weekly Integrate: connecting data points that were not handled in the Decisions Document to Research Positions using tag-based retrieval. Run this after the Decisions Document is executed, or as a standalone session after any extraction wave.
+The sections below cover the second part of Batch Integrate: connecting data points that were not handled in the Decisions Document to Research Positions using tag-based retrieval. Run this after the Decisions Document is executed, or as a standalone session after any extraction wave.
 
 ### Prerequisites
 
