@@ -53,6 +53,16 @@ Read [docs/setup-guide.md](docs/setup-guide.md). It walks you from a fresh clone
 **I want an AI assistant to walk me through it.**
 Open [docs/citizen-developer-setup.md](docs/citizen-developer-setup.md), then hand the file to Claude, Codex, or your preferred AI tool with a single instruction: "Read this file and help me set up Curate Mind." The assistant will guide you through every step, ask for the values it needs, and run commands on your behalf.
 
+## Development checks
+
+Before committing changes, run:
+
+```bash
+npm run validate
+```
+
+This lightweight check confirms `CLAUDE.md` and `AGENTS.md` are still in sync. If it fails after editing `CLAUDE.md`, run `npm run agents:sync`, then run `npm run validate` again.
+
 ## License
 
 [MIT](LICENSE).

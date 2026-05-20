@@ -65,6 +65,12 @@ type ScopeContext = {
   sourceId?: string;
 };
 
+type ProjectPromptContext = {
+  name: string;
+  description?: string;
+  createdDate?: string;
+};
+
 type TemporalIntent = {
   label: string;
   start: string;
@@ -142,7 +148,10 @@ export const askGrounded = action({
     if (!anthropicKey)
       throw new Error("ANTHROPIC_API_KEY is not set in Convex env");
 
-    const scope = await resolveScopeContext(ctx, args);
+    const [projectContext, scope] = await Promise.all([
+      resolveProjectPromptContext(ctx, args.projectId),
+      resolveScopeContext(ctx, args),
+    ]);
 
     // 1. Embed the question
     const embedding = await embedText(args.question, openaiKey);
@@ -177,67 +186,13 @@ export const askGrounded = action({
     })) as any;
 
     // 5. Build the system prompt
-    const lensBlock = lens
-      ? [
-          "## Current Research Lens",
-          "### Active positions",
-          lens.currentPositions,
-          "",
-          "### Open questions",
-          lens.openQuestions,
-          "",
-          "### Surprise signals",
-          lens.surpriseSignals,
-        ].join("\n")
-      : "## Current Research Lens\n(none yet)";
-
-    const evidenceBlock = retrieved
-      .map((dp, i) => {
-        const src = dp.source;
-        const srcLine = src
-          ? `Source: "${src.title}"${
-              src.authorName ? ` — ${src.authorName}` : ""
-            }${src.publisherName ? ` (${src.publisherName})` : ""}${
-              src.publishedDate ? `, ${src.publishedDate}` : ""
-            } [tier ${src.tier}]`
-          : "Source: unknown";
-        return [
-          `### Evidence ${i + 1} — id: ${dp._id}`,
-          `Origin: ${carriedIdSet.has(dp._id) ? "carried from earlier questions" : "freshly retrieved for this question"}`,
-          `Type: ${dp.evidenceType}${
-            dp.confidence ? ` · confidence: ${dp.confidence}` : ""
-          }`,
-          `Claim: ${dp.claimText}`,
-          `Anchor quote: "${dp.anchorQuote}"`,
-          dp.extractionNote ? `Note: ${dp.extractionNote}` : "",
-          srcLine,
-        ]
-          .filter(Boolean)
-          .join("\n");
-      })
-      .join("\n\n");
-
-    const systemPrompt = [
-      "You are the Curate Mind research assistant. You answer questions strictly grounded in the curated research evidence provided by this knowledge base. You do not speculate beyond the provided evidence, and you do not invent sources, statistics, or quotes.",
-      "",
-      "Style: precise, intellectually honest, never breathless. Write like an analyst, not a marketer. When evidence is thin, say so.",
-      "",
-      "When you draw on a data point, cite it inline like [E1], [E2], where the number matches the evidence order below. Evidence marked 'carried from earlier questions' is available only for thread continuity; cite it again only if it directly supports this answer.",
-      "If a workspace scope is provided, stay inside that scope unless the evidence explicitly says the context is too thin.",
-      "",
-      "At the very end of your response, on its own line after a blank line, output a single JSON code block listing the IDs (not the DPN labels) of the data points you actually used:",
-      "```json",
-      '{"cited_dp_ids": ["id1", "id2"]}',
-      "```",
-      "If you used none of the provided evidence, return an empty array. Never include this JSON anywhere except at the very end.",
-      "",
-      scope.summary,
-      "",
-      lensBlock,
-      "",
-      "## Retrieved Evidence",
-      evidenceBlock || "(no evidence retrieved)",
-    ].join("\n");
+    const systemPrompt = buildGroundedSystemPrompt({
+      projectContext,
+      scopeSummary: scope.summary,
+      lens,
+      retrieved,
+      carriedIdSet,
+    });
 
     // 6. Build messages — prior history + new question
     const messages = [
@@ -448,7 +403,8 @@ export const askAnalyst = action({
     const temporalIntent = parseTemporalIntent(args.question);
 
     // Scope resolution, embedding, observations, and mental models all in parallel
-    const [scope, embedding, observationResults, mentalModelResults] = await Promise.all([
+    const [projectContext, scope, embedding, observationResults, mentalModelResults] = await Promise.all([
+      resolveProjectPromptContext(ctx, args.projectId),
       resolveScopeContext(ctx, args),
       embedText(args.question, openaiKey),
       ctx.runAction(api.search.searchObservations, {
@@ -581,6 +537,7 @@ export const askAnalyst = action({
     }));
     const answer = await composeAnalystAnswer(anthropicKey, {
       question: args.question,
+      projectContext,
       scopeSummary: temporalIntent
         ? `${scope.summary}\nTemporal filter: prioritize evidence from ${temporalIntent.label}.`
         : scope.summary,
@@ -628,6 +585,7 @@ async function composeAnalystAnswer(
   anthropicKey: string,
   args: {
     question: string;
+    projectContext: ProjectPromptContext;
     scopeSummary: string;
     positions: AnalystPosition[];
     observations: AnalystObservation[];
@@ -635,71 +593,8 @@ async function composeAnalystAnswer(
     dataPoints: EvidencePackItem[];
   }
 ): Promise<string> {
-  const positionsBlock =
-    args.positions.slice(0, 5).map((position, index) =>
-      [
-        `P${index + 1}: ${position.title}`,
-        position.themeTitle ? `Theme: ${position.themeTitle}` : "",
-        `Stance: ${truncateForPrompt(position.currentStance, 900)}`,
-        `Evidence counts: ${position.supportingEvidenceCount} supporting, ${position.counterEvidenceCount} counter`,
-      ]
-        .filter(Boolean)
-        .join("\n")
-    ).join("\n\n") || "(none)";
-
-  const dataPointsBlock =
-    args.dataPoints.slice(0, 12).map((dp) =>
-      [
-        `${dp.label}: ${truncateForPrompt(dp.interpretation, 550)}`,
-        dp.source
-          ? `Source: ${dp.source.title}${dp.source.publishedDate ? ` (${dp.source.publishedDate})` : ""}`
-          : "",
-        dp.whyItMatters ? `Why it matters: ${truncateForPrompt(dp.whyItMatters, 260)}` : "",
-        dp.evidenceType || dp.confidence
-          ? `Type/confidence: ${[dp.evidenceType, dp.confidence].filter(Boolean).join(" / ")}`
-          : "",
-      ]
-        .filter(Boolean)
-        .join("\n")
-    ).join("\n\n") || "(none)";
-
-  const observationsBlock =
-    args.observations.slice(0, 3).map((observation, index) =>
-      `O${index + 1}: ${truncateForPrompt(observation.content, 300)}`
-    ).join("\n") || "(none)";
-
-  const mentalModelsBlock =
-    args.mentalModels.slice(0, 3).map((model, index) =>
-      `M${index + 1}: ${model.term} (${model.modelType}) - ${truncateForPrompt(model.description, 300)}`
-    ).join("\n") || "(none)";
-
-  const system = [
-    "You are the Curate Mind analyst. Write a clear, grounded answer for a public-facing research UI.",
-    "Use only the supplied positions, observations, mental models, and evidence data points.",
-    "Cite every source-backed claim with data point labels like [E1]. Do not cite observations or mental models with [O#] or [M#]; use them only as background context for synthesis.",
-    "You may mention position labels like [P1] as plain references when they help orient the answer.",
-    "Do not invent facts, sources, quotes, statistics, or labels. If the evidence is thin, say so.",
-    "Optimize for useful synthesis, not exhaustive coverage. Prefer 3-5 short sections with direct headings.",
-    "Do not include a JSON block or bibliography.",
-  ].join("\n");
-
-  const user = [
-    args.scopeSummary,
-    "",
-    `Question: ${args.question}`,
-    "",
-    "## Positions",
-    positionsBlock,
-    "",
-    "## Evidence Data Points",
-    dataPointsBlock,
-    "",
-    "## Curator Observations",
-    observationsBlock,
-    "",
-    "## Mental Models",
-    mentalModelsBlock,
-  ].join("\n");
+  const system = buildAnalystSystemPrompt(args.projectContext);
+  const user = buildAnalystUserPrompt(args);
 
   const anthropicResp = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -730,6 +625,251 @@ async function composeAnalystAnswer(
     .map((c) => c.text as string)
     .join("\n")
     .trim();
+}
+
+async function resolveProjectPromptContext(
+  ctx: ActionCtx,
+  projectId: Id<"projects">
+): Promise<ProjectPromptContext> {
+  const project = (await ctx.runQuery(api.projects.getProject, {
+    projectId,
+  })) as any;
+
+  return {
+    name: project?.name ?? "Untitled Curate Mind project",
+    description: project?.description,
+    createdDate: project?.createdDate,
+  };
+}
+
+function buildGroundedSystemPrompt(args: {
+  projectContext: ProjectPromptContext;
+  scopeSummary: string;
+  lens: any;
+  retrieved: CitedDataPoint[];
+  carriedIdSet: Set<string>;
+}): string {
+  return [
+    buildAssistantRoleBlock("research assistant", args.projectContext),
+    "",
+    buildStyleDefaultsBlock(),
+    "",
+    buildGroundedAnswerRulesBlock(),
+    "",
+    buildProjectContextBlock(args.projectContext),
+    "",
+    args.scopeSummary,
+    "",
+    buildResearchLensBlock(args.lens),
+    "",
+    buildRetrievedEvidenceBlock(args.retrieved, args.carriedIdSet),
+  ].join("\n");
+}
+
+function buildAnalystSystemPrompt(projectContext: ProjectPromptContext): string {
+  return [
+    buildAssistantRoleBlock("analyst", projectContext),
+    "",
+    buildAnalystLockedRulesBlock(),
+    "",
+    buildStyleDefaultsBlock(),
+    "Optimize for useful synthesis, not exhaustive coverage. Prefer 3-5 short sections with direct headings.",
+  ].join("\n");
+}
+
+function buildAnalystUserPrompt(args: {
+  question: string;
+  projectContext: ProjectPromptContext;
+  scopeSummary: string;
+  positions: AnalystPosition[];
+  observations: AnalystObservation[];
+  mentalModels: AnalystMentalModel[];
+  dataPoints: EvidencePackItem[];
+}): string {
+  return [
+    buildProjectContextBlock(args.projectContext),
+    "",
+    args.scopeSummary,
+    "",
+    `Question: ${args.question}`,
+    "",
+    "## Positions",
+    buildAnalystPositionsBlock(args.positions),
+    "",
+    "## Evidence Data Points",
+    buildAnalystDataPointsBlock(args.dataPoints),
+    "",
+    "## Curator Observations",
+    buildAnalystObservationsBlock(args.observations),
+    "",
+    "## Mental Models",
+    buildAnalystMentalModelsBlock(args.mentalModels),
+  ].join("\n");
+}
+
+function buildAssistantRoleBlock(role: "research assistant" | "analyst", projectContext: ProjectPromptContext): string {
+  return [
+    `You are the Curate Mind ${role} for the project named "${projectContext.name}".`,
+    "Answer from the supplied project context and retrieved evidence; do not substitute assumptions about a domain or time period that is not present in the project context.",
+  ].join("\n");
+}
+
+function buildProjectContextBlock(projectContext: ProjectPromptContext): string {
+  return [
+    "## Project Context",
+    `Project name: ${projectContext.name}`,
+    projectContext.description
+      ? `Project description: ${projectContext.description}`
+      : "Project description: (none supplied)",
+    projectContext.createdDate ? `Project created: ${projectContext.createdDate}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function buildStyleDefaultsBlock(): string {
+  return "Style: precise, intellectually honest, never breathless. Write like an analyst, not a marketer. When evidence is thin, say so.";
+}
+
+function buildGroundedAnswerRulesBlock(): string {
+  // Locked because UI citation cards and post-processing depend on [E#] labels plus the trailing cited_dp_ids JSON.
+  return [
+    "Use only the supplied project context, workspace scope, Research Lens, and retrieved evidence.",
+    "Do not speculate beyond the provided evidence, and do not invent sources, statistics, quotes, or labels.",
+    "When you draw on a data point, cite it inline like [E1], [E2], where the number matches the evidence order below.",
+    "Evidence marked 'carried from earlier questions' is available only for thread continuity; cite it again only if it directly supports this answer.",
+    "If a workspace scope is provided, stay inside that scope unless the evidence explicitly says the context is too thin.",
+    "",
+    "At the very end of your response, on its own line after a blank line, output a single JSON code block listing the IDs (not the DPN labels) of the data points you actually used:",
+    "```json",
+    '{"cited_dp_ids": ["id1", "id2"]}',
+    "```",
+    "If you used none of the provided evidence, return an empty array. Never include this JSON anywhere except at the very end.",
+  ].join("\n");
+}
+
+function buildAnalystLockedRulesBlock(): string {
+  // Locked because rendered analyst answers only map data point labels to clickable citations.
+  return [
+    "Use only the supplied project context, positions, observations, mental models, and evidence data points.",
+    "Cite every source-backed claim with data point labels like [E1]. Do not cite observations or mental models with [O#] or [M#]; use them only as background context for synthesis.",
+    "You may mention position labels like [P1] as plain references when they help orient the answer.",
+    "Do not invent facts, sources, quotes, statistics, or labels. If the evidence is thin, say so.",
+    "Do not include a JSON block or bibliography.",
+  ].join("\n");
+}
+
+function buildResearchLensBlock(lens: any): string {
+  return lens
+    ? [
+        "## Current Research Lens",
+        "### Active positions",
+        lens.currentPositions,
+        "",
+        "### Open questions",
+        lens.openQuestions,
+        "",
+        "### Surprise signals",
+        lens.surpriseSignals,
+      ].join("\n")
+    : "## Current Research Lens\n(none yet)";
+}
+
+function buildRetrievedEvidenceBlock(
+  retrieved: CitedDataPoint[],
+  carriedIdSet: Set<string>
+): string {
+  const evidenceBlock = retrieved
+    .map((dp, i) => buildRetrievedEvidenceItem(dp, i, carriedIdSet))
+    .join("\n\n");
+
+  return ["## Retrieved Evidence", evidenceBlock || "(no evidence retrieved)"].join("\n");
+}
+
+function buildRetrievedEvidenceItem(
+  dp: CitedDataPoint,
+  index: number,
+  carriedIdSet: Set<string>
+): string {
+  const src = dp.source;
+  const srcLine = src
+    ? `Source: "${src.title}"${src.authorName ? ` - ${src.authorName}` : ""}${
+        src.publisherName ? ` (${src.publisherName})` : ""
+      }${src.publishedDate ? `, ${src.publishedDate}` : ""} [tier ${src.tier}]`
+    : "Source: unknown";
+
+  return [
+    `### Evidence ${index + 1} - id: ${dp._id}`,
+    `Origin: ${carriedIdSet.has(dp._id) ? "carried from earlier questions" : "freshly retrieved for this question"}`,
+    `Type: ${dp.evidenceType}${dp.confidence ? ` - confidence: ${dp.confidence}` : ""}`,
+    `Claim: ${dp.claimText}`,
+    `Anchor quote: "${dp.anchorQuote}"`,
+    dp.extractionNote ? `Note: ${dp.extractionNote}` : "",
+    srcLine,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function buildAnalystPositionsBlock(positions: AnalystPosition[]): string {
+  return (
+    positions
+      .slice(0, 5)
+      .map((position, index) =>
+        [
+          `P${index + 1}: ${position.title}`,
+          position.themeTitle ? `Theme: ${position.themeTitle}` : "",
+          `Stance: ${truncateForPrompt(position.currentStance, 900)}`,
+          `Evidence counts: ${position.supportingEvidenceCount} supporting, ${position.counterEvidenceCount} counter`,
+        ]
+          .filter(Boolean)
+          .join("\n")
+      )
+      .join("\n\n") || "(none)"
+  );
+}
+
+function buildAnalystDataPointsBlock(dataPoints: EvidencePackItem[]): string {
+  return (
+    dataPoints
+      .slice(0, 12)
+      .map((dp) =>
+        [
+          `${dp.label}: ${truncateForPrompt(dp.interpretation, 550)}`,
+          dp.source
+            ? `Source: ${dp.source.title}${dp.source.publishedDate ? ` (${dp.source.publishedDate})` : ""}`
+            : "",
+          dp.whyItMatters ? `Why it matters: ${truncateForPrompt(dp.whyItMatters, 260)}` : "",
+          dp.evidenceType || dp.confidence
+            ? `Type/confidence: ${[dp.evidenceType, dp.confidence].filter(Boolean).join(" / ")}`
+            : "",
+        ]
+          .filter(Boolean)
+          .join("\n")
+      )
+      .join("\n\n") || "(none)"
+  );
+}
+
+function buildAnalystObservationsBlock(observations: AnalystObservation[]): string {
+  return (
+    observations
+      .slice(0, 3)
+      .map((observation, index) => `O${index + 1}: ${truncateForPrompt(observation.content, 300)}`)
+      .join("\n") || "(none)"
+  );
+}
+
+function buildAnalystMentalModelsBlock(mentalModels: AnalystMentalModel[]): string {
+  return (
+    mentalModels
+      .slice(0, 3)
+      .map(
+        (model, index) =>
+          `M${index + 1}: ${model.term} (${model.modelType}) - ${truncateForPrompt(model.description, 300)}`
+      )
+      .join("\n") || "(none)"
+  );
 }
 
 function parseTemporalIntent(question: string): TemporalIntent | null {
