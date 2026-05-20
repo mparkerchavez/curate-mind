@@ -69,6 +69,24 @@ type ProjectPromptContext = {
   name: string;
   description?: string;
   createdDate?: string;
+  domain?: string;
+  audience?: string;
+  timeHorizon?: string;
+  researchUnitLabel?: string;
+  ideaUnitLabel?: string;
+  assistantRoleName?: string;
+};
+
+type UserStylePreferences = {
+  voice?: "analytical" | "conversational" | "formal";
+  structurePreference?: "prose" | "bullets" | "mixed";
+  bannedPunctuation?: string[];
+  bannedPhrases?: string[];
+  alwaysIncludeCounterEvidence?: boolean;
+  evidenceThinPolicy?: "say-so" | "skip" | "ask";
+  hedgingStyle?: "direct" | "moderate" | "cautious";
+  language?: string;
+  customStyleNotes?: string;
 };
 
 type TemporalIntent = {
@@ -112,6 +130,60 @@ type AnalystMentalModel = {
   description: string;
 };
 
+// ============================================================
+// Preview Prompt Profile
+// ------------------------------------------------------------
+// Returns the assembled system prompt for a given chat mode plus
+// a structured list naming the locked blocks the user cannot edit.
+// Used by cm_preview_prompt_profile during onboarding.
+// ============================================================
+export const previewPromptProfile = action({
+  args: {
+    projectId: v.id("projects"),
+    mode: v.optional(
+      v.union(v.literal("grounded"), v.literal("analyst"))
+    ),
+  },
+  handler: async (
+    ctx,
+    args
+  ): Promise<{
+    mode: "grounded" | "analyst";
+    prompt: string;
+    lockedBlocks: string[];
+  }> => {
+    const mode = args.mode ?? "analyst";
+    const [projectContext, userStyle] = await Promise.all([
+      resolveProjectPromptContext(ctx, args.projectId),
+      resolveUserStylePreferences(ctx),
+    ]);
+
+    const prompt =
+      mode === "grounded"
+        ? buildGroundedSystemPrompt({
+            projectContext,
+            userStyle,
+            scopeSummary:
+              "## Active Workspace Scope\n(Preview only - no active scope.)",
+            lens: null,
+            retrieved: [],
+            carriedIdSet: new Set(),
+          })
+        : buildAnalystSystemPrompt(projectContext, userStyle);
+
+    const lockedBlocks =
+      mode === "grounded"
+        ? [
+            "buildGroundedAnswerRulesBlock",
+            "buildResearchLensBlock",
+            "buildRetrievedEvidenceBlock",
+          ]
+        : ["buildAnalystLockedRulesBlock"];
+
+    return { mode, prompt, lockedBlocks };
+  },
+});
+
 export const askGrounded = action({
   args: {
     question: v.string(),
@@ -149,9 +221,10 @@ export const askGrounded = action({
     if (!anthropicKey)
       throw new Error("ANTHROPIC_API_KEY is not set in Convex env");
 
-    const [projectContext, scope] = await Promise.all([
+    const [projectContext, scope, userStyle] = await Promise.all([
       resolveProjectPromptContext(ctx, args.projectId),
       resolveScopeContext(ctx, args),
+      resolveUserStylePreferences(ctx),
     ]);
 
     // 1. Embed the question
@@ -189,6 +262,7 @@ export const askGrounded = action({
     // 5. Build the system prompt
     const systemPrompt = buildGroundedSystemPrompt({
       projectContext,
+      userStyle,
       scopeSummary: scope.summary,
       lens,
       retrieved,
@@ -404,9 +478,10 @@ export const askAnalyst = action({
     const temporalIntent = parseTemporalIntent(args.question);
 
     // Scope resolution, embedding, observations, and mental models all in parallel
-    const [projectContext, scope, embedding, observationResults, mentalModelResults] = await Promise.all([
+    const [projectContext, scope, userStyle, embedding, observationResults, mentalModelResults] = await Promise.all([
       resolveProjectPromptContext(ctx, args.projectId),
       resolveScopeContext(ctx, args),
+      resolveUserStylePreferences(ctx),
       embedText(args.question, openaiKey),
       ctx.runAction(api.search.searchObservations, {
         queryText: args.question,
@@ -541,6 +616,7 @@ export const askAnalyst = action({
     const answer = await composeAnalystAnswer(anthropicKey, {
       question: args.question,
       projectContext,
+      userStyle,
       scopeSummary: temporalIntent
         ? `${scope.summary}\nTemporal filter: prioritize evidence from ${temporalIntent.label}.`
         : scope.summary,
@@ -589,6 +665,7 @@ async function composeAnalystAnswer(
   args: {
     question: string;
     projectContext: ProjectPromptContext;
+    userStyle: UserStylePreferences;
     scopeSummary: string;
     positions: AnalystPosition[];
     observations: AnalystObservation[];
@@ -596,7 +673,7 @@ async function composeAnalystAnswer(
     dataPoints: EvidencePackItem[];
   }
 ): Promise<string> {
-  const system = buildAnalystSystemPrompt(args.projectContext);
+  const system = buildAnalystSystemPrompt(args.projectContext, args.userStyle);
   const user = buildAnalystUserPrompt(args);
 
   const anthropicResp = await fetch("https://api.anthropic.com/v1/messages", {
@@ -642,11 +719,39 @@ async function resolveProjectPromptContext(
     name: project?.name ?? "Untitled Curate Mind project",
     description: project?.description,
     createdDate: project?.createdDate,
+    domain: project?.domain,
+    audience: project?.audience,
+    timeHorizon: project?.timeHorizon,
+    researchUnitLabel: project?.researchUnitLabel,
+    ideaUnitLabel: project?.ideaUnitLabel,
+    assistantRoleName: project?.assistantRoleName,
+  };
+}
+
+async function resolveUserStylePreferences(
+  ctx: ActionCtx
+): Promise<UserStylePreferences> {
+  const prefs = (await ctx.runQuery(
+    api.userPreferences.getUserPreferences,
+    {}
+  )) as any;
+  if (!prefs) return {};
+  return {
+    voice: prefs.voice,
+    structurePreference: prefs.structurePreference,
+    bannedPunctuation: prefs.bannedPunctuation,
+    bannedPhrases: prefs.bannedPhrases,
+    alwaysIncludeCounterEvidence: prefs.alwaysIncludeCounterEvidence,
+    evidenceThinPolicy: prefs.evidenceThinPolicy,
+    hedgingStyle: prefs.hedgingStyle,
+    language: prefs.language,
+    customStyleNotes: prefs.customStyleNotes,
   };
 }
 
 function buildGroundedSystemPrompt(args: {
   projectContext: ProjectPromptContext;
+  userStyle: UserStylePreferences;
   scopeSummary: string;
   lens: any;
   retrieved: CitedDataPoint[];
@@ -655,7 +760,7 @@ function buildGroundedSystemPrompt(args: {
   return [
     buildAssistantRoleBlock("research assistant", args.projectContext),
     "",
-    buildStyleDefaultsBlock(),
+    buildUserStyleBlock(args.userStyle),
     "",
     buildGroundedAnswerRulesBlock(),
     "",
@@ -669,13 +774,16 @@ function buildGroundedSystemPrompt(args: {
   ].join("\n");
 }
 
-function buildAnalystSystemPrompt(projectContext: ProjectPromptContext): string {
+function buildAnalystSystemPrompt(
+  projectContext: ProjectPromptContext,
+  userStyle: UserStylePreferences
+): string {
   return [
     buildAssistantRoleBlock("analyst", projectContext),
     "",
     buildAnalystLockedRulesBlock(),
     "",
-    buildStyleDefaultsBlock(),
+    buildUserStyleBlock(userStyle),
     "Optimize for useful synthesis, not exhaustive coverage. Prefer 3-5 short sections with direct headings.",
   ].join("\n");
 }
@@ -710,28 +818,92 @@ function buildAnalystUserPrompt(args: {
   ].join("\n");
 }
 
-function buildAssistantRoleBlock(role: "research assistant" | "analyst", projectContext: ProjectPromptContext): string {
+function buildAssistantRoleBlock(
+  role: "research assistant" | "analyst",
+  projectContext: ProjectPromptContext
+): string {
+  const roleLabel =
+    projectContext.assistantRoleName && projectContext.assistantRoleName.trim() !== ""
+      ? projectContext.assistantRoleName
+      : role;
   return [
-    `You are the Curate Mind ${role} for the project named "${projectContext.name}".`,
+    `You are the Curate Mind ${roleLabel} for the project named "${projectContext.name}".`,
     "Answer from the supplied project context and retrieved evidence; do not substitute assumptions about a domain or time period that is not present in the project context.",
   ].join("\n");
 }
 
 function buildProjectContextBlock(projectContext: ProjectPromptContext): string {
-  return [
+  const lines = [
     "## Project Context",
     `Project name: ${projectContext.name}`,
     projectContext.description
       ? `Project description: ${projectContext.description}`
       : "Project description: (none supplied)",
-    projectContext.createdDate ? `Project created: ${projectContext.createdDate}` : "",
-  ]
-    .filter(Boolean)
-    .join("\n");
+  ];
+  if (projectContext.domain) lines.push(`Domain: ${projectContext.domain}`);
+  if (projectContext.audience) lines.push(`Audience: ${projectContext.audience}`);
+  if (projectContext.timeHorizon)
+    lines.push(`Time horizon: ${projectContext.timeHorizon}`);
+  if (projectContext.researchUnitLabel)
+    lines.push(`Unit of work: ${projectContext.researchUnitLabel}`);
+  if (projectContext.createdDate)
+    lines.push(`Project created: ${projectContext.createdDate}`);
+  return lines.filter(Boolean).join("\n");
 }
 
-function buildStyleDefaultsBlock(): string {
-  return "Style: precise, intellectually honest, never breathless. Write like an analyst, not a marketer. When evidence is thin, say so.";
+// Seed text mirrored into a fresh userPreferences singleton during migration.
+const USER_STYLE_SEED =
+  "Style: precise, intellectually honest, never breathless. Write like an analyst, not a marketer. When evidence is thin, say so.";
+
+function buildUserStyleBlock(prefs: UserStylePreferences): string {
+  const hasAny =
+    prefs.voice ||
+    prefs.structurePreference ||
+    (prefs.bannedPunctuation && prefs.bannedPunctuation.length > 0) ||
+    (prefs.bannedPhrases && prefs.bannedPhrases.length > 0) ||
+    prefs.hedgingStyle ||
+    prefs.evidenceThinPolicy ||
+    prefs.language ||
+    (prefs.customStyleNotes && prefs.customStyleNotes.trim() !== "");
+
+  if (!hasAny) return USER_STYLE_SEED;
+
+  const lines = ["## User Style"];
+  if (prefs.voice) lines.push(`Voice: ${prefs.voice}.`);
+  if (prefs.structurePreference)
+    lines.push(`Preferred structure: ${prefs.structurePreference}.`);
+  if (prefs.hedgingStyle)
+    lines.push(`Hedging style: ${prefs.hedgingStyle}.`);
+  if (prefs.evidenceThinPolicy) {
+    const policyText: Record<string, string> = {
+      "say-so": "When evidence is thin, say so explicitly.",
+      skip: "When evidence is thin, skip the question rather than over-reach.",
+      ask: "When evidence is thin, ask the user how they want to proceed.",
+    };
+    lines.push(policyText[prefs.evidenceThinPolicy]);
+  }
+  if (prefs.alwaysIncludeCounterEvidence) {
+    lines.push("Always surface counter-evidence when it exists in the retrieved set.");
+  }
+  if (prefs.language) lines.push(`Language: ${prefs.language}.`);
+  if (prefs.bannedPunctuation && prefs.bannedPunctuation.length > 0) {
+    lines.push(
+      `Do not use the following punctuation: ${prefs.bannedPunctuation
+        .map((p) => `"${p}"`)
+        .join(", ")}.`
+    );
+  }
+  if (prefs.bannedPhrases && prefs.bannedPhrases.length > 0) {
+    lines.push(
+      `Avoid the following phrases: ${prefs.bannedPhrases
+        .map((p) => `"${p}"`)
+        .join(", ")}.`
+    );
+  }
+  if (prefs.customStyleNotes && prefs.customStyleNotes.trim() !== "") {
+    lines.push(`Notes: ${prefs.customStyleNotes.trim()}`);
+  }
+  return lines.join("\n");
 }
 
 function buildGroundedAnswerRulesBlock(): string {

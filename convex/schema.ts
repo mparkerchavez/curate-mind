@@ -9,7 +9,88 @@ export default defineSchema({
     name: v.string(),
     description: v.optional(v.string()),
     createdDate: v.string(),
+
+    // Project profile fields (all optional during transition).
+    // Filled in by the onboarding interview or via cm_update_project_profile.
+    domain: v.optional(v.string()),
+    audience: v.optional(v.string()),
+    timeHorizon: v.optional(v.string()),
+    researchUnitLabel: v.optional(v.string()),
+    ideaUnitLabel: v.optional(v.string()),
+    assistantRoleName: v.optional(v.string()),
+    suggestedPrompts: v.optional(v.array(v.string())),
+
+    secondaryCaptureEnabled: v.optional(v.boolean()),
+    secondaryCaptureLabel: v.optional(v.string()),
+    secondaryCaptureDescription: v.optional(v.string()),
+
+    themeHints: v.optional(v.string()),
+    highValueEvidenceNotes: v.optional(v.string()),
+    confidenceRubricNotes: v.optional(v.string()),
+    tagStrategyNotes: v.optional(v.string()),
+
+    profileInitialized: v.optional(v.boolean()),
+    profileVersion: v.optional(v.number()),
   }).index("by_createdDate", ["createdDate"]),
+
+  // ============================================================
+  // 0a. USER PREFERENCES — Instance-wide writing style singleton
+  // ============================================================
+  userPreferences: defineTable({
+    voice: v.optional(
+      v.union(
+        v.literal("analytical"),
+        v.literal("conversational"),
+        v.literal("formal")
+      )
+    ),
+    structurePreference: v.optional(
+      v.union(
+        v.literal("prose"),
+        v.literal("bullets"),
+        v.literal("mixed")
+      )
+    ),
+    bannedPunctuation: v.optional(v.array(v.string())),
+    bannedPhrases: v.optional(v.array(v.string())),
+    alwaysIncludeCounterEvidence: v.optional(v.boolean()),
+    evidenceThinPolicy: v.optional(
+      v.union(
+        v.literal("say-so"),
+        v.literal("skip"),
+        v.literal("ask")
+      )
+    ),
+    hedgingStyle: v.optional(
+      v.union(
+        v.literal("direct"),
+        v.literal("moderate"),
+        v.literal("cautious")
+      )
+    ),
+    language: v.optional(v.string()),
+    customStyleNotes: v.optional(v.string()),
+    preferencesInitialized: v.optional(v.boolean()),
+    updatedAt: v.optional(v.string()),
+  }).index("by_updatedAt", ["updatedAt"]),
+
+  // ============================================================
+  // 0b. SECONDARY ITEMS — Non-default Secondary Capture results
+  // ============================================================
+  // Mental models continue to live in their own table when the project's
+  // Secondary Capture configuration uses the default label. Any other
+  // capture label writes to this generic store.
+  secondaryItems: defineTable({
+    projectId: v.id("projects"),
+    sourceId: v.id("sources"),
+    captureLabel: v.string(),
+    title: v.string(),
+    content: v.string(),
+    relatedDataPointId: v.optional(v.id("dataPoints")),
+    capturedAt: v.string(),
+  })
+    .index("by_projectId", ["projectId"])
+    .index("by_sourceId", ["sourceId"]),
 
   // ============================================================
   // 1. SOURCES — Provenance records for every piece of external content

@@ -20,6 +20,7 @@ import { registerExtractionTools } from "./tools/extraction.js";
 import { registerQueryTools } from "./tools/query.js";
 import { registerReviewTools } from "./tools/review.js";
 import { registerSynthesisTools } from "./tools/synthesis.js";
+import { registerProfileTools } from "./tools/profile.js";
 
 let activeServer: McpServer | null = null;
 let activeTransport: StdioServerTransport | null = null;
@@ -64,6 +65,7 @@ async function main(): Promise<void> {
   registerQueryTools(server);
   registerReviewTools(server);
   registerSynthesisTools(server);
+  registerProfileTools(server);
 
   // Connect via stdio transport (for local MCP hosts)
   const transport = new StdioServerTransport();

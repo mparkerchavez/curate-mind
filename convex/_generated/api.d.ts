@@ -21,6 +21,7 @@ import type * as researchLens from "../researchLens.js";
 import type * as search from "../search.js";
 import type * as sources from "../sources.js";
 import type * as tags from "../tags.js";
+import type * as userPreferences from "../userPreferences.js";
 
 import type {
   ApiFromModules,
@@ -42,6 +43,7 @@ declare const fullApi: ApiFromModules<{
   search: typeof search;
   sources: typeof sources;
   tags: typeof tags;
+  userPreferences: typeof userPreferences;
 }>;
 
 /**
