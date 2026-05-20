@@ -110,7 +110,7 @@ Do NOT invoke any skill file. Follow ONLY these instructions:
 5. Write a source synthesis (2-3 paragraphs):
    - Para 1: Central argument/thesis and its evidence structure.
    - Para 2: Key tensions, surprises, or notable methodology — what makes this source distinctive.
-   - Para 3: Strategic implications for AI strategy and adoption.
+   - Para 3: Strategic implications for the active research domain.
    Call cm_save_source_synthesis with sourceId and synthesis text.
 
 --- PASS 2: Mental Model Scan ---

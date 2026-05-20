@@ -122,7 +122,7 @@ The MCP has two distinct query modes. Using the wrong tool produces shallow or u
 
 Use when: scanning new sources for signals, finding emerging narratives, pressure-testing a brief or idea against the corpus, or doing early corpus work before positions exist.
 
-`cm_search` searches across all entity types (data points, positions, observations, mental models) and returns broad results for Claude to synthesize. The output is meant to spark a reaction — an observation, a perspective, a challenge. Citation rigor is not the goal.
+`cm_search` searches across all entity types (data points, positions, observations, mental models) and returns broad results for the calling model to synthesize. The output is meant to spark a reaction — an observation, a perspective, a challenge. Citation rigor is not the goal.
 
 **Trigger phrases:** "what signals are emerging", "what does the corpus say about", "challenge this brief", "what patterns do you see", "help me think through".
 

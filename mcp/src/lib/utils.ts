@@ -18,8 +18,8 @@ const DISALLOWED_ARCHIVE_PATH_SEGMENTS = [
  * during the week you actually begin collecting sources.
  *
  * To change the week-start convention, set CURATE_MIND_WEEK_START in your
- * .env.local file ("sunday" or "monday"). Ask Claude: "change my Curate Mind
- * week to start on Monday" and it will update .env.local for you.
+ * .env.local file ("sunday" or "monday"). Ask your MCP host to change
+ * your Curate Mind week start setting and it can update .env.local for you.
  */
 export function getWeekFolderPath(basePath: string, date: Date): string {
   const weekStartDayIndex = resolveWeekStartDay();

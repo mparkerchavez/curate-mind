@@ -2,7 +2,7 @@
 
 A personal research curation system you run as an MCP server, with a queryable knowledge base for tracking a domain over time.
 
-Curate Mind ingests sources you collect, runs them through a four-pass extraction pipeline, and builds a structured, append-only foundation of data points, observations, mental models, and research positions. You query that foundation through Claude or any MCP-compatible chat app, and generate talking points, summaries, or analysis on demand. There are no maintained deliverable documents. The foundation is the product, and everything else is generated when you need it.
+Curate Mind ingests sources you collect, runs them through a four-pass extraction pipeline, and builds a structured, append-only foundation of data points, observations, mental models, and research positions. You query that foundation through an MCP-compatible chat app, and generate talking points, summaries, or analysis on demand. There are no maintained deliverable documents. The foundation is the product, and everything else is generated when you need it.
 
 ## Live demo
 
@@ -13,18 +13,17 @@ The `web/` directory contains the source for curatemind.io. It is included for t
 ## How it works
 
 1. You drop markdown files into the repo (one source per file).
-2. You invoke a Curate Mind skill in Claude (for example, `cm-deep-extract` or `cm-batch-orchestrator`).
-3. The skill orchestrates the extraction pipeline: claims with verbatim anchors, mental models, tags, and a curator review pass. Sub-agents write directly to your Convex database.
-4. You query the foundation through MCP tools (`cm_get_themes`, `cm_search`, `cm_get_position_detail`, and others) from Claude, Codex, or any MCP-compatible client.
+2. You invoke a Curate Mind skill in your MCP host (for example, `cm-deep-extract` or `cm-batch-orchestrator`).
+3. The skill orchestrates the four-pass extraction pipeline: core extraction with verbatim anchors and source synthesis, mental model scan, enrichment with tags and confidence, and curator review. Sub-agents write directly to your Convex database.
+4. You query the foundation through MCP tools (`cm_get_themes`, `cm_search`, `cm_get_position_detail`, and others) from any MCP-compatible client.
 
 The MCP server is the primary interface. The web demo is a Reader view of one curated knowledge base.
 
 ## What you get
 
-Five skills do the orchestration work. Claude follows them as slash commands.
+Four skills do the orchestration work. Your MCP host follows them as workflow instructions or slash commands, depending on the product.
 
 - **cm-batch-orchestrator** processes multiple sources by spawning sub-agents and coordinating the full pipeline across a queue.
-- **cm-source-pipeline** runs the three-pass extraction pipeline for a single source. Designed to run as a sub-agent inside the batch orchestrator.
 - **cm-deep-extract** runs interactive single-source extraction for high-value Tier 1 sources. The curator engages at each pass.
 - **cm-curator-review** runs Pass 4, the human-in-the-loop review of items flagged during extraction.
 - **cm-evidence-linker** connects extracted data points to research positions after an extraction wave.
@@ -42,7 +41,7 @@ You need a Convex account (free tier works), an OpenAI API key, and Node.js 18 o
 
 ## Future work
 
-The next intake evolution is parked for a future phase: an Intake Inbox frontend for pasting links, reviewing fetched markdown, editing metadata, and approving ingestion, plus a Daily Discovery watchlist for YouTube channels, RSS feeds, sites, newsletters, and other recurring sources. The current priority is validating the MCP intake tools in Claude/Codex first.
+The next intake evolution is parked for a future phase: an Intake Inbox frontend for pasting links, reviewing fetched markdown, editing metadata, and approving ingestion, plus a Daily Discovery watchlist for YouTube channels, RSS feeds, sites, newsletters, and other recurring sources. The current priority is validating the MCP intake tools in MCP-compatible clients first.
 
 ## Get started
 

@@ -101,7 +101,7 @@ export default function AskPage() {
               onChange={setInput}
               onSubmit={() => void handleAskQuestion()}
               disabled={pending || reachedTurnLimit}
-              placeholder="Ask about AI strategy, adoption, agentic workflows..."
+              placeholder="Ask a grounded research question..."
               inputRef={askInputRef}
             />
             <DemoLimitStatus title={statusTitle} description={statusDescription} />
@@ -182,7 +182,7 @@ export default function AskPage() {
                   onChange={setInput}
                   onSubmit={() => void handleAskQuestion()}
                   disabled={pending}
-                  placeholder="Ask about AI strategy, adoption, agentic workflows..."
+                  placeholder="Ask a grounded research question..."
                   inputRef={askInputRef}
                 />
               )}

@@ -2,8 +2,8 @@
 /**
  * Curate Mind MCP Server
  *
- * Connects Claude to the Curate Mind research curation system.
- * Uses stdio transport for local Claude Desktop integration.
+ * Connects MCP hosts to the Curate Mind research curation system.
+ * Uses stdio transport for local MCP host integration.
  *
  * Required environment variables:
  *   CONVEX_URL          Convex deployment URL
@@ -32,7 +32,7 @@ async function main(): Promise<void> {
   if (missing.length > 0) {
     console.error(
       `ERROR: Missing required environment variables: ${missing.join(", ")}\n` +
-        "Set these in your Claude Desktop MCP configuration."
+        "Set these in your MCP host configuration or in .env.local."
     );
     process.exit(1);
   }
@@ -65,7 +65,7 @@ async function main(): Promise<void> {
   registerReviewTools(server);
   registerSynthesisTools(server);
 
-  // Connect via stdio transport (for Claude Desktop)
+  // Connect via stdio transport (for local MCP hosts)
   const transport = new StdioServerTransport();
   activeTransport = transport;
   await server.connect(transport);

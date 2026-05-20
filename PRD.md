@@ -11,7 +11,7 @@
 
 Curate Mind is a personal research curation system built as an MCP (Model Context Protocol) server. It gives you a persistent, queryable knowledge base for tracking a domain of research over time. The workflow is: ingest sources, extract structured data points through a four-pass pipeline, build research positions from the evidence, and query the foundation whenever you need analysis, talking points, or synthesis.
 
-The primary interface is the MCP server. You use it directly inside Claude, Codex, or any chat app that supports MCP tools. The web app at curatemind.io is a live demo showing what the system produces after a full extraction cycle on February 2026 AI research — it demonstrates the methodology, not a continuously updating feed.
+The primary interface is the MCP server. You use it directly inside any chat app or coding agent that supports MCP tools. The web app at curatemind.io is a live demo showing what the system produces after a full extraction cycle on February 2026 AI research — it demonstrates the methodology, not a continuously updating feed.
 
 The system is built on one principle: **build a robust foundation, generate everything else on demand.** The foundation is append-only, versioned, and queryable. There are no maintained deliverables. Reports, talking points, and summaries are generated when you need them, from the current state of the foundation.
 
@@ -19,7 +19,7 @@ The system is built on one principle: **build a robust foundation, generate ever
 
 ## Who This Is For
 
-**Primary user:** Someone who wants to run their own instance for personal research curation. They work in a domain they actively follow — AI strategy, climate tech, financial regulation, or anything else with a steady stream of sources to track. They use Claude, Codex, or another MCP-compatible chat app as their primary work environment.
+**Primary user:** Someone who wants to run their own instance for personal research curation. They work in a domain they actively follow — AI strategy, climate tech, financial regulation, or anything else with a steady stream of sources to track. They use an MCP-compatible chat app or coding agent as their primary work environment.
 
 **What they do to get started:** Clone the repo, create a new Convex project, copy `.env.example` to `.env.local`, add their API keys, point `CURATE_MIND_PATH` to their local repo root, and start ingesting markdown files through the MCP tools and skills.
 
@@ -41,20 +41,19 @@ The system is built on one principle: **build a robust foundation, generate ever
 
 ### In scope
 
-**Skills (primary interface — what the user invokes in Claude)**
+**Skills (primary interface — what the user invokes in their MCP host)**
 
-Skills are the orchestration layer. They contain the step-by-step instructions Claude follows to run complex workflows. The MCP tools are the underlying primitives the skills call to read and write to Convex.
+Skills are the orchestration layer. They contain the step-by-step instructions the calling model follows to run complex workflows. The MCP tools are the underlying primitives the skills call to read and write to Convex.
 
 | Skill | Purpose |
 |-------|---------|
 | `cm-batch-orchestrator` | Processes multiple sources by spawning sub-agents; coordinates the full pipeline across a queue |
-| `cm-source-pipeline` | Runs the 3-pass extraction pipeline for a single source; designed to run as a sub-agent |
 | `cm-deep-extract` | Interactive single-source extraction for high-value Tier 1 sources; curator engages at each pass |
 | `cm-curator-review` | Pass 4 human-in-the-loop review of flagged items from extraction |
 | `cm-evidence-linker` | Connects extracted data points to Research Positions after an extraction wave |
 
 **MCP tools (underlying primitives the skills call)**
-- `extraction.ts` — `cm_extract_source`, `cm_save_data_points`, `cm_enrich_data_point`, `cm_update_data_point_tags`, `cm_save_mental_models`, `cm_update_source_status`
+- `extraction.ts` — `cm_extract_source`, `cm_save_data_points`, `cm_save_source_synthesis`, `cm_enrich_data_points_batch`, `cm_update_data_points_tags_batch`, `cm_remove_data_point_tag_batch`, `cm_update_source_status`
 - `query.ts` — `cm_ask` (Mode 2: analyst query with progressive disclosure and resolved source links), themes, positions, evidence, data points, `cm_search` (Mode 1: semantic exploration), source text, tag trends, position history
 - `synthesis.ts` — `cm_create_theme`, `cm_create_position`, `cm_update_position`, `cm_update_research_lens`, `cm_create_tag`, `cm_generate_embeddings`
 - `intake.ts` (validation phase) — `cm_add_source`, `cm_add_curator_observation`, and `cm_add_mental_model` are functional; `cm_fetch_url`, `cm_fetch_youtube`, and `cm_extract_pdf` exist for two-step local intake and are being manually tested before being treated as production-ready
@@ -83,7 +82,7 @@ Skills are the orchestration layer. They contain the step-by-step instructions C
 
 | Feature | Status |
 |---------|--------|
-| Hosted/local Intake Inbox frontend for pasting links, reviewing markdown, editing metadata, and approving ingestion | Future phase. Do not build until the MCP intake tools have been validated in Claude/Codex. |
+| Hosted/local Intake Inbox frontend for pasting links, reviewing markdown, editing metadata, and approving ingestion | Future phase. Do not build until the MCP intake tools have been validated in MCP-compatible clients. |
 | Daily source monitoring for sites, RSS feeds, YouTube channels, newsletters, and other watchlist sources | Future phase. Requires candidate queue, dedupe rules, and scheduled discovery jobs. |
 | Automated site/page crawling beyond explicit user-provided URLs | Future phase. Prefer RSS/YouTube feeds first; use Supadata crawl/scrape only after source-specific behavior is understood. |
 | Reader persona authentication layer | Out of scope |
@@ -120,8 +119,8 @@ This work is intentionally parked until the current MCP intake tools have been t
 The v1 GitHub release is complete when all of the following are true:
 
 ### Skills and MCP server
-- [ ] All five skills are documented in the README or a dedicated setup guide
-- [ ] `cm-batch-orchestrator`, `cm-source-pipeline`, `cm-deep-extract`, `cm-curator-review`, and `cm-evidence-linker` are functional end-to-end against a fresh Convex project
+- [ ] All four active skills are documented in the README or a dedicated setup guide
+- [ ] `cm-batch-orchestrator`, `cm-deep-extract`, `cm-curator-review`, and `cm-evidence-linker` are functional end-to-end against a fresh Convex project
 - [ ] Core MCP tool files are functional: `extraction.ts`, `query.ts`, `synthesis.ts`, and the working tools in `intake.ts`
 - [ ] `cm_add_source` successfully ingests a markdown file and stores fullText in Convex
 - [ ] Four-pass extraction pipeline runs without errors on a single source via `cm-deep-extract` or `cm-batch-orchestrator`
@@ -194,9 +193,8 @@ curate-mind/                    ← CURATE_MIND_PATH points here
 │   └── src/
 │       ├── tools/              ← MCP tool registrations
 │       └── lib/                ← Convex client, OpenAI, Supadata
-├── skills/                     ← Claude skills (checked in)
+├── skills/                     ← Skills (checked in)
 │   ├── cm-batch-orchestrator/
-│   ├── cm-source-pipeline/
 │   ├── cm-deep-extract/
 │   ├── cm-curator-review/
 │   └── cm-evidence-linker/

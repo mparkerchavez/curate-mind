@@ -140,12 +140,12 @@ The atomic unit of the entire system. Each data point represents a single curate
 | dpSequenceNumber | Order within the source extraction | Auto-incremented |
 | claimText | The synthesized claim | Required |
 | anchorQuote | Verbatim 10-40 words from source (target 15-25). Capture the author's reasoning, not just the conclusion. | Required (Analyst-only access). See Design Decision 18. |
-| extractionNote | Why this DP matters; significance and context | Added in Pass 2 enrichment |
+| extractionNote | Why this DP matters; significance and context | Added in Pass 3 enrichment |
 | evidenceType | statistic, framework, prediction, case-study, observation, recommendation | Required |
-| confidence | strong, moderate, suggestive | Added in Pass 2 enrichment |
+| confidence | strong, moderate, suggestive | Added in Pass 3 enrichment |
 | locationType | paragraph, page, timestamp, section | Required |
 | locationStart | Location reference within source | Required |
-| relatedDataPoints | Array of DP IDs from the same source that form an argument chain | Optional, added in Pass 2 |
+| relatedDataPoints | Array of DP IDs from the same source that form an argument chain | Optional, added in Pass 3 |
 | extractionDate | When this DP was extracted | Auto-generated |
 | embedding | 1536-dim vector (OpenAI text-embedding-3-small) | Auto-generated |
 | tags | Linked via junction table (dataPointTags) | Required (at least 1) |
@@ -346,7 +346,7 @@ A lightweight single-page React app for rapid source classification:
 The `cm-batch-orchestrator` skill manages batch processing:
 
 - Takes a list of sources (or "all indexed in project")
-- For each source, spawns three sequential sub-agents (Pass 1 → 2 → 3)
+- For each source, spawns two sequential sub-agents: Sub-agent 1 runs Pass 1 and Pass 2, then Sub-agent 2 runs Pass 3
 - Each sub-agent writes directly to Convex and returns a compact summary
 - Collects all flags across sources for consolidated Pass 4 review
 - Handles failures: log, skip, continue, report
@@ -378,7 +378,7 @@ When reprocessing sources that were previously extracted:
 | Tool | Description |
 |------|-------------|
 | `add_source` | Ingest a source from URL, file, or text. Extracts and stores fullText in Convex. Uploads original file to Convex file storage for Tier 1/2 PDFs. Requires: title, sourceType, tier. Optional: intakeNote, sourceRelationships, urlAccessibility. |
-| `extract_source` | Trigger the three-pass extraction pipeline on a source. Returns progress and flagged items for curator review. |
+| `extract_source` | Retrieve source text and metadata for Pass 1 extraction. The active skills orchestrate the four-pass pipeline and return progress or flagged items for curator review. |
 | `add_curator_observation` | Create a new Curator Observation, linking it to data points and/or positions. |
 | `add_mental_model` | Create a new Mental Model record (can also be created automatically during Pass 2). |
 
@@ -588,7 +588,7 @@ All source content is stored in Convex after ingestion. The local `sources/` fol
 
 3. **Pass 1 model selection:** Is Sonnet sufficient for high-fidelity verbatim extraction on complex PDFs, or does extraction quality justify Opus for Tier 1 sources?
 
-4. **Research Lens size:** The lens needs to fit in Pass 2's context window alongside the extracted DPs. As positions grow, the lens grows. What's the compression strategy when positions exceed a manageable size?
+4. **Research Lens size:** The lens needs to fit in Pass 3's context window alongside the extracted DPs. As positions grow, the lens grows. What's the compression strategy when positions exceed a manageable size?
 
 5. **Reader authentication model:** API keys? OAuth? Usage-based pricing? Deferred to Phase 4 but worth early consideration.
 

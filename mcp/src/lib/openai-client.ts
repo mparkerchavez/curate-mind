@@ -11,7 +11,7 @@ export async function generateEmbedding(text: string): Promise<number[]> {
   if (!apiKey) {
     throw new Error(
       "OPENAI_API_KEY environment variable is not set. " +
-        "Set it in your Claude Desktop MCP config or in .env.local"
+        "Set it in your MCP host configuration or in .env.local"
     );
   }
 

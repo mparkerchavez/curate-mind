@@ -16,7 +16,7 @@ export async function fetchUrlViaJina(url: string): Promise<string> {
   if (!apiKey) {
     throw new Error(
       "JINA_API_KEY environment variable is not set. " +
-        "Set it in your Claude Desktop MCP config or in .env.local"
+        "Set it in your MCP host configuration or in .env.local"
     );
   }
 

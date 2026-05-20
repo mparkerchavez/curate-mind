@@ -134,7 +134,7 @@
 
 **What:** The Research Lens is a compressed document reflecting current positions and open questions. It is auto-generated from the state of Research Positions, not manually written.
 
-**Why:** The Research Lens serves one purpose: to give Pass 2 enrichment agents enough context to assess the significance of data points. It needs to be current and it needs to be compact (fit in a context window alongside extracted DPs). Auto-generating it from position states ensures it's always current. Versioning it in Convex shows how the curator's focus areas shift over time.
+**Why:** The Research Lens serves one purpose: to give Pass 3 enrichment agents enough context to assess the significance of data points. It needs to be current and it needs to be compact (fit in a context window alongside extracted DPs). Auto-generating it from position states ensures it's always current. Versioning it in Convex shows how the curator's focus areas shift over time.
 
 **Regeneration triggers:** Weekly after position updates (routine). When extraction flags data points that contradict current positions (exception).
 
@@ -215,15 +215,15 @@ Specific changes from the original three-pass design:
 
 ## Decision 20: Sub-Agent Architecture with Direct Convex Writes
 
-**What:** In batch mode, each source is processed by three sequential sub-agents (one per pass: 1, 2, 3). Each sub-agent writes results directly to Convex via MCP tools as it works. Sub-agents return only compact summaries (10-15 lines) to the orchestrator. Pass 4 (curator review) runs in the main conversation with aggregated flags.
+**What:** In batch mode, each source is processed by two sequential sub-agents. Sub-agent 1 runs Pass 1 (core extraction) and Pass 2 (mental model scan) in one context so the source text is not fetched twice. Sub-agent 2 runs Pass 3 (enrichment). Each sub-agent writes results directly to Convex via MCP tools as it works and returns only compact summaries to the orchestrator. Pass 4 (curator review) runs in the main conversation with aggregated flags.
 
 **Why:** The system needs to handle 40+ sources per week (February had 178 sources in 28 days). Processing at this scale requires that:
 
-1. **Each sub-agent gets a clean context window.** A single agent running all three passes for a dense report accumulates the full source text, 25+ DP records, mental model candidates, and the Research Lens — the same cognitive overload problem the multi-pass design was created to solve. Three separate sub-agents means each starts fresh with only what it needs.
+1. **Each sub-agent gets a bounded context window.** A single agent running all three machine-led passes for a dense report accumulates the full source text, 25+ DP records, mental model candidates, and the Research Lens — the same cognitive overload problem the multi-pass design was created to solve. The two-sub-agent model keeps the source text available for Pass 2 while giving Pass 3 a fresh context with only the DP IDs, mental model candidates, source synthesis, and Research Lens it needs.
 
 2. **The orchestrator's context stays lean.** If sub-agents returned full DP records, the orchestrator would be holding summaries of thousands of data points. By writing to Convex and returning only compact summaries, the orchestrator can track dozens of sources without context window pressure.
 
-3. **Later passes read from Convex, not from earlier passes.** Pass 3 (enrichment) retrieves the DPs from Convex that Pass 1 saved, rather than inheriting them through the orchestrator. This is the key architectural pattern — Convex is the communication channel between passes, not the context window.
+3. **Later passes read from Convex, not from the orchestrator.** Pass 3 (enrichment) retrieves the DPs from Convex that Pass 1 saved, rather than inheriting full records through the orchestrator. This is the key architectural pattern — Convex is the communication channel between extraction and enrichment, not the orchestrator context window.
 
 **Exception: Pass 2 (mental model scan) output is small enough (0-5 candidates, ~20-30 lines) to pass directly to Pass 3 as input rather than saving to Convex first. Mental models are finalized and saved to Convex by Pass 3, which has the Research Lens context to check for duplicates.**
 

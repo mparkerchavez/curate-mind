@@ -32,7 +32,7 @@ export function getConvexClient(): ConvexHttpClient {
     if (!url) {
       throw new Error(
         "CONVEX_URL environment variable is not set. " +
-          "Set it in your Claude Desktop MCP config or in .env.local"
+          "Set it in your MCP host configuration or in .env.local"
       );
     }
     client = new ConvexHttpClient(url);

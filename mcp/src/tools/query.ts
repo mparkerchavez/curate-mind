@@ -1134,7 +1134,7 @@ export function registerQueryTools(server: McpServer): void {
       description:
         "Get the most recent Research Lens for a project: a compressed snapshot " +
         "of current positions, open questions, and surprise signals. Used by " +
-        "Pass 2 enrichment as context.\n\n" +
+        "Pass 3 enrichment as context.\n\n" +
         "Args:\n" +
         "  - projectId (string): The project to get the lens for\n\n" +
         "  - mode (\"summary\" | \"full\", optional): Summary is default and returns " +

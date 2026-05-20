@@ -10,7 +10,7 @@ Speak in plain language. The user does not need to know what a build system is o
 
 ## What you are setting up
 
-Curate Mind is a personal research curation system that runs as an MCP (Model Context Protocol) server. It connects to Convex (a hosted database), uses Claude skills to run a four-pass extraction pipeline, and stores structured research knowledge that the user can query through Claude or any MCP-compatible chat app.
+Curate Mind is a personal research curation system that runs as an MCP (Model Context Protocol) server. It connects to Convex (a hosted database), uses skills to run a four-pass extraction pipeline, and stores structured research knowledge that the user can query through Claude or any MCP-compatible chat app.
 
 The user is setting up their own private instance. The live demo at [curatemind.io](https://curatemind.io) shows what the system produces after a full extraction cycle, so the user can see what they are building toward.
 
@@ -131,14 +131,13 @@ Verify the server is connected by running `claude mcp list` and confirming `cura
 
 ### Step 6: Install the skills
 
-Tell the user: "The `skills/` folder has five files that tell Claude how to run the extraction pipeline. I am going to make them available to Claude now."
+Tell the user: "The `skills/` folder has four active files that tell Claude how to run the extraction pipeline. I am going to make them available to Claude now."
 
 **If Claude Code:** Run:
 
 ```bash
 mkdir -p ~/.claude/skills
 ln -s "$(pwd)/skills/cm-batch-orchestrator" ~/.claude/skills/cm-batch-orchestrator
-ln -s "$(pwd)/skills/cm-source-pipeline" ~/.claude/skills/cm-source-pipeline
 ln -s "$(pwd)/skills/cm-deep-extract" ~/.claude/skills/cm-deep-extract
 ln -s "$(pwd)/skills/cm-curator-review" ~/.claude/skills/cm-curator-review
 ln -s "$(pwd)/skills/cm-evidence-linker" ~/.claude/skills/cm-evidence-linker

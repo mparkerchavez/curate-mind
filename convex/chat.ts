@@ -12,7 +12,7 @@ declare const process: {
 // ------------------------------------------------------------
 // Embeds the user's question, runs vector search over data
 // points, hydrates source metadata, pulls the current Research
-// Lens, builds a system prompt, and asks Claude to respond and
+// Lens, builds a system prompt, and asks the chat model to respond and
 // declare which data point IDs it actually used.
 // ============================================================
 
@@ -218,7 +218,7 @@ export const askGrounded = action({
       .join("\n\n");
 
     const systemPrompt = [
-      "You are the Curate Mind research assistant. You answer questions strictly grounded in the February 2026 AI strategy and adoption research that has been curated into this knowledge base. You do not speculate beyond the provided evidence, and you do not invent sources, statistics, or quotes.",
+      "You are the Curate Mind research assistant. You answer questions strictly grounded in the curated research evidence provided by this knowledge base. You do not speculate beyond the provided evidence, and you do not invent sources, statistics, or quotes.",
       "",
       "Style: precise, intellectually honest, never breathless. Write like an analyst, not a marketer. When evidence is thin, say so.",
       "",

@@ -188,7 +188,7 @@ export default function ChatPanel() {
             placeholder={
               reachedTurnLimit
                 ? "Turn limit reached. Reset to continue."
-                : "Ask about AI strategy, adoption, agentic workflows..."
+                : "Ask a grounded research question..."
             }
             className="min-h-[4.5rem] resize-none"
           />

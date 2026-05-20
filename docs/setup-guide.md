@@ -114,7 +114,7 @@ Verify the server is connected by running `claude mcp list` and confirming `cura
 
 ## 6. Install the skills
 
-The `skills/` folder contains five `SKILL.md` files. Claude reads these as slash commands and runs the workflows they describe.
+The `skills/` folder contains four active `SKILL.md` files. Claude reads these as slash commands and runs the workflows they describe.
 
 ### Claude Code
 
@@ -123,7 +123,6 @@ From the repo root, the skills folder is already in the right place. Make Claude
 ```bash
 mkdir -p ~/.claude/skills
 ln -s "$(pwd)/skills/cm-batch-orchestrator" ~/.claude/skills/cm-batch-orchestrator
-ln -s "$(pwd)/skills/cm-source-pipeline" ~/.claude/skills/cm-source-pipeline
 ln -s "$(pwd)/skills/cm-deep-extract" ~/.claude/skills/cm-deep-extract
 ln -s "$(pwd)/skills/cm-curator-review" ~/.claude/skills/cm-curator-review
 ln -s "$(pwd)/skills/cm-evidence-linker" ~/.claude/skills/cm-evidence-linker
@@ -183,7 +182,6 @@ curate-mind/                    <- CURATE_MIND_PATH points here
 │       └── lib/                <- Convex client, OpenAI, Supadata
 ├── skills/                     <- Claude skills (checked in)
 │   ├── cm-batch-orchestrator/
-│   ├── cm-source-pipeline/
 │   ├── cm-deep-extract/
 │   ├── cm-curator-review/
 │   └── cm-evidence-linker/

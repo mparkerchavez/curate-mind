@@ -1,14 +1,13 @@
 /**
  * Extraction tools for Curate Mind MCP.
  *
- * These tools support the three-pass extraction pipeline:
+ * These tools support the four-pass extraction pipeline:
  * - cm_extract_source: Get source text + metadata for the extraction agent
  * - cm_save_data_points: Persist extracted data points to Convex
  * - cm_enrich_data_points_batch: Add Pass 3 enrichment to a batch of data points
  * - cm_update_data_points_tags_batch: Add tags to a batch of data points (Pass 3)
  * - cm_remove_data_point_tag_batch: Remove one tag from a batch of data points
  * - cm_save_source_synthesis: Persist the Pass 1 analytical summary
- * - cm_save_mental_models: Persist mental models flagged during extraction
  * - cm_update_source_status: Mark a source as extracted or failed
  */
 
