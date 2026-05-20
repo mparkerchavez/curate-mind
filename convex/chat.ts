@@ -38,6 +38,7 @@ type CitedDataPoint = {
       publisherName?: string;
       canonicalUrl?: string;
       publishedDate?: string;
+      ingestedDate?: string;
       storageUrl?: string | null;
       resolvedUrl: string;
       resolvedLinkKind: "storage" | "canonical" | "internal";
@@ -62,6 +63,13 @@ type ScopeContext = {
   themeId?: string;
   positionId?: string;
   sourceId?: string;
+};
+
+type TemporalIntent = {
+  label: string;
+  start: string;
+  end?: string;
+  mode: "month" | "since";
 };
 
 type EvidencePackItem = {
@@ -437,6 +445,7 @@ export const askAnalyst = action({
       throw new Error("ANTHROPIC_API_KEY is not set in Convex env");
 
     const retrievalLimit = Math.max(1, Math.min(args.limit ?? 12, 20));
+    const temporalIntent = parseTemporalIntent(args.question);
 
     // Scope resolution, embedding, observations, and mental models all in parallel
     const [scope, embedding, observationResults, mentalModelResults] = await Promise.all([
@@ -502,12 +511,20 @@ export const askAnalyst = action({
         }
         if (positions.length >= 5) break;
       }
+
+      if (positions.length === 0) {
+        positions = await fallbackRankCurrentPositions(ctx, args.question, args.themeId);
+      }
     }
 
     // ── Layer 2: Data points (scoped vector search) ──────────────
     const vectorResults = await ctx.vectorSearch("dataPoints", "by_embedding", {
       vector: embedding,
-      limit: scope.allowedDataPointIds ? Math.max(72, retrievalLimit * 4) : retrievalLimit,
+      limit: temporalIntent
+        ? Math.max(120, retrievalLimit * 10)
+        : scope.allowedDataPointIds
+          ? Math.max(72, retrievalLimit * 4)
+          : retrievalLimit,
     });
 
     const rankedIds = vectorResults.map((r) => String(r._id));
@@ -522,11 +539,25 @@ export const askAnalyst = action({
       .map((id) => String(id))
       .filter((id) => !scope.allowedDataPointIds || scope.allowedDataPointIds.has(id));
     const carriedIdSet = new Set(carriedIds);
-    const freshIds = [...scopedIds, ...fallbackScopedIds]
-      .filter((id) => !carriedIdSet.has(id))
-      .slice(0, retrievalLimit);
-    const retrievedIds = uniqueIds([...carriedIds, ...freshIds]);
-    const retrieved = await hydrateDataPoints(ctx, retrievedIds);
+    const freshCandidates = [...scopedIds, ...fallbackScopedIds].filter(
+      (id) => !carriedIdSet.has(id)
+    );
+    const candidateHydrationLimit = temporalIntent
+      ? Math.max(60, retrievalLimit * 5)
+      : retrievalLimit;
+    const candidateFresh = await hydrateDataPoints(
+      ctx,
+      freshCandidates.slice(0, candidateHydrationLimit)
+    );
+    const filteredFresh = temporalIntent
+      ? candidateFresh.filter((dp) => matchesTemporalIntent(dp, temporalIntent))
+      : candidateFresh;
+    const selectedFresh = (
+      filteredFresh.length > 0 || !temporalIntent ? filteredFresh : candidateFresh
+    ).slice(0, retrievalLimit);
+    const retrieved = await hydrateDataPoints(ctx, carriedIds);
+    retrieved.push(...selectedFresh.filter((dp) => !carriedIdSet.has(dp._id)));
+    const freshIds = selectedFresh.map((dp) => dp._id);
     const dataPoints: EvidencePackItem[] = retrieved.map((dp, index) => ({
       label: `E${index + 1}`,
       dataPointId: dp._id,
@@ -550,7 +581,9 @@ export const askAnalyst = action({
     }));
     const answer = await composeAnalystAnswer(anthropicKey, {
       question: args.question,
-      scopeSummary: scope.summary,
+      scopeSummary: temporalIntent
+        ? `${scope.summary}\nTemporal filter: prioritize evidence from ${temporalIntent.label}.`
+        : scope.summary,
       positions,
       observations,
       mentalModels,
@@ -618,6 +651,9 @@ async function composeAnalystAnswer(
     args.dataPoints.slice(0, 12).map((dp) =>
       [
         `${dp.label}: ${truncateForPrompt(dp.interpretation, 550)}`,
+        dp.source
+          ? `Source: ${dp.source.title}${dp.source.publishedDate ? ` (${dp.source.publishedDate})` : ""}`
+          : "",
         dp.whyItMatters ? `Why it matters: ${truncateForPrompt(dp.whyItMatters, 260)}` : "",
         dp.evidenceType || dp.confidence
           ? `Type/confidence: ${[dp.evidenceType, dp.confidence].filter(Boolean).join(" / ")}`
@@ -696,6 +732,173 @@ async function composeAnalystAnswer(
     .trim();
 }
 
+function parseTemporalIntent(question: string): TemporalIntent | null {
+  const text = question.toLowerCase();
+  const now = new Date();
+  const currentYear = now.getUTCFullYear();
+  const currentMonth = now.getUTCMonth();
+
+  const months = [
+    ["january", 0],
+    ["february", 1],
+    ["march", 2],
+    ["april", 3],
+    ["may", 4],
+    ["june", 5],
+    ["july", 6],
+    ["august", 7],
+    ["september", 8],
+    ["october", 9],
+    ["november", 10],
+    ["december", 11],
+  ] as const;
+
+  if (/\bthis month\b/.test(text)) {
+    return monthIntent(currentYear, currentMonth, "this month");
+  }
+
+  if (/\blast month\b/.test(text)) {
+    const date = new Date(Date.UTC(currentYear, currentMonth - 1, 1));
+    return monthIntent(date.getUTCFullYear(), date.getUTCMonth(), "last month");
+  }
+
+  for (const [name, monthIndex] of months) {
+    const monthPattern = new RegExp(`\\b${name}\\b`);
+    if (!monthPattern.test(text)) continue;
+
+    const explicitYear = text.match(new RegExp(`\\b${name}\\s+(20\\d{2})\\b`));
+    const year = explicitYear ? Number(explicitYear[1]) : currentYear;
+
+    if (new RegExp(`\\b(since|after)\\s+${name}\\b`).test(text)) {
+      const startMonth = /(?:\bsince\b)/.test(text) ? monthIndex : monthIndex + 1;
+      const start = new Date(Date.UTC(year, startMonth, 1));
+      return {
+        label: `since ${name} ${year}`,
+        start: isoDate(start),
+        mode: "since",
+      };
+    }
+
+    if (
+      new RegExp(`\\b(in|during|from)\\s+${name}\\b`).test(text) ||
+      new RegExp(`\\b${name}\\s+(research|sources|evidence|data|findings)\\b`).test(text)
+    ) {
+      return monthIntent(year, monthIndex, `${name} ${year}`);
+    }
+  }
+
+  if (/\b(latest|recent|newest|current)\b/.test(text)) {
+    return monthIntent(currentYear, currentMonth, "the current month");
+  }
+
+  return null;
+}
+
+function monthIntent(year: number, monthIndex: number, label: string): TemporalIntent {
+  const start = new Date(Date.UTC(year, monthIndex, 1));
+  const end = new Date(Date.UTC(year, monthIndex + 1, 1));
+  return {
+    label,
+    start: isoDate(start),
+    end: isoDate(end),
+    mode: "month",
+  };
+}
+
+function isoDate(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+function matchesTemporalIntent(dp: CitedDataPoint, intent: TemporalIntent): boolean {
+  const dates = [dp.source?.publishedDate, dp.source?.ingestedDate].filter(
+    (value): value is string => Boolean(value)
+  );
+
+  return dates.some((value) => {
+    const date = value.slice(0, 10);
+    if (date < intent.start) return false;
+    if (intent.end && date >= intent.end) return false;
+    return true;
+  });
+}
+
+async function fallbackRankCurrentPositions(
+  ctx: ActionCtx,
+  question: string,
+  themeId?: Id<"researchThemes">
+): Promise<AnalystPosition[]> {
+  const rows = themeId
+    ? ((await ctx.runQuery(api.positions.getPositionsByTheme, { themeId })) as any[])
+    : ((await ctx.runQuery(api.positions.listAllPositions, {})) as any[]);
+  const queryTerms = tokenizeForRank(question);
+
+  const ranked = rows
+    .map((row) => ({
+      row,
+      score: rankText(`${row.title ?? ""} ${row.themeTitle ?? ""} ${row.currentVersion?.currentStance ?? row.currentStance ?? ""}`, queryTerms),
+    }))
+    .filter(({ score }) => score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 5);
+
+  const positions: AnalystPosition[] = [];
+  for (const { row } of ranked) {
+    const positionId = row._id ?? row.positionId;
+    if (!positionId) continue;
+    const detail = (await ctx.runQuery(api.positions.getPositionDetail, {
+      positionId: positionId as Id<"researchPositions">,
+    })) as any;
+    if (!detail) continue;
+    positions.push({
+      positionId: String(detail._id),
+      title: detail.title,
+      themeTitle: detail.theme?.title,
+      currentStance: detail.currentVersion?.currentStance ?? "",
+      supportingEvidenceCount: (detail.currentVersion?.supportingEvidenceDetails ?? []).length,
+      counterEvidenceCount: (detail.currentVersion?.counterEvidenceDetails ?? []).length,
+    });
+  }
+
+  return positions;
+}
+
+function tokenizeForRank(value: string): Set<string> {
+  const stopWords = new Set([
+    "about",
+    "after",
+    "does",
+    "from",
+    "have",
+    "into",
+    "latest",
+    "may",
+    "research",
+    "say",
+    "since",
+    "that",
+    "the",
+    "this",
+    "what",
+    "with",
+  ]);
+
+  return new Set(
+    value
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter((term) => term.length >= 3 && !stopWords.has(term))
+  );
+}
+
+function rankText(value: string, terms: Set<string>): number {
+  const haystack = value.toLowerCase();
+  let score = 0;
+  for (const term of terms) {
+    if (haystack.includes(term)) score++;
+  }
+  return score;
+}
+
 async function hydrateDataPoints(
   ctx: ActionCtx,
   dataPointIds: string[]
@@ -725,6 +928,7 @@ async function hydrateDataPoints(
             publisherName: dp.source.publisherName,
             canonicalUrl: dp.source.canonicalUrl,
             publishedDate: dp.source.publishedDate,
+            ingestedDate: dp.source.ingestedDate,
             storageUrl: dp.source.storageUrl,
             resolvedUrl: dp.source.resolvedUrl,
             resolvedLinkKind: dp.source.resolvedLinkKind,

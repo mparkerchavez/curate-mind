@@ -330,6 +330,51 @@ export const getPositionHistory = query({
 });
 
 // ============================================================
+// Set embedding on a position version
+// ============================================================
+export const setPositionVersionEmbedding = mutation({
+  args: {
+    versionId: v.id("positionVersions"),
+    embedding: v.array(v.float64()),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.versionId, {
+      embedding: args.embedding,
+      embeddingStatus: "complete",
+    });
+  },
+});
+
+// ============================================================
+// Get position versions that need embeddings generated
+// ============================================================
+export const getPositionVersionsNeedingEmbeddings = query({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const limit = args.limit ?? 100;
+    const versions = await ctx.db
+      .query("positionVersions")
+      .withIndex("by_embeddingStatus", (q) =>
+        q.eq("embeddingStatus", "pending")
+      )
+      .take(limit);
+
+    return await Promise.all(
+      versions.map(async (version) => {
+        const position = await ctx.db.get(version.positionId);
+        const theme = position ? await ctx.db.get(position.themeId) : null;
+
+        return {
+          ...version,
+          positionTitle: position?.title ?? "",
+          themeTitle: theme?.title ?? "",
+        };
+      })
+    );
+  },
+});
+
+// ============================================================
 // Get all positions within a theme (Layer 1)
 // ============================================================
 export const getPositionsByTheme = query({

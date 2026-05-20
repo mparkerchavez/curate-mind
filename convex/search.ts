@@ -248,7 +248,9 @@ export const getPositionVersionById = query({
 
     return {
       ...version,
+      positionId: version.positionId,
       positionTitle: position?.title,
+      themeId: position?.themeId,
       themeTitle: theme?.title,
     };
   },

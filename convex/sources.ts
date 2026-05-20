@@ -11,6 +11,7 @@ export type ResolvedSourceMeta = {
   publisherName?: string;
   canonicalUrl?: string;
   publishedDate?: string;
+  ingestedDate?: string;
   sourceType: Doc<"sources">["sourceType"];
   tier: Doc<"sources">["tier"];
   derivedFrom: Id<"sources"> | null;
@@ -70,6 +71,7 @@ export async function resolveSourceMeta(
     publisherName: source.publisherName,
     canonicalUrl,
     publishedDate: source.publishedDate,
+    ingestedDate: source.ingestedDate,
     sourceType: source.sourceType,
     tier: source.tier,
     derivedFrom: source.derivedFrom ?? null,

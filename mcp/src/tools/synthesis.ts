@@ -30,6 +30,8 @@ type PendingObservation =
   typeof api.observations.getObservationsNeedingEmbeddings["_returnType"][number];
 type PendingMentalModel =
   typeof api.mentalModels.getMentalModelsNeedingEmbeddings["_returnType"][number];
+type PendingPositionVersion =
+  typeof api.positions.getPositionVersionsNeedingEmbeddings["_returnType"][number];
 
 const EMBEDDING_CONCURRENCY = 5;
 
@@ -1074,7 +1076,7 @@ export function registerSynthesisTools(server: McpServer): void {
       title: "Generate Embeddings",
       description:
         "Generate OpenAI embeddings for entities that are pending. Processes " +
-        "data points, observations, and mental models that need embeddings.\n\n" +
+        "data points, observations, mental models, and position versions that need embeddings.\n\n" +
         "Args:\n" +
         "  - limit (number, optional): Max entities to process per type, default 20, max 50, 25 recommended\n\n" +
         "Returns: Number of embeddings generated per entity type.",
@@ -1091,7 +1093,7 @@ export function registerSynthesisTools(server: McpServer): void {
     },
     async ({ limit }) => {
       const batchLimit = limit ?? 20;
-      const results = { dataPoints: 0, observations: 0, mentalModels: 0, errors: 0 };
+      const results = { dataPoints: 0, observations: 0, mentalModels: 0, positionVersions: 0, errors: 0 };
 
       try {
         // Process data points
@@ -1153,6 +1155,37 @@ export function registerSynthesisTools(server: McpServer): void {
         results.mentalModels += modelResults.processed;
         results.errors += modelResults.errors;
 
+        // Process position versions
+        const pendingPositionVersions: PendingPositionVersion[] = await convexQuery(
+          api.positions.getPositionVersionsNeedingEmbeddings,
+          { limit: batchLimit }
+        );
+
+        const positionResults = await processWithConcurrency(
+          pendingPositionVersions,
+          async (version) => {
+            const embedding = await generateEmbedding(
+              [
+                version.positionTitle ? `Position: ${version.positionTitle}` : "",
+                version.themeTitle ? `Theme: ${version.themeTitle}` : "",
+                `Stance: ${version.currentStance}`,
+                version.changeSummary ? `Change summary: ${version.changeSummary}` : "",
+                (version.openQuestions ?? []).length > 0
+                  ? `Open questions: ${(version.openQuestions ?? []).join("; ")}`
+                  : "",
+              ]
+                .filter(Boolean)
+                .join("\n")
+            );
+            await convexMutation(api.positions.setPositionVersionEmbedding, {
+              versionId: version._id,
+              embedding,
+            });
+          }
+        );
+        results.positionVersions += positionResults.processed;
+        results.errors += positionResults.errors;
+
         return {
           content: [
             {
@@ -1162,6 +1195,7 @@ export function registerSynthesisTools(server: McpServer): void {
                 `  Data points: ${results.dataPoints}\n` +
                 `  Observations: ${results.observations}\n` +
                 `  Mental models: ${results.mentalModels}\n` +
+                `  Position versions: ${results.positionVersions}\n` +
                 `  Errors: ${results.errors}`,
             },
           ],
