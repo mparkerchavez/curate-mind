@@ -1,13 +1,13 @@
 /**
  * Extraction tools for Curate Mind MCP.
  *
- * These tools support the four-pass extraction pipeline:
+ * These tools support the four-stage extraction workflow:
  * - cm_extract_source: Get source text + metadata for the extraction agent
  * - cm_save_data_points: Persist extracted data points to Convex
- * - cm_enrich_data_points_batch: Add Pass 3 enrichment to a batch of data points
- * - cm_update_data_points_tags_batch: Add tags to a batch of data points (Pass 3)
+ * - cm_enrich_data_points_batch: Add Enrich-stage context to a batch of data points
+ * - cm_update_data_points_tags_batch: Add tags to a batch of data points during Enrich
  * - cm_remove_data_point_tag_batch: Remove one tag from a batch of data points
- * - cm_save_source_synthesis: Persist the Pass 1 analytical summary
+ * - cm_save_source_synthesis: Persist the Extract-stage analytical summary
  * - cm_update_source_status: Mark a source as extracted or failed
  */
 
@@ -29,8 +29,8 @@ export function registerExtractionTools(server: McpServer): void {
     {
       title: "Get Source for Extraction",
       description:
-        "Retrieve a source's full text and metadata for the extraction pipeline. " +
-        "Returns everything the extraction agent needs for Pass 1.\n\n" +
+        "Retrieve a source's full text and metadata for the extraction workflow. " +
+        "Returns everything the extraction agent needs for the Extract stage.\n\n" +
         "Args:\n" +
         "  - sourceId (string): The source ID to extract\n\n" +
         "Returns: Source metadata and full text content.",
@@ -171,7 +171,7 @@ export function registerExtractionTools(server: McpServer): void {
     {
       title: "Save Extracted Data Points",
       description:
-        "Save a batch of data points extracted from a source (Pass 1 output). " +
+        "Save a batch of data points extracted from a source during the Extract stage. " +
         "Each data point requires a claim, anchor quote, evidence type, and location. " +
         "For video sources, use locationType='timestamp' with a single paragraph " +
         "start timestamp like 05:23. Do NOT use timestamp ranges like 05:23-06:10. " +
@@ -276,14 +276,14 @@ export function registerExtractionTools(server: McpServer): void {
   );
 
   // ============================================================
-  // cm_enrich_data_points_batch — Add Pass 3 enrichment to a batch of DPs
+  // cm_enrich_data_points_batch — Add Enrich-stage context to a batch of DPs
   // ============================================================
   server.registerTool(
     "cm_enrich_data_points_batch",
     {
-      title: "Enrich Data Points in Batch (Pass 3)",
+      title: "Enrich Data Points in Batch",
       description:
-        "Add Pass 3 enrichment to a batch of data points: confidence signal, extraction " +
+        "Add Enrich-stage context to a batch of data points: confidence signal, extraction " +
         "note, and related data point links. All DP IDs are validated before any writes — " +
         "if one ID is invalid the entire batch fails and nothing is written. " +
         "Re-enrichment is allowed and will overwrite existing values.\n\n" +
@@ -351,14 +351,14 @@ export function registerExtractionTools(server: McpServer): void {
   );
 
   // ============================================================
-  // cm_update_data_points_tags_batch — Add tags to a batch of DPs (Pass 3)
+  // cm_update_data_points_tags_batch — Add tags to a batch of DPs during Enrich
   // ============================================================
   server.registerTool(
     "cm_update_data_points_tags_batch",
     {
-      title: "Update Data Point Tags in Batch (Pass 3)",
+      title: "Update Data Point Tags in Batch",
       description:
-        "Add tags to a batch of data points. Used in Pass 3 enrichment when tags " +
+        "Add tags to a batch of data points. Used during Enrich when tags " +
         "are assigned after seeing all DPs from a source holistically. " +
         "All DP IDs are validated before any writes — if one ID is invalid the entire " +
         "batch fails and nothing is written. " +
@@ -425,17 +425,17 @@ export function registerExtractionTools(server: McpServer): void {
   );
 
   // ============================================================
-  // cm_save_source_synthesis — Save Pass 1 analytical summary
+  // cm_save_source_synthesis — Save Extract-stage analytical summary
   // ============================================================
   server.registerTool(
     "cm_save_source_synthesis",
     {
       title: "Save Source Synthesis",
       description:
-        "Save the source synthesis generated at the end of Pass 1. " +
+        "Save the source synthesis generated at the end of Extract. " +
         "This is a 2-3 paragraph analytical summary of the source's argument, " +
         "key tensions, and strategic implications. It travels with the source " +
-        "metadata into later passes to preserve document-level context.\n\n" +
+        "metadata into later stages to preserve document-level context.\n\n" +
         "Args:\n" +
         "  - sourceId (string): The source to attach the synthesis to\n" +
         "  - sourceSynthesis (string): The analytical summary text\n\n" +

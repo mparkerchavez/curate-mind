@@ -422,7 +422,7 @@ export function registerSynthesisTools(server: McpServer): void {
       title: "Update Research Lens",
       description:
         "Regenerate the Research Lens from current active and established " +
-        "positions. The lens is a compressed snapshot used by Pass 3 enrichment.\n\n" +
+        "positions. The lens is a compressed snapshot used by the Enrich stage.\n\n" +
         "Args:\n" +
         "  - triggeredBy (string): weekly-synthesis, exception-signal, manual\n\n" +
         "Returns: The new lens ID and summary of what it contains.",

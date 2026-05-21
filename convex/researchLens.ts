@@ -35,7 +35,7 @@ export const generateLens = mutation({
 
 // ============================================================
 // Get the most recent Research Lens
-// This is what Pass 3 enrichment uses as context
+// This is what the Enrich stage uses as context
 // ============================================================
 export const getCurrentLens = query({
   args: { projectId: v.id("projects") },

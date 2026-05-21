@@ -209,7 +209,7 @@ export const updateStatus = mutation({
 });
 
 // ============================================================
-// Save source synthesis (Pass 1 output — analytical summary)
+// Save source synthesis (Extract-stage analytical summary)
 // ============================================================
 export const saveSourceSynthesis = mutation({
   args: {
@@ -413,7 +413,7 @@ export const getSource = query({
 });
 
 // ============================================================
-// Get a source with its full text (Layer 4 — Analyst only)
+// Get a source with its full text for curator verification
 // ============================================================
 export const getSourceWithFullText = query({
   args: { sourceId: v.id("sources") },

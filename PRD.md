@@ -93,7 +93,7 @@ Skills are the orchestration layer. They contain the step-by-step instructions t
 **GitHub repo**
 - README: what it is, who it is for, link to curatemind.io demo, and the "Customizing Curate Mind for your own research" section that links the copy-paste prompts in `prompts/`
 - Setup guide: step-by-step from clone to first successful extraction, including the initial setup prompt that runs the onboarding interview
-- Copy-paste prompt library at `prompts/`: `setup_initial.md`, `setup_recustomize.md`, `edit_style.md`, `edit_audience.md`, `edit_secondary_capture.md`, `edit_suggested_prompts.md`. See `Customization_Design_Proposal_2026-05-20.md` Section 12.
+- Copy-paste prompt library at `prompts/`: `setup_initial.md`, `setup_recustomize.md`, `setup_source_intake.md`, `edit_style.md`, `edit_audience.md`, `edit_secondary_capture.md`, `edit_suggested_prompts.md`. See `Customization_Design_Proposal_2026-05-20.md` Section 12.
 - `.env.example`: every required key documented with a description
 - License: MIT
 
@@ -155,7 +155,7 @@ The v1 GitHub release is complete when all of the following are true:
 ### Customization layer (new in 1.1)
 - [ ] All seven customization MCP tools are functional: `cm_get_project_profile`, `cm_update_project_profile`, `cm_get_user_preferences`, `cm_update_user_preferences`, `cm_preview_prompt_profile`, `cm_validate_profile`, `cm_reset_profile_to_defaults`
 - [ ] `cm_preview_prompt_profile` returns the assembled prompt with `lockedBlocks` clearly labeled so the curator can see what is editable and what is not
-- [ ] All six copy-paste prompts in `prompts/` are written and tested with a real AI assistant (Claude or Codex) against a fresh instance
+- [ ] All seven copy-paste prompts in `prompts/` are written and tested with a real AI assistant (Claude or Codex) against a fresh instance
 - [ ] The initial setup prompt successfully runs the onboarding interview end-to-end and produces a fully initialized project profile and user preferences row
 - [ ] No hardcoded `Maicol`, `artificial intelligence strategy`, or other personal-domain content remains in `CLAUDE.md`, `AGENTS.md`, or any skill file; all such content is read from the project profile at runtime
 - [ ] Migration script `scripts/migrate_profile_backfill.ts` has been run successfully against the existing Convex project and the backfilled profile reviewed by the curator
@@ -184,8 +184,7 @@ The v1 GitHub release is complete when all of the following are true:
 - [ ] Setup guide walks through: clone → Convex project creation → `.env.local` → paste the initial setup prompt into your AI assistant → first ingestion
 - [ ] `LICENSE` file present (MIT)
 - [ ] No `.env.local` or secrets committed to the repo
-- [ ] `mcp/src/lib/jina.ts` is either removed or clearly marked as unused
-- [ ] `JINA_API_KEY` reference removed from `mcp/src/index.ts` comments (Supadata replaced Jina)
+- [ ] Deprecated Jina helper code and `JINA_API_KEY` references are removed; Supadata is the documented URL and transcript intake path
 
 ---
 
@@ -261,8 +260,6 @@ curate-mind/                    ← CURATE_MIND_PATH points here
 | `OPENAI_API_KEY` | OpenAI key for embeddings (`text-embedding-3-small`) |
 | `SUPADATA_API_KEY` | Supadata key for URL scraping and YouTube transcripts; required when testing or using MCP fetch tools |
 | `CURATE_MIND_PATH` | Absolute path to the repo root on the user's machine |
-
-Note: `JINA_API_KEY` is referenced in `mcp/src/index.ts` comments but is no longer used. Remove it from the comments before the GitHub release.
 
 ---
 

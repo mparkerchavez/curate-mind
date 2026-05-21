@@ -1,15 +1,15 @@
 /**
  * Query tools for Curate Mind MCP.
  *
- * These tools support the Analyst persona for querying the knowledge base
- * with progressive disclosure (Layer 1-4):
- * - cm_get_themes: Layer 1 — themes with position counts
- * - cm_get_positions: Layer 1 — positions within a theme
- * - cm_get_position_detail: Layer 2 — full evidence chain
- * - cm_get_data_point: Layer 3 — includes anchor quote
+ * These tools support the Curator querying the knowledge base
+ * through the Stance, Evidence, and Source response bands:
+ * - cm_get_themes: Stance overview with position counts
+ * - cm_get_positions: Stance summaries within a theme
+ * - cm_get_position_detail: Full stance and linked evidence chain
+ * - cm_get_data_point: Evidence detail with anchor quote
  * - cm_get_source: Source metadata without full text
- * - cm_get_source_text: Layer 4 — full source text
- * - cm_ask: Analyst query with progressive disclosure (positions → observations → mental models → data points)
+ * - cm_get_source_text: Full source text for curator verification
+ * - cm_ask: Cite-and-trace query with positions, observations, mental models, and data points
  * - cm_search: Broad exploration across all entity types (signal-finding, not analyst answers)
  * - cm_get_tag_trends: Tag usage counts
  * - cm_get_position_history: Version history
@@ -282,8 +282,8 @@ function formatAnalystPackMarkdown(result: any): string {
     lines.push("## Context", "", result.context.summary, "");
   }
 
-  // ── Layer 1: Positions ────────────────────────────────────────
-  lines.push("## Layer 1 — Current Positions", "");
+  // ── Stance: Positions ─────────────────────────────────────────
+  lines.push("## Stance — Current Positions", "");
   if (positions.length === 0) {
     lines.push("No positions found for this question. The corpus may not have positions yet — use cm_search for exploration instead.", "");
   } else {
@@ -302,7 +302,7 @@ function formatAnalystPackMarkdown(result: any): string {
     });
   }
 
-  // ── Layer 2a: Curator Observations ───────────────────────────
+  // ── Evidence: Retrieved Data Points ───────────────────────────
   // Curator observations and mental models may inform the composed answer,
   // but the chat-facing lineage is source-backed data point evidence.
   lines.push("## Retrieved Data Point Evidence", "");
@@ -490,7 +490,7 @@ export function registerQueryTools(server: McpServer): void {
   );
 
   // ============================================================
-  // cm_get_themes — Layer 1
+  // cm_get_themes — Stance overview
   // ============================================================
   server.registerTool(
     "cm_get_themes",
@@ -498,7 +498,7 @@ export function registerQueryTools(server: McpServer): void {
       title: "Get Research Themes",
       description:
         "List all Research Themes with position counts for a project. This is " +
-        "the top level of progressive disclosure (Layer 1).\n\n" +
+        "the top-level Stance overview.\n\n" +
         "Args:\n" +
         "  - projectId (string): The project to list themes for\n\n" +
         "Returns: All themes with their titles, descriptions, and number of positions.",
@@ -539,7 +539,7 @@ export function registerQueryTools(server: McpServer): void {
   );
 
   // ============================================================
-  // cm_get_positions — Layer 1
+  // cm_get_positions — Stance summaries
   // ============================================================
   server.registerTool(
     "cm_get_positions",
@@ -547,7 +547,7 @@ export function registerQueryTools(server: McpServer): void {
       title: "Get Research Positions",
       description:
         "List positions within a theme, or all positions. Returns current stance, " +
-        "confidence, and status for each (Layer 1).\n\n" +
+        "confidence, and status for each.\n\n" +
         "Args:\n" +
         "  - themeId (string, optional): Filter to positions in this theme\n\n" +
         "Returns: Positions with current version summary.",
@@ -595,14 +595,14 @@ export function registerQueryTools(server: McpServer): void {
   );
 
   // ============================================================
-  // cm_get_position_detail — Layer 2
+  // cm_get_position_detail — Stance with linked evidence
   // ============================================================
   server.registerTool(
     "cm_get_position_detail",
     {
       title: "Get Position Detail",
       description:
-        "Get a Research Position with its full evidence chain (Layer 2): " +
+        "Get a Research Position with its full evidence chain: " +
         "supporting evidence, counter evidence, curator observations, mental " +
         "models, and open questions.\n\n" +
         "Args:\n" +
@@ -652,15 +652,15 @@ export function registerQueryTools(server: McpServer): void {
   );
 
   // ============================================================
-  // cm_get_data_point — Layer 3 (includes anchor quote)
+  // cm_get_data_point — Evidence detail with anchor quote
   // ============================================================
   server.registerTool(
     "cm_get_data_point",
     {
       title: "Get Data Point Detail",
       description:
-        "Get a single data point with full context including the verbatim " +
-        "anchor quote (Layer 3, Analyst only). Returned claimText and anchorQuote " +
+        "Get a single data point with full Evidence context including the verbatim " +
+        "anchor quote. Returned claimText and anchorQuote " +
         "are effective values: corrected where an append-only correction exists, " +
         "otherwise original extraction values. Includes source metadata, tags, " +
         "and correctionStatus.\n\n" +
@@ -823,14 +823,14 @@ export function registerQueryTools(server: McpServer): void {
   );
 
   // ============================================================
-  // cm_get_source_text — Layer 4 (full source text)
+  // cm_get_source_text — Full source text for curator verification
   // ============================================================
   server.registerTool(
     "cm_get_source_text",
     {
       title: "Get Source Full Text",
       description:
-        "Get the full text of a source (Layer 4 — Analyst only). Use when " +
+        "Get the full text of a source for curator verification. Use when " +
         "you need the complete context beyond what was extracted.\n\n" +
         "Args:\n" +
         "  - sourceId (string): The source ID\n\n" +
@@ -1134,7 +1134,7 @@ export function registerQueryTools(server: McpServer): void {
       description:
         "Get the most recent Research Lens for a project: a compressed snapshot " +
         "of current positions, open questions, and surprise signals. Used by " +
-        "Pass 3 enrichment as context.\n\n" +
+        "the Enrich stage as context.\n\n" +
         "Args:\n" +
         "  - projectId (string): The project to get the lens for\n\n" +
         "  - mode (\"summary\" | \"full\", optional): Summary is default and returns " +
@@ -1347,7 +1347,7 @@ export function registerQueryTools(server: McpServer): void {
     {
       title: "Get Data Points in Batch",
       description:
-        "Fetch multiple data points by ID in a single call (Layer 3, Analyst only). " +
+        "Fetch multiple data points by ID in a single call for Evidence review. " +
         "Returns the same shape as cm_get_data_point for each ID: full context including " +
         "effective claim text, effective verbatim anchor quote, correctionStatus, source metadata, and tags. " +
         "Effective means corrected where an append-only correction exists, otherwise original extraction values. " +

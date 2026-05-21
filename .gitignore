@@ -4,8 +4,17 @@
 # Personal research files
 sources/
 
+# Public setup prompts are tracked. Internal prompt scratch files are ignored.
+prompts/*
+!prompts/setup_initial.md
+!prompts/setup_recustomize.md
+!prompts/setup_source_intake.md
+!prompts/edit_style.md
+!prompts/edit_audience.md
+!prompts/edit_secondary_capture.md
+!prompts/edit_suggested_prompts.md
+
 # Internal build and operational files
-prompts/
 handoff_prompt.md
 phase4_triage_manifest.json
 wave3_manifest.json

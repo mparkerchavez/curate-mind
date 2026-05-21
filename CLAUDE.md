@@ -159,7 +159,7 @@ Every substantive claim in the answer should carry an inline label drawn from th
 - **Database:** Convex (new project, separate from CRIS)
 - **MCP Server:** Node.js + @modelcontextprotocol/sdk (stdio transport)
 - **Embeddings:** OpenAI text-embedding-3-small (1536 dimensions)
-- **URL Fetching / Transcripts:** Supadata (`@supadata/js`) for web scraping and YouTube transcripts. `mcp/src/lib/jina.ts` remains in the codebase for reference but is no longer used by intake tools — migration to Supadata is complete.
+- **URL Fetching / Transcripts:** Supadata (`@supadata/js`) for web scraping and YouTube transcripts.
 - **Frontend:** React + Vite, served at curatemind.io. Desktop-only (redirects mobile at &lt;1024px). See Web Frontend section below.
 - **Credentials:** Copy `.env.example` to `.env.local` and fill in your keys. Never commit `.env.local`.
 

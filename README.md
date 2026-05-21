@@ -50,7 +50,7 @@ Curate Mind separates the parts that should stay stable from the parts that shou
 
 **User style:** Writing preferences are stored separately from any one project. This includes voice, structure, banned punctuation or phrases, hedging style, and other preferences that should follow you across projects.
 
-Customization happens through your own AI assistant using MCP tools. For a fresh install, start with [common assistant workflows](docs/assistant-guides/common-workflows.md), which includes copy-paste prompts for project setup, source intake, extraction, review, and evidence linking.
+Customization happens through your own AI assistant using MCP tools. For a fresh install, start with [common assistant workflows](docs/assistant-guides/common-workflows.md), which includes copy-paste prompts for project setup, source intake, extraction, review, and evidence linking. The polished prompt files live in [`prompts/`](prompts/): first-run setup, re-customization, style edits, audience edits, Secondary Capture edits, suggested prompt edits, and source intake setup.
 
 For profile changes, ask your assistant to call `cm_get_project_profile` and `cm_get_user_preferences`, then save approved updates with `cm_update_project_profile` and `cm_update_user_preferences`. That covers first-run setup, re-customizing for a different use case, updating writing style, changing audience or scope, changing Secondary Capture, and updating suggested questions without relying on untracked local prompt files.
 

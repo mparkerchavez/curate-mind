@@ -130,7 +130,7 @@ export const insertDataPoint = mutation({
 
 // ============================================================
 // Insert a batch of data points from extraction
-// More efficient for Pass 1 output
+// More efficient for Extract output
 // ============================================================
 export const insertBatch = mutation({
   args: {
@@ -197,7 +197,7 @@ export const insertBatch = mutation({
 });
 
 // ============================================================
-// Enrich a batch of data points (Pass 3 adds confidence, extraction note, related DPs)
+// Enrich a batch of data points with confidence, extraction note, and related DPs
 // Validates all DP IDs before writing any — fails the entire batch on first missing ID.
 // Re-enrichment is allowed (overwrites existing values).
 // ============================================================
@@ -278,7 +278,7 @@ export const getDataPointsNeedingEmbeddings = query({
 
 // ============================================================
 // Get a single data point with full context
-// Includes source metadata, tags, and anchor quote (Layer 3)
+// Includes source metadata, tags, and anchor quote for Evidence review
 // ============================================================
 export const getDataPoint = query({
   args: { dataPointId: v.id("dataPoints") },
@@ -312,7 +312,7 @@ export const getDataPoint = query({
 });
 
 // ============================================================
-// Update tags on a batch of data points (Pass 3 enrichment)
+// Update tags on a batch of data points during Enrich
 // Validates all DP IDs before writing any — fails the entire batch on first missing ID.
 // Additive only — does not remove existing tag links.
 // Tag slugs not found in the project vocabulary are silently skipped (counted in tagsSkipped).

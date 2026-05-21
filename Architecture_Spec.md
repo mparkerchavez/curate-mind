@@ -476,8 +476,8 @@ curate-mind/                           (active project folder)
 │   └── lib/
 │       ├── convex-client.ts
 │       ├── openai-client.ts
-│       └── jina.ts
-├── .env.local                         (Convex + OpenAI + Jina credentials)
+│       └── supadata.ts
+├── .env.local                         (Convex + OpenAI + Supadata credentials)
 ├── package.json
 ├── Architecture_Spec.md
 └── Implementation_Plan.md

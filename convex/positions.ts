@@ -197,7 +197,7 @@ export const updatePosition = mutation({
 });
 
 // ============================================================
-// Get a position with its current version (Layer 1)
+// Get a position with its current version (Stance summary)
 // ============================================================
 export const getPosition = query({
   args: { positionId: v.id("researchPositions") },
@@ -220,7 +220,7 @@ export const getPosition = query({
 });
 
 // ============================================================
-// Get position with full evidence chain (Layer 2)
+// Get position with full evidence chain
 // Includes all linked data points, observations, mental models
 // ============================================================
 export const getPositionDetail = query({
@@ -375,7 +375,7 @@ export const getPositionVersionsNeedingEmbeddings = query({
 });
 
 // ============================================================
-// Get all positions within a theme (Layer 1)
+// Get all positions within a theme
 // ============================================================
 export const getPositionsByTheme = query({
   args: { themeId: v.id("researchThemes") },
@@ -688,7 +688,7 @@ export const linkEvidenceBatch = mutation({
 });
 
 // ============================================================
-// List all positions across all themes (Layer 1 summary)
+// List all positions across all themes
 // ============================================================
 export const listAllPositions = query({
   args: {},

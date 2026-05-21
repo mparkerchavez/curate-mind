@@ -30,8 +30,8 @@ export function OpenSourceSection() {
           Run the whole system on your own research.
         </h2>
         <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-secondary_on-section">
-          Curate Mind is open source. You get the MCP server, five Claude
-          skills, and the Convex schema that runs the four-pass pipeline.
+          Curate Mind is open source. You get the MCP server, four assistant
+          skills, and the Convex schema that runs the four-stage extraction workflow.
           Bring your own sources, bring your own domain.
         </p>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-4">

@@ -493,7 +493,7 @@ export const askAnalyst = action({
       }) as Promise<any[]>,
     ]);
 
-    // ── Layer 1: Positions ───────────────────────────────────────
+    // ── Stance: Positions ───────────────────────────────────────
     let positions: AnalystPosition[] = [];
 
     if (args.positionId) {
@@ -551,7 +551,7 @@ export const askAnalyst = action({
       }
     }
 
-    // ── Layer 2: Data points (scoped vector search) ──────────────
+    // ── Evidence: Data points (scoped vector search) ────────────
     const vectorResults = await ctx.vectorSearch("dataPoints", "by_embedding", {
       vector: embedding,
       limit: temporalIntent
