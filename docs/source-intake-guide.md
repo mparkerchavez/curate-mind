@@ -19,7 +19,7 @@ The review step matters because extracted data points are designed to be durable
 | Article or web page | `cm_fetch_url` | Supadata API key | A markdown file in `sources/` |
 | YouTube video | `cm_fetch_youtube` | Supadata API key | A transcript markdown file in `sources/` |
 | Local PDF | `cm_extract_pdf` | Python plus `pypdf` and optionally `docling` | A markdown wrapper in `sources/`, with the original PDF path preserved for ingestion |
-| Mobile or quick capture | Claude Dispatch, when available in your Claude workflow | Same MCP setup as the desktop assistant | A markdown file in `sources/` for later review |
+| Mobile or quick capture | Claude Dispatch or Codex through ChatGPT mobile, depending on your assistant provider | Same MCP setup as the running assistant workspace | A markdown file in `sources/` for later review |
 
 ## Vendor and Local Dependencies
 
@@ -114,17 +114,33 @@ To see what is waiting for review:
 Use cm_review_queue to show me pending source files.
 ```
 
-## Claude Dispatch Workflow
+## Mobile Capture Workflows
 
-If your Claude setup supports Dispatch from mobile or another capture surface, use Dispatch as a quick capture path:
+Mobile capture is provider-specific. The phone is the capture surface, but the markdown file should be created by the assistant environment that has access to your Curate Mind repo and MCP server.
+
+### Claude Dispatch
+
+Claude Dispatch is specific to Claude. If your Claude setup supports Dispatch from Claude Mobile, use it as a quick capture path:
 
 1. Send the article or YouTube URL to Claude Dispatch.
 2. Ask it to use `cm_fetch_url` or `cm_fetch_youtube`.
-3. Let the MCP tool run on your local machine.
+3. Let the MCP tool run through the Claude environment connected to your already-running computer.
 4. Later, review the markdown file in `sources/`.
 5. Ingest it with `cm_add_source reviewed=true`.
 
-Dispatch is not a separate Curate Mind service. It is another way to ask your connected AI assistant to call the same MCP tools.
+Dispatch is not a separate Curate Mind service. It is another way to ask Claude to call the same MCP tools and create local markdown files on the machine where Curate Mind is already running.
+
+### Codex Through ChatGPT Mobile
+
+Codex has a similar mobile pattern through the ChatGPT mobile app. If your Codex workspace is available from ChatGPT mobile and has this repo plus the Curate Mind MCP tools configured:
+
+1. Send the article or YouTube URL to Codex from ChatGPT mobile.
+2. Ask it to use `cm_fetch_url` or `cm_fetch_youtube`.
+3. Let Codex create the markdown file in this repo's `sources/` folder.
+4. Later, review the markdown file.
+5. Ingest it with `cm_add_source reviewed=true`.
+
+This is not Claude Dispatch. It is the Codex equivalent workflow for users whose primary assistant is Codex.
 
 ## What Happens After Ingestion
 

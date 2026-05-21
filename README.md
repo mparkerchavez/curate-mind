@@ -27,7 +27,7 @@ Curate Mind supports several ways to turn research into reviewed markdown before
 - **Articles and web pages:** use `cm_fetch_url`. Requires Supadata.
 - **YouTube videos:** use `cm_fetch_youtube`. Requires Supadata.
 - **Local PDFs:** use `cm_extract_pdf`. Uses local Python extraction with `pypdf`, `docling`, or `docling_ocr`.
-- **Mobile or quick capture:** use Claude Dispatch, when available in your workflow, to call the same MCP fetch tools and save markdown for later review.
+- **Mobile or quick capture:** use your provider's mobile capture path, such as Claude Dispatch with Claude Mobile or Codex through the ChatGPT mobile app, to call the same MCP fetch tools and save markdown for later review.
 
 Read [docs/source-intake-guide.md](docs/source-intake-guide.md) for setup requirements, vendor dependencies, and copy-paste prompts for each intake path. If you want an AI assistant to configure and test intake with you, use [prompts/setup_source_intake.md](prompts/setup_source_intake.md).
 
@@ -87,6 +87,9 @@ The next intake evolution is parked for a future phase: an Intake Inbox frontend
 ## Get started
 
 Pick the path that fits how you work.
+
+**I want to use one AI assistant to operate Curate Mind.**
+Read [docs/assistant-guides/README.md](docs/assistant-guides/README.md). It explains how Claude, Codex, or another MCP-compatible assistant can run the full workflow without requiring multiple subscriptions.
 
 **I want to set this up myself.**
 Read [docs/setup-guide.md](docs/setup-guide.md). It walks you from a fresh clone to your first successful extraction, with exact commands at every step.
