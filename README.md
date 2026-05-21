@@ -19,6 +19,15 @@ The `web/` directory contains the source for curatemind.io. It is included for t
 
 The MCP server is the primary interface. The web demo is a public view of one curated knowledge base.
 
+## Using Claude or Codex
+
+Curate Mind is designed to be operated through an MCP-connected AI assistant. You can use Claude, Codex, or another MCP-compatible app; you do not need multiple assistant subscriptions to run the system.
+
+- **Claude workflow:** Claude Desktop or Claude Code can run the MCP tools, use the Curate Mind skills as workflow instructions or slash commands, and support Claude Dispatch/mobile capture where available.
+- **Codex workflow:** Codex can handle repo setup, documentation, code maintenance, commits, and the Curate Mind research workflow when the MCP server is configured. Codex can also support a ChatGPT mobile capture pattern when your workspace has repo and MCP access.
+
+Read the full [assistant workflow guide](docs/assistant-guides/README.md), including [Using Claude](docs/assistant-guides/using-claude.md), [Using Codex](docs/assistant-guides/using-codex.md), and [Common workflows](docs/assistant-guides/common-workflows.md).
+
 ## Source intake options
 
 Curate Mind supports several ways to turn research into reviewed markdown before it enters Convex:
