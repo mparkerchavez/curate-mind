@@ -480,7 +480,7 @@ curate-mind/                           (active project folder)
 ├── .env.local                         (Convex + OpenAI + Supadata credentials)
 ├── package.json
 ├── Architecture_Spec.md
-└── Implementation_Plan.md
+└── PRD.md
 
 CRIS_Research_System/                  (archived, read-only reference)
 ├── 02_Extractions/                    (old extraction markdown files)

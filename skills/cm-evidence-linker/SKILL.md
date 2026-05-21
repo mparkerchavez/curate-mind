@@ -196,7 +196,7 @@ Process-order suggestion: start with the theme that has the strongest tag covera
 1. Regenerate the Research Lens via `cm_update_research_lens`. The lens now reflects evidence-backed positions and will be stronger for subsequent extraction waves.
 2. Review confidence levels. Some positions may warrant promotion (emerging, then active, then established) based on the volume and quality of linked evidence.
 3. Capture curator observations. If the linking process revealed cross-theme patterns or tensions, add them via `cm_add_curator_observation`.
-4. Update the progress tracker in `Implementation_Plan.md` (Evidence Linking Progress table).
+4. Summarize which themes were linked, which positions changed, and any follow-up linking work that remains.
 
 ## Incremental linking (round two and later)
 
