@@ -42,7 +42,7 @@ Done when:
 - Required keys are present for the intake paths you use.
 - At least one test source lands in `sources/` or one reviewed markdown source is ingested.
 
-For the full source intake setup prompt, use [prompts/setup_source_intake.md](../../prompts/setup_source_intake.md). For details about each intake path, read [docs/source-intake-guide.md](../source-intake-guide.md).
+For the full source intake setup prompt, use the [source intake setup prompt](../../prompts/setup_source_intake.md). For details about each intake path, read the [source intake guide](../source-intake-guide.md).
 
 Mobile capture depends on your assistant provider:
 

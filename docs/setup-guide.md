@@ -205,7 +205,7 @@ After reviewing a generated markdown file:
 Use cm_add_source with reviewed=true to ingest this reviewed file: <file path>
 ```
 
-For details, including Claude Dispatch/mobile capture, read [source-intake-guide.md](source-intake-guide.md).
+For details, including Claude Dispatch/mobile capture, read the [source intake guide](source-intake-guide.md).
 
 ## Folder structure reference
 

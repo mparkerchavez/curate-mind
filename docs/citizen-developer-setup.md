@@ -217,7 +217,7 @@ Then tell the user to review one generated file. After review, ingest it with:
 Use cm_add_source with reviewed=true to ingest this reviewed file: <file path>
 ```
 
-Point them to [docs/source-intake-guide.md](source-intake-guide.md) and [prompts/setup_source_intake.md](../prompts/setup_source_intake.md) for future intake setup or troubleshooting.
+Point them to the [source intake guide](source-intake-guide.md) and the [source intake setup prompt](../prompts/setup_source_intake.md) for future intake setup or troubleshooting.
 
 ## If something goes wrong
 
@@ -236,9 +236,9 @@ Check these in order:
 
 Once setup is complete, point the user to:
 
-- [docs/setup-guide.md](setup-guide.md) for the full technical reference, including the folder structure and the underlying commands.
-- [docs/source-intake-guide.md](source-intake-guide.md) for article, YouTube, PDF, markdown, and Dispatch intake workflows.
-- [prompts/setup_source_intake.md](../prompts/setup_source_intake.md) if they want an AI assistant to re-run or troubleshoot source intake setup later.
+- [Setup guide](setup-guide.md) for the full technical reference, including the folder structure and the underlying commands.
+- [Source intake guide](source-intake-guide.md) for article, YouTube, PDF, markdown, and Dispatch intake workflows.
+- [Source intake setup prompt](../prompts/setup_source_intake.md) if they want an AI assistant to re-run or troubleshoot source intake setup later.
 - [curatemind.io](https://curatemind.io) to see a live example of what a complete extraction cycle produces.
 
 If the user wants to start ingesting more sources, suggest they read the `cm-batch-orchestrator` skill's `SKILL.md` for how to process multiple files at once.

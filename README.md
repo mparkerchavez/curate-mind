@@ -38,7 +38,7 @@ Curate Mind supports several ways to turn research into reviewed markdown before
 - **Local PDFs:** use `cm_extract_pdf`. Uses local Python extraction with `pypdf`, `docling`, or `docling_ocr`.
 - **Mobile or quick capture:** use your provider's mobile capture path, such as Claude Dispatch with Claude Mobile or Codex through the ChatGPT mobile app, to call the same MCP fetch tools and save markdown for later review.
 
-Read [docs/source-intake-guide.md](docs/source-intake-guide.md) for setup requirements, vendor dependencies, and copy-paste prompts for each intake path. If you want an AI assistant to configure and test intake with you, use [prompts/setup_source_intake.md](prompts/setup_source_intake.md).
+Read the [source intake guide](docs/source-intake-guide.md) for setup requirements, vendor dependencies, and copy-paste prompts for each intake path. If you want an AI assistant to configure and test intake with you, use the [source intake setup prompt](prompts/setup_source_intake.md).
 
 ## Customizing Curate Mind for your own research
 
@@ -50,7 +50,7 @@ Curate Mind separates the parts that should stay stable from the parts that shou
 
 **User style:** Writing preferences are stored separately from any one project. This includes voice, structure, banned punctuation or phrases, hedging style, and other preferences that should follow you across projects.
 
-Customization happens through your own AI assistant using MCP tools. For a fresh install, start with [docs/assistant-guides/common-workflows.md](docs/assistant-guides/common-workflows.md), which includes copy-paste prompts for project setup, source intake, extraction, review, and evidence linking.
+Customization happens through your own AI assistant using MCP tools. For a fresh install, start with [common assistant workflows](docs/assistant-guides/common-workflows.md), which includes copy-paste prompts for project setup, source intake, extraction, review, and evidence linking.
 
 For profile changes, ask your assistant to call `cm_get_project_profile` and `cm_get_user_preferences`, then save approved updates with `cm_update_project_profile` and `cm_update_user_preferences`. That covers first-run setup, re-customizing for a different use case, updating writing style, changing audience or scope, changing Secondary Capture, and updating suggested questions without relying on untracked local prompt files.
 
@@ -91,13 +91,13 @@ The next intake evolution is parked for a future phase: an Intake Inbox frontend
 Pick the path that fits how you work.
 
 **I want to use one AI assistant to operate Curate Mind.**
-Read [docs/assistant-guides/README.md](docs/assistant-guides/README.md). It explains how Claude, Codex, or another MCP-compatible assistant can run the full workflow without requiring multiple subscriptions.
+Read the [assistant workflow guide](docs/assistant-guides/README.md). It explains how Claude, Codex, or another MCP-compatible assistant can run the full workflow without requiring multiple subscriptions.
 
 **I want to set this up myself.**
-Read [docs/setup-guide.md](docs/setup-guide.md). It walks you from a fresh clone to your first successful extraction, with exact commands at every step.
+Read the [setup guide](docs/setup-guide.md). It walks you from a fresh clone to your first successful extraction, with exact commands at every step.
 
 **I want an AI assistant to walk me through it.**
-Open [docs/citizen-developer-setup.md](docs/citizen-developer-setup.md), then hand the file to Claude, Codex, or your preferred AI tool with a single instruction: "Read this file and help me set up Curate Mind." The assistant will guide you through every step, ask for the values it needs, and run commands on your behalf.
+Open the [assistant-led setup guide](docs/citizen-developer-setup.md), then hand the file to Claude, Codex, or your preferred AI tool with a single instruction: "Read this file and help me set up Curate Mind." The assistant will guide you through every step, ask for the values it needs, and run commands on your behalf.
 
 ## Development checks
 

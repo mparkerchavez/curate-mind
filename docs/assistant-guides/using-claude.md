@@ -11,7 +11,7 @@ Curate Mind currently documents two Claude setup paths:
 - **Claude Desktop:** Connects the local MCP server through `claude_desktop_config.json`.
 - **Claude Code:** Connects the local MCP server from the repo and can use project skills as slash commands.
 
-Start with the main [setup guide](../setup-guide.md). For a guided, assistant-led setup, give Claude [citizen-developer-setup.md](../citizen-developer-setup.md) and say:
+Start with the main [setup guide](../setup-guide.md). For a guided, assistant-led setup, give Claude the [assistant-led setup guide](../citizen-developer-setup.md) and say:
 
 ```text
 Read this file and help me set up Curate Mind.

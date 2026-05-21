@@ -32,7 +32,7 @@ Codex needs two kinds of context:
 
 If Codex can read the repo but cannot see the MCP tools, it can still help with setup, docs, code, and command troubleshooting. It cannot operate the Curate Mind database workflow until the MCP connection is available.
 
-Use the main [setup guide](../setup-guide.md) for the underlying commands. Use [citizen-developer-setup.md](../citizen-developer-setup.md) if you want Codex to walk you through setup in plain language.
+Use the main [setup guide](../setup-guide.md) for the underlying commands. Use the [assistant-led setup guide](../citizen-developer-setup.md) if you want Codex to walk you through setup in plain language.
 
 ## ChatGPT Mobile Capture
 
