@@ -77,7 +77,7 @@ If you are using Codex instead of Claude, use Codex's ChatGPT mobile access patt
 ### First Project Setup
 
 ```text
-Help me set up Curate Mind for the first time. Use prompts/setup_initial.md as your guide. Ask one question at a time, save approved answers through the MCP tools, and preview the assembled prompt profile between question blocks.
+Help me set up Curate Mind for the first time. First call cm_get_project_profile and cm_get_user_preferences. If setup is not complete, interview me one question at a time, save approved answers through cm_update_project_profile and cm_update_user_preferences, and preview the assembled prompt profile between question blocks.
 ```
 
 ### Source Intake

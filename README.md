@@ -41,16 +41,9 @@ Curate Mind separates the parts that should stay stable from the parts that shou
 
 **User style:** Writing preferences are stored separately from any one project. This includes voice, structure, banned punctuation or phrases, hedging style, and other preferences that should follow you across projects.
 
-Customization happens through your own AI assistant using MCP tools. Paste one of the prompts below into Claude, Codex, or another MCP-compatible assistant connected to Curate Mind, and the assistant will read or update the profile for you.
+Customization happens through your own AI assistant using MCP tools. For a fresh install, start with [docs/assistant-guides/common-workflows.md](docs/assistant-guides/common-workflows.md), which includes copy-paste prompts for project setup, source intake, extraction, review, and evidence linking.
 
-- [Initial setup](prompts/setup_initial.md) — first-run interview for project facts, Secondary Capture, writing style, and suggested questions.
-- [Re-customize for a different use case](prompts/setup_recustomize.md) — reset the project profile while preserving existing data and user style.
-- [Update writing style](prompts/edit_style.md) — change voice, structure, banned punctuation, phrases, or other style preferences.
-- [Update audience or scope](prompts/edit_audience.md) — adjust who the research is for or what time horizon matters.
-- [Change Secondary Capture](prompts/edit_secondary_capture.md) — turn the second capture stage off, keep the mental-model default, or define a different capture target.
-- [Update suggested questions](prompts/edit_suggested_prompts.md) — edit the example questions visitors see in the web demo.
-
-For a fresh install, start with [Initial setup](prompts/setup_initial.md). That prompt walks your assistant through the project profile, user style, and first-source handoff without requiring a settings page.
+For profile changes, ask your assistant to call `cm_get_project_profile` and `cm_get_user_preferences`, then save approved updates with `cm_update_project_profile` and `cm_update_user_preferences`. That covers first-run setup, re-customizing for a different use case, updating writing style, changing audience or scope, changing Secondary Capture, and updating suggested questions without relying on untracked local prompt files.
 
 ## What you get
 

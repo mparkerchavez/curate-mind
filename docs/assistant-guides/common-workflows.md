@@ -22,7 +22,7 @@ Done when:
 - `cm_get_user_preferences` shows your writing preferences.
 - `cm_preview_prompt_profile` reflects the project you actually want to curate.
 
-For a full first-run interview, use [prompts/setup_initial.md](../../prompts/setup_initial.md).
+For a full first-run interview, use the pasteable prompt above and have the assistant ask one question at a time before saving approved profile and style updates.
 
 ## Set Up Source Intake
 
