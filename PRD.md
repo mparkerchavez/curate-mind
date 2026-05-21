@@ -1,19 +1,25 @@
 # Curate Mind: Product Requirements Document
 
-**Version:** 1.0
-**Date:** May 6, 2026
+**Version:** 1.1
+**Date:** May 20, 2026
 **Owner:** Maicol Parker-Chavez
-**Status:** Active — governs v1 GitHub release
+**Status:** Active. Governs v1 GitHub release.
+
+**Change log:**
+- 1.1 (2026-05-20): Reflects the customization architecture decisions in `Customization_Design_Proposal_2026-05-20.md`. Renames the four extraction passes to descriptive stages (Extract, Secondary Capture, Enrich, Review). Retires the Reader persona; consolidates personas into one Curator with two query modes. Replaces the four-layer access matrix with the three-band response shape (Stance, Evidence, Source). Adds the customization layer (project profile, user preferences, MCP tools, copy-paste prompt library) to in-scope v1 deliverables. Marks Secondary Capture as configurable per project.
+- 1.0 (2026-05-06): Initial v1 scope.
 
 ---
 
 ## What This Project Is
 
-Curate Mind is a personal research curation system built as an MCP (Model Context Protocol) server. It gives you a persistent, queryable knowledge base for tracking a domain of research over time. The workflow is: ingest sources, extract structured data points through a four-pass pipeline, build research positions from the evidence, and query the foundation whenever you need analysis, talking points, or synthesis.
+Curate Mind is a personal research curation system built as an MCP (Model Context Protocol) server. It gives you a persistent, queryable knowledge base for tracking a domain of research over time. The workflow is: ingest sources, extract structured data points through a four-stage source processing loop (Extract, Secondary Capture, Enrich, Review), build research positions from the evidence, and query the foundation whenever you need analysis, talking points, or synthesis.
 
-The primary interface is the MCP server. You use it directly inside any chat app or coding agent that supports MCP tools. The web app at curatemind.io is a live demo showing what the system produces after a full extraction cycle on February 2026 AI research — it demonstrates the methodology, not a continuously updating feed.
+The primary interface is the MCP server. You use it directly inside any chat app or coding agent that supports MCP tools. The web app at curatemind.io is a live demo showing what the system produces after a full extraction cycle on February 2026 AI research. It demonstrates the methodology, not a continuously updating feed.
 
 The system is built on one principle: **build a robust foundation, generate everything else on demand.** The foundation is append-only, versioned, and queryable. There are no maintained deliverables. Reports, talking points, and summaries are generated when you need them, from the current state of the foundation.
+
+Curate Mind is shipped as an open-source project. Strangers who clone the repo can customize it for their own research without editing source code: a small project profile, an instance-wide user style preferences row, and a library of copy-paste prompts let the user configure their domain, audience, vocabulary, writing style, and what (if anything) the Secondary Capture stage should look for. The method itself, including the four extraction stages, the append-only invariants, and the three-band response shape, stays locked.
 
 ---
 
@@ -27,13 +33,23 @@ The system is built on one principle: **build a robust foundation, generate ever
 
 ---
 
-## User Personas
+## Personas and Access Tiers
 
-**Research Persona (curator):** Ingests sources, runs the extraction pipeline, writes observations, and maintains research positions. Full MCP access. This is Maicol's role in the demo system.
+Curate Mind has **one persona** and **two access tiers**. Earlier versions of this document described separate Research, Analyst, and Reader personas; that split was never enforced in code and is retired in v1.1.
 
-**Analyst Persona (power user):** Queries the knowledge base for analysis against new projects or opportunities. Full progressive disclosure access across all four layers: Themes and Positions → Evidence → Verification → Full Source. `cm_ask` is the primary query tool for cited analyst answers — it fetches a structured pack with position stances first, then observations, mental models, and data points with resolved source links, all tagged with inline citation labels (`[P#]`, `[O#]`, `[M#]`, `[E#]`). `cm_search` is reserved for exploration and signal-finding when positions don't exist yet or a cited answer is not the goal.
+**The Curator (single persona).** The person who installs and runs Curate Mind. Ingests sources, runs the extraction pipeline, writes observations, maintains research positions, and queries the knowledge base. Full MCP access to every tool and every stored field.
 
-**Reader Persona (external visitors):** Browses the research via the web frontend at curatemind.io. Layer 1 and 2 only — no verbatim anchor quotes, no full source text. The web app is the Reader interface.
+The Curator works in two query modes, both available through MCP:
+
+- **Explore mode** (`cm_search`). Scans the corpus for signals, surfaces emerging narratives, pressure-tests briefs. Used when positions do not exist yet or when a cited answer is not the goal.
+- **Cite-and-trace mode** (`cm_ask`). Returns a structured pack in the three-band response shape: **Stance** (current position stances, labeled `[P#]` as plain references), **Evidence** (data points cited inline with `[E#]`; curator observations as `[O#]` and mental models as `[M#]` available in the pack as background context, not as inline citations), **Source** (resolved deep links to original sources, including anchor quotes used as URL fragment metadata). Used when a question needs a rigorous cited answer traceable back to original sources.
+
+**Access tiers:**
+
+| Tier | Who | What they get |
+|---|---|---|
+| Curator (authenticated, via MCP) | The owner of the instance | Every tool, every field, full source text, anchor quote text, all customization tools |
+| Public viewer (unauthenticated, via curatemind.io) | Anyone | Stance and Evidence rendered through the web. Anchor quotes leave the server only as URL fragment metadata for "Open at source" deep links, never as visible text on live routes. Full source text is never served. |
 
 ---
 
@@ -47,21 +63,23 @@ Skills are the orchestration layer. They contain the step-by-step instructions t
 
 | Skill | Purpose |
 |-------|---------|
-| `cm-batch-orchestrator` | Processes multiple sources by spawning sub-agents; coordinates the full pipeline across a queue |
-| `cm-deep-extract` | Interactive single-source extraction for high-value Tier 1 sources; curator engages at each pass |
-| `cm-curator-review` | Pass 4 human-in-the-loop review of flagged items from extraction |
-| `cm-evidence-linker` | Connects extracted data points to Research Positions after an extraction wave |
+| `cm-batch-orchestrator` | Processes multiple sources by spawning sub-agents; coordinates the Batch Extract phase (Extract, Secondary Capture if enabled, Enrich) across a queue and emits the flag report |
+| `cm-deep-extract` | Interactive single-source extraction for high-value Tier 1 sources; curator engages at each stage (Extract, Secondary Capture, Enrich, Review) |
+| `cm-curator-review` | Batch Review phase: walks the curator through the flag report from Batch Extract and produces the Decisions Document |
+| `cm-evidence-linker` | Batch Integrate phase: executes the Decisions Document, then runs tag-based evidence linking to connect data points to Research Positions |
 
 **MCP tools (underlying primitives the skills call)**
 - `extraction.ts` — `cm_extract_source`, `cm_save_data_points`, `cm_save_source_synthesis`, `cm_enrich_data_points_batch`, `cm_update_data_points_tags_batch`, `cm_remove_data_point_tag_batch`, `cm_update_source_status`
-- `query.ts` — `cm_ask` (Mode 2: analyst query with progressive disclosure and resolved source links), themes, positions, evidence, data points, `cm_search` (Mode 1: semantic exploration), source text, tag trends, position history
+- `query.ts` — `cm_ask` (Cite-and-trace mode: returns the three-band Stance/Evidence/Source response pack with resolved source links), themes, positions, evidence, data points, `cm_search` (Explore mode: semantic exploration), source text, tag trends, position history
 - `synthesis.ts` — `cm_create_theme`, `cm_create_position`, `cm_update_position`, `cm_update_research_lens`, `cm_create_tag`, `cm_generate_embeddings`
 - `intake.ts` (validation phase) — `cm_add_source`, `cm_add_curator_observation`, and `cm_add_mental_model` are functional; `cm_fetch_url`, `cm_fetch_youtube`, and `cm_extract_pdf` exist for two-step local intake and are being manually tested before being treated as production-ready
 - `review.ts` — local file review queue for fetched markdown files; part of the current MCP-based intake validation path
+- `customization.ts` (new in 1.1) — `cm_get_project_profile`, `cm_update_project_profile`, `cm_get_user_preferences`, `cm_update_user_preferences`, `cm_preview_prompt_profile`, `cm_validate_profile`, `cm_reset_profile_to_defaults`. These are the customization layer the AI assistant calls during onboarding and later edits. See `Customization_Design_Proposal_2026-05-20.md` Section 8 for full signatures.
 
 **Convex backend**
-- All seven entity types: Projects, Sources, Data Points, Curator Observations, Mental Models, Research Positions (with append-only versioning), Tags
-- Research Lens as a system artifact used in Pass 3
+- All seven core entity types: Projects, Sources, Data Points, Curator Observations, Mental Models, Research Positions (with append-only versioning), Tags
+- Customization tables (new in 1.1): extended `projects` profile fields, `userPreferences` singleton, `secondaryItems` table for non-default Secondary Capture types. See `Customization_Design_Proposal_2026-05-20.md` Section 7.
+- Research Lens as a system artifact used in the Enrich stage
 - Embeddings via OpenAI text-embedding-3-small for semantic search
 
 **Web demo site (curatemind.io)**
@@ -73,8 +91,9 @@ Skills are the orchestration layer. They contain the step-by-step instructions t
 - Convex backend visualization page: shows real entity counts and structure from the backend; `fullText` and verbatim anchor fields are hidden to protect copyrighted source content
 
 **GitHub repo**
-- README: what it is, who it is for, link to curatemind.io demo
-- Setup guide: step-by-step from clone to first successful extraction
+- README: what it is, who it is for, link to curatemind.io demo, and the "Customizing Curate Mind for your own research" section that links the copy-paste prompts in `prompts/`
+- Setup guide: step-by-step from clone to first successful extraction, including the initial setup prompt that runs the onboarding interview
+- Copy-paste prompt library at `prompts/`: `setup_initial.md`, `setup_recustomize.md`, `edit_style.md`, `edit_audience.md`, `edit_secondary_capture.md`, `edit_suggested_prompts.md`. See `Customization_Design_Proposal_2026-05-20.md` Section 12.
 - `.env.example`: every required key documented with a description
 - License: MIT
 
@@ -85,7 +104,10 @@ Skills are the orchestration layer. They contain the step-by-step instructions t
 | Hosted/local Intake Inbox frontend for pasting links, reviewing markdown, editing metadata, and approving ingestion | Future phase. Do not build until the MCP intake tools have been validated in MCP-compatible clients. |
 | Daily source monitoring for sites, RSS feeds, YouTube channels, newsletters, and other watchlist sources | Future phase. Requires candidate queue, dedupe rules, and scheduled discovery jobs. |
 | Automated site/page crawling beyond explicit user-provided URLs | Future phase. Prefer RSS/YouTube feeds first; use Supadata crawl/scrape only after source-specific behavior is understood. |
-| Reader persona authentication layer | Out of scope |
+| Web settings interface for editing the project profile or user preferences | Out of scope for v1. Customization happens through MCP-mediated chat with the user's AI assistant, using the copy-paste prompts in `prompts/`. Can be added later if MCP setup proves to be meaningful onboarding friction. |
+| Fully custom secondary entity schemas (user-defined Convex tables) | Out of scope. The free-text Secondary Capture description model covers the customization need without dynamic schema. |
+| Multi-curator support (multiple users sharing one instance) | Out of scope. The `userPreferences` singleton assumes one curator per instance. |
+| Per-project user style overrides | Out of scope. User Style is instance-wide; a `styleOverrides` field can be added to the project profile later if needed. |
 | Multi-user or multi-tenant support | Out of scope |
 | Mobile-responsive frontend | Out of scope |
 | Any new maintained deliverable documents | Never in scope |
@@ -119,30 +141,47 @@ This work is intentionally parked until the current MCP intake tools have been t
 The v1 GitHub release is complete when all of the following are true:
 
 ### Skills and MCP server
-- [ ] All four active skills are documented in the README or a dedicated setup guide
+- [ ] All four active skills are documented in the README or a dedicated setup guide, using the renamed stage vocabulary (Extract, Secondary Capture, Enrich, Review) and the Batch Extract / Batch Review / Batch Integrate phase names
+- [ ] Every skill opens with the three-block signpost (where you are, what happens in this chat, what comes next, with copy-paste handoff prompt when the next step is a separate chat)
 - [ ] `cm-batch-orchestrator`, `cm-deep-extract`, `cm-curator-review`, and `cm-evidence-linker` are functional end-to-end against a fresh Convex project
-- [ ] Core MCP tool files are functional: `extraction.ts`, `query.ts`, `synthesis.ts`, and the working tools in `intake.ts`
+- [ ] Core MCP tool files are functional: `extraction.ts`, `query.ts`, `synthesis.ts`, `customization.ts`, and the working tools in `intake.ts`
 - [ ] `cm_add_source` successfully ingests a markdown file and stores fullText in Convex
-- [ ] Four-pass extraction pipeline runs without errors on a single source via `cm-deep-extract` or `cm-batch-orchestrator`
+- [ ] The four-stage source processing loop (Extract, Secondary Capture, Enrich, Review) runs without errors on a single source via `cm-deep-extract` or `cm-batch-orchestrator`. Secondary Capture is skipped when the project profile has `secondaryCaptureEnabled: false`.
+- [ ] Secondary Capture runs in its own sub-agent with a clean context window when enabled (reverses the previous P1+P2 sub-agent combination)
 - [ ] `cm_search` returns semantic results (embeddings are generated and stored correctly)
-- [ ] `cm_ask` returns a structured analyst pack with `[P#]`, `[O#]`, `[M#]`, `[E#]` citation labels and resolved source links
+- [ ] `cm_ask` returns the three-band Stance/Evidence/Source pack with inline `[E#]` citations on every source-backed claim, `[P#]` position labels available as plain references, and `[O#]`/`[M#]` observations and mental models available as background context (not cited inline); every evidence item includes a resolved source link
 - [ ] `cm_fetch_url`, `cm_fetch_youtube`, `cm_extract_pdf`, and `cm_review_queue` have been manually smoke-tested against representative sources before being documented as production-ready intake tools
+
+### Customization layer (new in 1.1)
+- [ ] All seven customization MCP tools are functional: `cm_get_project_profile`, `cm_update_project_profile`, `cm_get_user_preferences`, `cm_update_user_preferences`, `cm_preview_prompt_profile`, `cm_validate_profile`, `cm_reset_profile_to_defaults`
+- [ ] `cm_preview_prompt_profile` returns the assembled prompt with `lockedBlocks` clearly labeled so the curator can see what is editable and what is not
+- [ ] All six copy-paste prompts in `prompts/` are written and tested with a real AI assistant (Claude or Codex) against a fresh instance
+- [ ] The initial setup prompt successfully runs the onboarding interview end-to-end and produces a fully initialized project profile and user preferences row
+- [ ] No hardcoded `Maicol`, `artificial intelligence strategy`, or other personal-domain content remains in `CLAUDE.md`, `AGENTS.md`, or any skill file; all such content is read from the project profile at runtime
+- [ ] Migration script `scripts/migrate_profile_backfill.ts` has been run successfully against the existing Convex project and the backfilled profile reviewed by the curator
 
 ### Convex backend
 - [ ] Schema deploys cleanly to a fresh Convex project with no migration errors
 - [ ] All entity types are created correctly through the MCP pipeline
+- [ ] Extended `projects` profile fields, `userPreferences` singleton, and `secondaryItems` table are present in the schema
 - [ ] `.env.example` includes `CONVEX_URL`, `CONVEX_DEPLOY_KEY`, `OPENAI_API_KEY`, and `SUPADATA_API_KEY` with descriptions
 
 ### Web demo site
 - [ ] All six routes render correctly with live data from Convex
 - [ ] Convex backend visualization page is live and shows real entity counts and structure
-- [ ] `fullText` and `anchorQuote` fields are not exposed anywhere in the frontend
+- [ ] `fullText` is never exposed anywhere in the frontend
+- [ ] `anchorQuote` is never rendered as visible text on live routes; it is used only as URL fragment metadata for "Open at source" deep links. The hardcoded demo content on `MethodologyPage` is the only exception and is intentionally illustrative.
+- [ ] Landing page hero suggested questions are read from `projects.suggestedPrompts` (not hardcoded)
+- [ ] Assistant role name displayed in chat UI is read from `projects.assistantRoleName` (not hardcoded)
 - [ ] Desktop-only redirect works correctly below 1024px
-- [ ] No hardcoded personal data or API keys in the frontend build
+- [ ] No hardcoded personal data, domain-specific copy, or API keys in the frontend build
 
 ### GitHub repo
-- [ ] `README.md` explains what the project is, who it is for, and links to curatemind.io
-- [ ] Setup guide walks through: clone → Convex project creation → `.env.local` → first ingestion
+- [ ] `README.md` explains what the project is, who it is for, links to curatemind.io, and includes the "Customizing Curate Mind for your own research" section
+- [ ] `CLAUDE.md` and `AGENTS.md` no longer contain hardcoded owner or domain content; both point AI assistants at `cm_get_project_profile` for project-specific facts
+- [ ] `Architecture_Spec.md` reflects the renamed stages, the three-band response shape, and the retired Reader persona (per Section 14 of the customization design proposal)
+- [ ] `Design_Decisions_Log.md` includes amendments to Decisions 13, 19, 20, and new Decisions 33, 34, 35, 36
+- [ ] Setup guide walks through: clone → Convex project creation → `.env.local` → paste the initial setup prompt into your AI assistant → first ingestion
 - [ ] `LICENSE` file present (MIT)
 - [ ] No `.env.local` or secrets committed to the repo
 - [ ] `mcp/src/lib/jina.ts` is either removed or clearly marked as unused
@@ -161,10 +200,18 @@ These rules apply to every agent working on this project. Do not deviate without
 - If an agent makes an error, recovery is always by reverting a pointer — never by deleting records.
 
 **Extraction pipeline — never break these:**
-- Do not load the Research Lens during Pass 1 or Pass 2. Only Pass 3 uses it.
-- Do not assign tags during Pass 1. Tags are assigned in Pass 3 with a holistic view of all data points.
-- Do not use `cm_search` for evidence linking — use `cm_get_data_points_by_tag`. Semantic search returns embedding vectors that blow out context windows.
-- Do not use `cm_search` to answer analyst questions that require cited sources. Use `cm_ask` — it returns positions first, then grounded evidence with resolved source links.
+- Do not load the Research Lens during the Extract or Secondary Capture stages. Only the Enrich stage uses it.
+- Do not assign tags during Extract. Tags are assigned during Enrich with a holistic view of all data points from the source.
+- Secondary Capture is optional and per-project. If the project profile has `secondaryCaptureEnabled: false`, skip the stage entirely. If enabled, run it in its own sub-agent with a clean context window (fresh re-fetch of source text).
+- Do not hardcode "mental models" or any other capture type in skills or prompts. Read `secondaryCaptureLabel` and `secondaryCaptureDescription` from the project profile.
+- Do not use the old "Pass 1 / Pass 2 / Pass 3 / Pass 4" or "Layer 1 / 2 / 3 / 4" language in any user-facing text (skill openings, MCP tool descriptions, prompts, web copy). Use the renamed stages (Extract, Secondary Capture, Enrich, Review) and the three response bands (Stance, Evidence, Source). Internal code identifiers are exempt.
+- Do not use `cm_search` for evidence linking. Use `cm_get_data_points_by_tag`. Semantic search returns embedding vectors that blow out context windows.
+- Do not use `cm_search` to answer analyst questions that require cited sources. Use `cm_ask`, which returns the three-band Stance/Evidence/Source pack with resolved source links.
+
+**Customization layer — never break these:**
+- Do not hardcode owner identity, domain, audience, vocabulary, persona name, suggested prompts, or writing style anywhere in code, skills, or prompts. All of these come from the project profile or the user preferences singleton at runtime.
+- Do not edit or expose tools that mutate locked prompt blocks. Locked is locked.
+- Do not bypass `cm_validate_profile` checks when updating profiles through MCP tools.
 
 **Frontend — follow these exactly:**
 - Do not add new pages or components unless explicitly asked.
