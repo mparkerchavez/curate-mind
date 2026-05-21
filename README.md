@@ -12,12 +12,24 @@ The `web/` directory contains the source for curatemind.io. It is included for t
 
 ## How it works
 
-1. You drop markdown files into the repo (one source per file).
+1. You capture sources as reviewed markdown, using manual files or the MCP intake tools.
 2. You invoke a Curate Mind skill in your MCP host (for example, `cm-deep-extract` or `cm-batch-orchestrator`).
 3. The skill orchestrates the four-stage extraction workflow: Extract with verbatim anchors and source synthesis, optional Secondary Capture, Enrich with tags and confidence, and Review by exception. Sub-agents write directly to your Convex database.
 4. You query the foundation through MCP tools (`cm_get_themes`, `cm_search`, `cm_get_position_detail`, and others) from any MCP-compatible client.
 
 The MCP server is the primary interface. The web demo is a public view of one curated knowledge base.
+
+## Source intake options
+
+Curate Mind supports several ways to turn research into reviewed markdown before it enters Convex:
+
+- **Already-clean markdown or pasted text:** use `cm_add_source` with `reviewed=true`.
+- **Articles and web pages:** use `cm_fetch_url`. Requires Supadata.
+- **YouTube videos:** use `cm_fetch_youtube`. Requires Supadata.
+- **Local PDFs:** use `cm_extract_pdf`. Uses local Python extraction with `pypdf`, `docling`, or `docling_ocr`.
+- **Mobile or quick capture:** use Claude Dispatch, when available in your workflow, to call the same MCP fetch tools and save markdown for later review.
+
+Read [docs/source-intake-guide.md](docs/source-intake-guide.md) for setup requirements, vendor dependencies, and copy-paste prompts for each intake path. If you want an AI assistant to configure and test intake with you, use [prompts/setup_source_intake.md](prompts/setup_source_intake.md).
 
 ## Customizing Curate Mind for your own research
 
@@ -51,7 +63,9 @@ Four skills do the orchestration work. Your MCP host follows them as workflow in
 
 ## Requirements
 
-You need a Convex account (free tier works), an OpenAI API key, and Node.js 18 or higher. Set these four environment variables in `.env.local`:
+You need a Convex account (free tier works), an OpenAI API key, and Node.js 18 or higher. Supadata is required for article and YouTube intake. Python PDF dependencies are required only if you want PDF intake.
+
+Set these four environment variables in `.env.local`:
 
 | Variable | Purpose |
 |----------|---------|
@@ -59,6 +73,12 @@ You need a Convex account (free tier works), an OpenAI API key, and Node.js 18 o
 | `OPENAI_API_KEY` | OpenAI key for embeddings (`text-embedding-3-small`). Powers semantic search. |
 | `SUPADATA_API_KEY` | Supadata key for URL scraping and YouTube transcripts. Required when testing or using the MCP fetch tools; optional if you only ingest markdown files you create manually. |
 | `CURATE_MIND_PATH` | Absolute path to this repo on your machine. Used by the MCP server when it writes intake files to `sources/`. |
+
+For PDF intake, install the local Python dependencies:
+
+```bash
+python3 -m pip install -r mcp/requirements.txt
+```
 
 ## Future work
 
