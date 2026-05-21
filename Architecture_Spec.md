@@ -21,18 +21,17 @@ The system is built on a single principle: **build a robust foundation, generate
 
 The foundation is the persistent, always-maintained knowledge structure. It consists of six entity types (detailed below) that are curated, versioned, and queryable. Everything else, talking points, LinkedIn posts, presentations, client briefs, trend reports, weekly summaries, is generated on demand by prompting against the foundation. No maintained deliverables. No documents that go stale.
 
-### 2. Progressive Disclosure (Analysis, Not Extraction)
+### 2. Response Bands (Analysis, Not Extraction)
 
-When querying the knowledge base, the system defaults to the highest level of compression and drills deeper only when the user requests it:
+When querying the knowledge base, the system defaults to the highest level of compression and drills deeper only when the user requests it. The old four-layer progressive disclosure language is deprecated; the current answer shape uses three bands:
 
-- **Layer 1 — Themes & Positions:** Research Themes (5-8 macro areas) and Research Positions (specific theses with current stance and confidence). Most queries are answered here.
-- **Layer 2 — Evidence:** The data points, curator observations, and mental models that support or challenge a position. Accessed when a claim needs support or stress-testing.
-- **Layer 3 — Verification:** Verbatim anchor quotes and extraction notes. Accessed when exact wording or source fidelity needs confirmation.
-- **Layer 4 — Full Source:** Original source text and files. Accessed rarely, when the full context of a source is needed beyond what was extracted.
+- **Stance:** Research Themes and Research Positions: what the project currently says about the question. Most queries are answered here first.
+- **Evidence:** Data points, curator observations, and secondary items such as mental models that support or challenge the stance. Evidence items carry anchor quotes as metadata for source deep links, but public routes do not render the quote text visibly.
+- **Source:** Provenance metadata: title, author, publisher, date, canonical URL, and resolved links to the original source. MCP tools can fetch full source text for the curator when needed.
 
-Progressive disclosure applies to how data is queried and surfaced. It does **not** apply to extraction. Every source that enters the pipeline receives full-fidelity extraction.
+Response bands apply to how data is queried and surfaced. They do **not** apply to extraction. Every source that enters the pipeline receives full-fidelity extraction.
 
-**`cm_ask` implements progressive disclosure server-side.** The `cm_ask` MCP tool fetches all layers in a single call and returns a structured analyst pack: Layer 1 positions first (the curator's current stance on the topic), then Layer 2 evidence (curator observations, mental models, and data points with resolved source links), with Layer 3 verbatim anchor quotes included in the pack for verification on demand. Every substantive claim in the pack carries an inline citation label: `[P#]` for positions, `[O#]` for observations, `[M#]` for mental models, `[E#]` for data point evidence. This is the primary tool for analyst queries. See Design Decision 31 for why it exists as a separate tool from `cm_search`.
+**`cm_ask` implements the response-band shape server-side.** The `cm_ask` MCP tool fetches the relevant material in a single call and returns a structured pack: positions first (the current stance on the topic), then supporting evidence (curator observations, secondary items, and data points with resolved source links), with anchor quotes included as verification metadata. Every substantive claim in the pack carries an inline citation label: `[P#]` for positions, `[O#]` for observations, `[M#]` for mental models, `[E#]` for data point evidence. This is the primary tool for cite-and-trace queries. See Design Decision 31 for why it exists as a separate tool from `cm_search`.
 
 ### 3. Append-Only Data Architecture
 
@@ -46,48 +45,30 @@ Nothing is deleted. Nothing is overwritten. Every change creates a new record.
 
 ### 4. Full-Fidelity Extraction
 
-Every source that enters the pipeline receives thorough extraction regardless of source tier. The tier affects how data points are weighted in analysis and synthesis, not whether they are extracted thoroughly. Data points are abstractions of the original source. They must be captured at sufficient fidelity that the Analyst does not need to return to the original source under normal conditions.
+Every source that enters the pipeline receives thorough extraction regardless of source tier. The tier affects how data points are weighted in analysis and synthesis, not whether they are extracted thoroughly. Data points are abstractions of the original source. They must be captured at sufficient fidelity that the curator does not need to return to the original source under normal conditions.
 
 ### 5. Convex as Source of Truth (No Local File Dependencies)
 
 All source content and files are stored in Convex. The system has no dependency on local file paths after ingestion.
 
-- **Source text:** The `fullText` field on every source record contains the complete text content. This is what the extraction pipeline reads from and what the Analyst queries at Layer 4.
+- **Source text:** The `fullText` field on every source record contains the complete text content. This is what the extraction pipeline reads from and what curator-facing MCP tools can fetch when full context is needed.
 - **Original files (Tier 1 and Tier 2 PDFs):** Uploaded to Convex file storage during ingestion. Preserves charts, tables, and visual layouts that plain text cannot capture. Referenced via `storageId` on the source record.
 - **Tier 3 and markdown sources:** Fully captured by `fullText`. No original file upload needed.
 - **Local `sources/` folder:** Functions as a working inbox. New sources land here when downloaded or saved. After ingestion into Convex, the local file has served its purpose. The local folder is a convenience, not a dependency.
 
-This means: if the local folder disappeared, nothing would be lost. The MCP reads from Convex. The extraction pipeline reads from Convex. The Analyst queries Convex. The system is portable across machines.
+This means: if the local folder disappeared, nothing would be lost. The MCP reads from Convex. The extraction pipeline reads from Convex. Curator queries read from Convex. The system is portable across machines.
 
 ---
 
-## User Personas
+## User Access Model
 
-### Research Persona (Maicol)
+### Curator
 
-The curator. Uploads sources, tracks the processing pipeline, ensures extraction quality, writes curator observations, captures mental models. This persona controls what enters the system and at what quality bar.
+The curator uploads sources, tracks the processing workflow, ensures extraction quality, writes curator observations, captures secondary items, and queries the knowledge base for analysis. This is the single full-access tier.
 
-**Needs:** Efficient intake workflow. Full pipeline visibility. Ability to review and annotate at every stage. Iteration on extraction quality over time.
+**Needs:** Efficient intake workflow. Full workflow visibility. Ability to review and annotate at every stage. Cross-referencing across time. Semantic search across all entity types. Ability to verify any claim against source metadata and, when needed, full source text.
 
-**Interface:** MCP (full access to all tools).
-
-### Analyst Persona (Maicol)
-
-The power user. Queries the knowledge base to analyze new projects, opportunities, and external context against curated research. Needs full traceability: claim to data point to interpretation to verbatim text to original source.
-
-**Needs:** Progressive disclosure navigation. Cross-referencing across time (3-6 months). Semantic search across all entity types. Ability to verify any claim down to the original source.
-
-**Interface:** MCP (full access, all layers of progressive disclosure).
-
-### Reader Persona (Others)
-
-External users who query the curated knowledge base. Can see Research Positions, data points (claim + interpretation + source metadata), and Mental Models. Cannot see verbatim anchor quotes or original source text. Directed to source URLs for independent verification.
-
-**Needs:** Natural language query interface. Evidence-grounded responses. Clear source attribution with URLs. Transparent about what's curator interpretation vs. external evidence.
-
-**Interface:** Authenticated REST API (filtered view) + LLM wrapper (Claude Project, Custom GPT, or similar). Secondary priority; built after the foundation is validated for the Research and Analyst personas.
-
-**Access boundary:** The Reader can access everything through Layer 2 (Evidence) of progressive disclosure, but Layer 3 (Verification: verbatim quotes) and Layer 4 (Full Source: original text/files) are restricted to the Analyst persona only.
+**Interface:** MCP with full access to all tools. Public web routes may expose synthesized stance, evidence, and source links, but the MCP remains the primary interface for full-fidelity research work.
 
 ---
 
@@ -120,14 +101,14 @@ The provenance record for every piece of external content that enters the system
 | sourceType | article, report, podcast, video, etc. | Required |
 | tier | 1 (primary research), 2 (informed analysis), 3 (commentary) | Required |
 | intakeNote | Curator's reason for adding this source | Optional (sometimes it's a gut feeling) |
-| urlAccessibility | public, paywalled, private | Required (informs Reader experience) |
-| fullText | Complete source text (extracted from PDF, fetched from URL, or pasted) | Required. Stored in Convex. For Analyst access only; omitted from Reader API. |
+| urlAccessibility | public, paywalled, private | Required (informs source-link behavior) |
+| fullText | Complete source text (extracted from PDF, fetched from URL, or pasted) | Required. Stored in Convex. Available through curator-facing MCP tools; not rendered on public routes. |
 | contentHash | SHA256 for deduplication | Auto-generated |
 | storageId | Reference to original file in Convex file storage | Upload for Tier 1 and Tier 2 PDFs (preserves visual layout). Optional for all others. |
 | wordCount | Word count of fullText | Auto-generated |
 | sourceRelationships | References to related sources (derivative, responds-to, etc.) | Optional |
 | ingestedDate | When the source was added to the system | Auto-generated |
-| sourceSynthesis | 2-3 paragraph analytical summary of the source's argument, tensions, and implications. Written at end of Pass 1. | Optional. See Design Decision 21. |
+| sourceSynthesis | 2-3 paragraph analytical summary of the source's argument, tensions, and implications. Written at end of Extract. | Optional. See Design Decision 21. |
 | status | indexed, extracted, failed | Auto-managed by pipeline |
 
 ### 2. Data Points
@@ -139,13 +120,13 @@ The atomic unit of the entire system. Each data point represents a single curate
 | sourceId | Reference to parent source | Required |
 | dpSequenceNumber | Order within the source extraction | Auto-incremented |
 | claimText | The synthesized claim | Required |
-| anchorQuote | Verbatim 10-40 words from source (target 15-25). Capture the author's reasoning, not just the conclusion. | Required (Analyst-only access). See Design Decision 18. |
-| extractionNote | Why this DP matters; significance and context | Added in Pass 3 enrichment |
+| anchorQuote | Verbatim 10-40 words from source (target 15-25). Capture the author's reasoning, not just the conclusion. | Required. Used as verification metadata and source deep-link support. See Design Decisions 13 and 18. |
+| extractionNote | Why this DP matters; significance and context | Added during Enrich |
 | evidenceType | statistic, framework, prediction, case-study, observation, recommendation | Required |
-| confidence | strong, moderate, suggestive | Added in Pass 3 enrichment |
+| confidence | strong, moderate, suggestive | Added during Enrich |
 | locationType | paragraph, page, timestamp, section | Required |
 | locationStart | Location reference within source | Required |
-| relatedDataPoints | Array of DP IDs from the same source that form an argument chain | Optional, added in Pass 3 |
+| relatedDataPoints | Array of DP IDs from the same source that form an argument chain | Optional, added during Enrich |
 | extractionDate | When this DP was extracted | Auto-generated |
 | embedding | 1536-dim vector (OpenAI text-embedding-3-small) | Auto-generated |
 | tags | Linked via junction table (dataPointTags) | Required (at least 1) |
@@ -251,21 +232,19 @@ Regenerated weekly after position updates. Exception trigger: when extraction fl
 
 ## Extraction Pipeline
 
-*See Design Decisions 19 (four-pass pipeline) and 20 (sub-agent architecture) for full reasoning.*
+*See Design Decisions 19 (four-stage pipeline) and 20 (sub-agent architecture) for full reasoning.*
 
 ### Overview
 
-Every source goes through a four-pass pipeline. Each pass handles one focused cognitive task and runs as a separate sub-agent with its own context window. Sources are processed one at a time. Sub-agents write directly to Convex; the orchestrator receives only compact summaries. Convex is the communication channel between passes, not the context window.
+Every source goes through a four-stage workflow. Each machine-led stage handles one focused cognitive task and runs with its own bounded context window. Sources are processed one at a time. Sub-agents write directly to Convex; the orchestrator receives only compact summaries. Convex is the communication channel between stages, not the context window.
 
-### Document Preparation (within Pass 1)
+### Extract: Document Preparation and Core Extraction (Sub-agent A)
 
-Before extraction, Pass 1 classifies the document and determines processing strategy:
+Extract begins by classifying the document and determining processing strategy:
 
 - **Under 15,000 words:** Process as a single unit (most articles, newsletters)
 - **15,000–30,000 words:** Process in 2 chunks, split at natural section breaks
 - **Over 30,000 words:** Process in chunks of ~10,000 words at section breaks
-
-### Pass 1: Core Extraction (Sub-agent A)
 
 **Cognitive task:** Comprehension and precision.
 
@@ -275,39 +254,39 @@ Before extraction, Pass 1 classifies the document and determines processing stra
 
 **Also produces:** A 2-3 paragraph source synthesis — an analytical summary of the source's argument, key tensions, and strategic implications. Stored on the source record (`sourceSynthesis` field). This preserves document-level context that individual DPs cannot capture.
 
-**Does NOT receive:** The Research Lens. No tags. No mental model scanning. One job only.
+**Does NOT receive:** The Research Lens. No tags. No Secondary Capture. One job only.
 
 **Writes to Convex:** Data points (via `cm_save_data_points`), source synthesis (via `cm_save_source_synthesis`).
 
-### Pass 2: Mental Model Scan (Sub-agent B)
+### Secondary Capture: Optional Project-Configured Scan (Sub-agent B, when enabled)
 
 **Cognitive task:** Pattern recognition and synthesis.
 
-**Inputs:** Full source text (fresh re-read, clean context window). Pass 1 DP list (for cross-referencing).
+**Inputs:** Full source text (fresh re-read, clean context window). Extract data point list for cross-referencing.
 
-**Outputs:** Mental model candidates — title, type (framework/analogy/term/metaphor/principle), description, related DP. Typically 0-5 per source.
+**Outputs:** Secondary item candidates based on the active project profile. The default captures mental models: title, type (framework/analogy/term/metaphor/principle), description, related DP. Custom projects can use a different `secondaryCaptureLabel` and `secondaryCaptureDescription`, or disable the stage entirely.
 
-**Does NOT write to Convex.** Output is small enough to pass directly to Pass 3 as input. Mental models are finalized and saved by Pass 3, which has the Research Lens context to check for duplicates.
+**Does NOT write to Convex directly.** Output is small enough to pass directly to Enrich as input. Mental models or custom secondary items are finalized and saved by Enrich, which has the Research Lens context to check for duplicates and relevance.
 
-### Pass 3: Enrichment (Sub-agent C)
+### Enrich (Sub-agent C)
 
 **Cognitive task:** Judgment and evaluation.
 
-**Inputs:** DPs retrieved from Convex (not from Pass 1's context). Mental model candidates from Pass 2. Source metadata and source synthesis from Convex. The current Research Lens from Convex.
+**Inputs:** Data points retrieved from Convex (not from Extract's context). Secondary Capture candidates when enabled. Source metadata and source synthesis from Convex. The current Research Lens from Convex.
 
 **Outputs per data point:** Tags (1-4, assigned with holistic view of all DPs), confidence signal (strong/moderate/suggestive), extraction note (why this DP matters, connections to research), related DP links.
 
-**Also creates:** Mental Model records (finalized from Pass 2 candidates, deduplicated against Research Lens).
+**Also creates:** Mental Model records or custom secondary item records, finalized from Secondary Capture candidates and deduplicated against the Research Lens when applicable.
 
 **Flags for curator review:** Confidence mismatches (Tier 1 + suggestive, Tier 3 + strong), position contradictions, anchor concerns, novel signals.
 
-**Writes to Convex:** Tag assignments (via `cm_update_data_point_tags`), enrichment (via `cm_enrich_data_point`), mental models (via `cm_add_mental_model`).
+**Writes to Convex:** Tag assignments (via `cm_update_data_point_tags`), enrichment (via `cm_enrich_data_point`), mental models (via `cm_add_mental_model`), or custom secondary items.
 
-### Pass 4: Curator Review (Main conversation)
+### Review (Main conversation)
 
 **Cognitive task:** Human-in-the-loop quality check. Review by exception.
 
-**Inputs:** Aggregated flags from Pass 3 (across one or many sources in batch mode).
+**Inputs:** Aggregated flags from Enrich (across one or many sources in batch mode).
 
 **Curator actions:** Approve, adjust confidence, edit extraction note, flag for re-extraction, add a Curator Observation, flag a Research Position for update.
 
@@ -321,9 +300,9 @@ Before extraction, Pass 1 classifies the document and determines processing stra
 
 ### Two Operating Modes
 
-**Batch mode** (`cm-batch-orchestrator` + `cm-curator-review`): For weekly volume. Sub-agents process silently. Curator only engages at Pass 4. Designed for 40+ sources/week.
+**Batch mode** (`cm-batch-orchestrator` + `cm-curator-review`): For volume processing. Sub-agents process silently. Curator engages during Review. Designed for 40+ sources/week.
 
-**Deep mode** (`cm-deep-extract`): For Tier 1 reports and pipeline calibration. Interactive single-source extraction where curator observes and approves at every step. 15-30 minutes per source.
+**Deep mode** (`cm-deep-extract`): For Tier 1 reports and pipeline calibration. Interactive single-source extraction where curator observes and approves at every stage. 15-30 minutes per source.
 
 ---
 
@@ -346,19 +325,19 @@ A lightweight single-page React app for rapid source classification:
 The `cm-batch-orchestrator` skill manages batch processing:
 
 - Takes a list of sources (or "all indexed in project")
-- For each source, spawns two sequential sub-agents: Sub-agent 1 runs Pass 1 and Pass 2, then Sub-agent 2 runs Pass 3
+- For each source, spawns focused sub-agents: Extract, Secondary Capture when enabled, then Enrich
 - Each sub-agent writes directly to Convex and returns a compact summary
-- Collects all flags across sources for consolidated Pass 4 review
+- Collects all flags across sources for consolidated Review
 - Handles failures: log, skip, continue, report
 - Tracks progress after every 3-5 sources
 - Suggests session breaks after ~15-20 sources (context window hygiene)
 
 ### Model Selection for Cost Optimization
 
-- **Pass 1 (extraction):** Sonnet-tier model. Precision task (structured extraction, verbatim quotes).
-- **Pass 2 (mental model scan):** Sonnet-tier model. Pattern recognition task. Lightweight.
-- **Pass 3 (enrichment):** Opus-tier model. Judgment task (assessing significance, connecting to research lens). Benefits from deeper reasoning.
-- **Pass 4 (curator review):** Any model. Interactive, low compute.
+- **Extract:** Sonnet-tier model. Precision task (structured extraction, verbatim quotes).
+- **Secondary Capture:** Sonnet-tier model. Pattern recognition task. Lightweight and optional.
+- **Enrich:** Opus-tier model. Judgment task (assessing significance, connecting to Research Lens). Benefits from deeper reasoning.
+- **Review:** Any model. Interactive, low compute.
 
 ### Deduplication
 
@@ -373,28 +352,28 @@ When reprocessing sources that were previously extracted:
 
 ## MCP Tool Architecture (Curate Mind v1)
 
-### Research Persona Tools (Intake & Extraction)
+### Intake & Extraction Tools
 
 | Tool | Description |
 |------|-------------|
 | `add_source` | Ingest a source from URL, file, or text. Extracts and stores fullText in Convex. Uploads original file to Convex file storage for Tier 1/2 PDFs. Requires: title, sourceType, tier. Optional: intakeNote, sourceRelationships, urlAccessibility. |
-| `extract_source` | Retrieve source text and metadata for Pass 1 extraction. The active skills orchestrate the four-pass pipeline and return progress or flagged items for curator review. |
+| `extract_source` | Retrieve source text and metadata for Extract. The active skills orchestrate the four-stage workflow and return progress or flagged items for curator review. |
 | `add_curator_observation` | Create a new Curator Observation, linking it to data points and/or positions. |
-| `add_mental_model` | Create a new Mental Model record (can also be created automatically during Pass 2). |
+| `add_mental_model` | Create a new Mental Model record (can also be created automatically when Secondary Capture uses the default mental-model configuration). |
 
-### Analyst Persona Tools (Query & Analysis)
+### Query & Analysis Tools
 
-The analyst tools operate in two distinct modes. **Mode 1 (`cm_search`)** is for exploration and signal-finding — scanning the corpus for emerging patterns, pressure-testing a brief, or doing early corpus work before positions exist. **Mode 2 (`cm_ask`)** is for rigorous cited analysis — producing answers traceable from position stance to data point to verbatim source. See Design Decision 31.
+The query tools operate in two distinct modes. **Mode 1 (`cm_search`)** is Explore & Synthesize: scanning the corpus for emerging patterns, pressure-testing a brief, or doing early corpus work before positions exist. **Mode 2 (`cm_ask`)** is Cite & Trace: producing cited answers traceable from position stance to evidence and source provenance. See Design Decision 31.
 
 | Tool | Description |
 |------|-------------|
-| `cm_ask` | **Mode 2 — Analyst query with progressive disclosure.** Fetches a structured pack: positions first (Layer 1, curator's current stance), then curator observations, mental models, and data points with resolved source links (Layer 2), with verbatim anchor quotes available in the pack for verification (Layer 3). Returns `[P#]`, `[O#]`, `[M#]`, `[E#]` citation labels on every claim. Use for any question requiring a cited, traceable answer. |
-| `get_themes` | Return all Research Themes with position counts and summary stats. (Layer 1) |
-| `get_positions` | Return positions within a theme, or all positions matching a filter. Current stance, confidence, status. (Layer 1) |
-| `get_position_detail` | Return a position with all linked evidence, counter-evidence, observations, mental models, and version history. (Layer 2) |
-| `get_data_point` | Return a single DP with full detail including anchor quote and extraction note. (Layer 3) |
-| `get_source_text` | Return the full text of a source. (Layer 4) |
-| `cm_search` | **Mode 1 — Exploration and signal-finding.** Semantic vector search across data points, positions, observations, and mental models. Use for scanning emerging signals, pressure-testing a brief, or exploring the corpus when positions don't yet exist. Do not use for producing cited analyst answers — source links in `cm_search` results are not resolved. |
+| `cm_ask` | **Mode 2 — Cite & Trace.** Fetches a structured pack: positions first (Stance), then curator observations, secondary items, and data points with resolved source links (Evidence), plus source provenance and anchor metadata for verification (Source). Returns `[P#]`, `[O#]`, `[M#]`, `[E#]` citation labels on every claim. Use for any question requiring a cited, traceable answer. |
+| `get_themes` | Return all Research Themes with position counts and summary stats. (Stance) |
+| `get_positions` | Return positions within a theme, or all positions matching a filter. Current stance, confidence, status. (Stance) |
+| `get_position_detail` | Return a position with all linked evidence, counter-evidence, observations, mental models, and version history. (Evidence) |
+| `get_data_point` | Return a single DP with full detail including anchor quote and extraction note. (Evidence + Source metadata) |
+| `get_source_text` | Return the full text of a source. (Curator-only full source context) |
+| `cm_search` | **Mode 1 — Explore & Synthesize.** Semantic vector search across data points, positions, observations, and mental models. Use for scanning emerging signals, pressure-testing a brief, or exploring the corpus when positions don't yet exist. Do not use for producing cited answers — source links in `cm_search` results are not resolved. |
 | `get_data_points_by_tag` | Retrieve all DPs linked to a specific tag by slug. Returns clean data (ID, claim, evidence type, confidence, source title, source tier) without embeddings. Primary tool for building evidence pools during evidence linking. See Evidence Linking Pattern below. |
 | `get_tag_trends` | Return tag frequency over time periods. Identifies emerging and growing topics. |
 | `get_position_history` | Return all versions of a position with diffs. Supports the 3-6 month cross-referencing use case. |
@@ -419,9 +398,9 @@ The analyst tools operate in two distinct modes. **Mode 1 (`cm_search`)** is for
 
 After extraction is complete for a batch of sources, data points exist in Convex but are not yet connected to Research Positions. Evidence linking is the process of reviewing extracted DPs and adding them to positions' `supportingEvidence` or `counterEvidence` arrays. This is a separate phase from extraction and runs between extraction waves.
 
-### Three-Pass Workflow
+### Three-Step Workflow
 
-| Pass | Actor | Tool | Purpose |
+| Step | Actor | Tool | Purpose |
 |------|-------|------|---------|
 | 1. Tag Retrieval | Agent | `cm_get_data_points_by_tag` | Pull candidate DPs using 2-4 relevant tags per theme. Returns clean data without embeddings. |
 | 2. Curator Triage | Curator | Conversation | Review candidates. Classify each DP as: supporting, counter-evidence, or skip. |
@@ -441,20 +420,7 @@ After extraction is complete for a batch of sources, data points exist in Convex
 
 ### When to Run
 
-Evidence linking runs between extraction waves — after a batch of sources has been extracted (Passes 1-4) and before the next batch begins. It can also run after all extraction is complete for a comprehensive pass.
-
----
-
-### Reader Persona API (Authenticated REST, Phase 2)
-
-Filtered subset of Analyst tools. Returns all data except:
-- `anchorQuote` on data points (omitted)
-- `fullText` on sources (omitted)
-- `storageId` on sources (omitted)
-- Layer 3 and Layer 4 access (restricted)
-
-Adds:
-- Query logging (timestamp, query text, results returned) for understanding Reader usage patterns.
+Evidence linking runs between extraction waves — after a batch of sources has completed Extract, Secondary Capture when enabled, Enrich, and Review, and before the next batch begins. It can also run after all extraction is complete for a comprehensive pass.
 
 ---
 
@@ -548,8 +514,8 @@ All source content is stored in Convex after ingestion. The local `sources/` fol
 ### Phase 1: Schema & MCP (Build the foundation)
 
 1. Design and deploy new Convex schema to the new Convex project
-2. Build updated MCP tools for Research and Analyst personas
-3. Build extraction pipeline (Pass 1, Pass 2, Pass 3 orchestration)
+2. Build updated MCP tools for curator workflows
+3. Build extraction workflow (Extract, Secondary Capture, Enrich, Review orchestration)
 4. Build Research Lens generation
 
 ### Phase 2: Reprocess February (Validate the pipeline)
@@ -570,13 +536,13 @@ All source content is stored in Convex after ingestion. The local `sources/` fol
 4. Generate initial Research Lens
 5. Create Curator Observations that capture the connective insights from CRIS User Observations
 
-### Phase 4: Reader Access (Expose the foundation)
+### Phase 4: Public Access (Expose the foundation)
 
-1. Add authenticated HTTP endpoints to Convex (filtered view)
+1. Add public-safe HTTP endpoints to Convex if the web frontend needs a filtered API
 2. Add query logging
-3. Build first Reader interface (Claude Project or Custom GPT with API as tool)
+3. Build first public interface or LLM wrapper
 4. Test with 2-3 external users
-5. Iterate based on Reader usage patterns
+5. Iterate based on public usage patterns
 
 ---
 
@@ -586,11 +552,11 @@ All source content is stored in Convex after ingestion. The local `sources/` fol
 
 2. **Convex as sole backend:** All data lives in Convex. Should we build an export/backup strategy from day one?
 
-3. **Pass 1 model selection:** Is Sonnet sufficient for high-fidelity verbatim extraction on complex PDFs, or does extraction quality justify Opus for Tier 1 sources?
+3. **Extract model selection:** Is Sonnet sufficient for high-fidelity verbatim extraction on complex PDFs, or does extraction quality justify Opus for Tier 1 sources?
 
-4. **Research Lens size:** The lens needs to fit in Pass 3's context window alongside the extracted DPs. As positions grow, the lens grows. What's the compression strategy when positions exceed a manageable size?
+4. **Research Lens size:** The lens needs to fit in Enrich's context window alongside the extracted DPs. As positions grow, the lens grows. What's the compression strategy when positions exceed a manageable size?
 
-5. **Reader authentication model:** API keys? OAuth? Usage-based pricing? Deferred to Phase 4 but worth early consideration.
+5. **Public access model:** Static demo, API keys, OAuth, or another approach? Deferred to Phase 4 but worth early consideration.
 
 6. **Curator Observation as a connection:** When an observation references 5+ data points across multiple sources and positions, how should the search index handle it? Embed the full observation text, or create multiple embeddings for different facets?
 

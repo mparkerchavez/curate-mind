@@ -2,30 +2,51 @@
 
 A personal research curation system you run as an MCP server, with a queryable knowledge base for tracking a domain over time.
 
-Curate Mind ingests sources you collect, runs them through a four-pass extraction pipeline, and builds a structured, append-only foundation of data points, observations, mental models, and research positions. You query that foundation through an MCP-compatible chat app, and generate talking points, summaries, or analysis on demand. There are no maintained deliverable documents. The foundation is the product, and everything else is generated when you need it.
+Curate Mind ingests sources you collect, runs them through a four-stage extraction workflow, and builds a structured, append-only foundation of data points, observations, mental models, and research positions. You query that foundation through an MCP-compatible chat app, and generate talking points, summaries, or analysis on demand. There are no maintained deliverable documents. The foundation is the product, and everything else is generated when you need it.
 
 ## Live demo
 
 [curatemind.io](https://curatemind.io) shows what the system produces after a full extraction cycle on February 2026 AI research. It is a snapshot of the methodology, not a continuously updating feed.
 
-The `web/` directory contains the source for curatemind.io. It is included for transparency, not designed to be redeployed against your own Convex project. The frontend has demo-specific assumptions baked in: a hardcoded flagship position, AI-strategy-specific copy, and a single-deployment configuration. A configurable Reader frontend is on the roadmap; for v1, the MCP server is the interface.
+The `web/` directory contains the source for curatemind.io. It is included for transparency, not designed to be redeployed against your own Convex project. The frontend has demo-specific assumptions baked in: a hardcoded flagship position, AI-strategy-specific copy, and a single-deployment configuration. A configurable public frontend is on the roadmap; for v1, the MCP server is the interface.
 
 ## How it works
 
 1. You drop markdown files into the repo (one source per file).
 2. You invoke a Curate Mind skill in your MCP host (for example, `cm-deep-extract` or `cm-batch-orchestrator`).
-3. The skill orchestrates the four-pass extraction pipeline: core extraction with verbatim anchors and source synthesis, mental model scan, enrichment with tags and confidence, and curator review. Sub-agents write directly to your Convex database.
+3. The skill orchestrates the four-stage extraction workflow: Extract with verbatim anchors and source synthesis, optional Secondary Capture, Enrich with tags and confidence, and Review by exception. Sub-agents write directly to your Convex database.
 4. You query the foundation through MCP tools (`cm_get_themes`, `cm_search`, `cm_get_position_detail`, and others) from any MCP-compatible client.
 
-The MCP server is the primary interface. The web demo is a Reader view of one curated knowledge base.
+The MCP server is the primary interface. The web demo is a public view of one curated knowledge base.
+
+## Customizing Curate Mind for your own research
+
+Curate Mind separates the parts that should stay stable from the parts that should sound and behave like your research practice.
+
+**Locked method:** The extraction workflow, citation rules, append-only data model, and Explore versus Cite-and-Trace query protocol are part of the system method. They are intentionally not editable because they protect source fidelity, traceability, and recovery from agent mistakes.
+
+**Project profile:** Project-specific facts live in Convex: what you are researching, who the research is for, what time horizon matters, what vocabulary you prefer, which example questions appear in the web demo, and whether Secondary Capture is enabled.
+
+**User style:** Writing preferences are stored separately from any one project. This includes voice, structure, banned punctuation or phrases, hedging style, and other preferences that should follow you across projects.
+
+Customization happens through your own AI assistant using MCP tools. Paste one of the prompts below into Claude, Codex, or another MCP-compatible assistant connected to Curate Mind, and the assistant will read or update the profile for you.
+
+- [Initial setup](prompts/setup_initial.md) — first-run interview for project facts, Secondary Capture, writing style, and suggested questions.
+- [Re-customize for a different use case](prompts/setup_recustomize.md) — reset the project profile while preserving existing data and user style.
+- [Update writing style](prompts/edit_style.md) — change voice, structure, banned punctuation, phrases, or other style preferences.
+- [Update audience or scope](prompts/edit_audience.md) — adjust who the research is for or what time horizon matters.
+- [Change Secondary Capture](prompts/edit_secondary_capture.md) — turn the second capture stage off, keep the mental-model default, or define a different capture target.
+- [Update suggested questions](prompts/edit_suggested_prompts.md) — edit the example questions visitors see in the web demo.
+
+For a fresh install, start with [Initial setup](prompts/setup_initial.md). That prompt walks your assistant through the project profile, user style, and first-source handoff without requiring a settings page.
 
 ## What you get
 
 Four skills do the orchestration work. Your MCP host follows them as workflow instructions or slash commands, depending on the product.
 
 - **cm-batch-orchestrator** processes multiple sources by spawning sub-agents and coordinating the full pipeline across a queue.
-- **cm-deep-extract** runs interactive single-source extraction for high-value Tier 1 sources. The curator engages at each pass.
-- **cm-curator-review** runs Pass 4, the human-in-the-loop review of items flagged during extraction.
+- **cm-deep-extract** runs interactive single-source extraction for high-value Tier 1 sources. The curator engages at each stage.
+- **cm-curator-review** runs Review, the human-in-the-loop check of items flagged during extraction.
 - **cm-evidence-linker** connects extracted data points to research positions after an extraction wave.
 
 ## Requirements

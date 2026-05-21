@@ -1,9 +1,9 @@
 # Curate Mind
 
-**What this is:** A personal research curation system for tracking AI trends, extracting insights from sources, synthesizing research positions, and providing a queryable knowledge base.
+**What this is:** A personal research curation system for tracking a domain over time, extracting insights from sources, synthesizing research positions, and providing a queryable knowledge base.
 
-**Owner:** Maicol Parker-Chavez
-**Domain:** AI strategy, adoption, enterprise transformation, agentic workflows
+Project-specific facts do not live in this file. When an AI assistant needs the active project's domain, audience, time horizon, preferred vocabulary, suggested prompts, or Secondary Capture settings, fetch the project profile with `cm_get_project_profile` instead of assuming this repository's original AI-strategy use case.
+
 **Predecessor:** CRIS Research System (archived, see reference path below)
 
 ## Design system
@@ -57,19 +57,18 @@ Commit both files together if the check passes.
 1. **Sources** — Provenance records. fullText and sourceSynthesis stored in Convex. Original PDFs (Tier 1/2) in Convex file storage. No local file dependencies after ingestion.
 2. **Data Points** — Atomic claims from sources with verbatim anchors (10-40 words), confidence, extraction notes, tags. Immutable.
 3. **Curator Observations** — The curator's connective insights bridging data points and positions. Immutable.
-4. **Mental Models** — Frameworks, analogies, memorable terms. Captured in dedicated Pass 2. Immutable.
+4. **Mental Models** — Frameworks, analogies, memorable terms. Captured by the default Secondary Capture stage. Immutable.
 5. **Research Positions** — Versioned theses under Research Themes. Append-only versioning (new version row per update, previous versions preserved).
 6. **Tags** — Project-scoped flat vocabulary on data points. Powers retrieval and trend detection.
-7. **Research Lens** — Auto-generated system artifact from current positions. Used in Pass 3 enrichment.
+7. **Research Lens** — Auto-generated system artifact from current positions. Used during Enrich.
 
-### Progressive Disclosure (Analysis, Not Extraction)
+### Response Bands (Analysis, Not Extraction)
 
-- **Layer 1:** Themes & Positions (most queries answered here)
-- **Layer 2:** Evidence (data points, observations, mental models)
-- **Layer 3:** Verification (verbatim anchor quotes) — Analyst only
-- **Layer 4:** Full Source (original text/files) — Analyst only
+- **Stance:** Themes and positions. Most queries are answered here first.
+- **Evidence:** Data points, curator observations, and secondary items such as mental models. Anchor quotes travel as metadata for source deep links, not as public-facing copy.
+- **Source:** Provenance metadata and resolved source links. Full source text remains available through curator-facing MCP tools.
 
-Layers 3-4 are restricted from the Reader persona.
+The old four-layer language is deprecated. Use Stance, Evidence, and Source when describing answer shape.
 
 ### Phase 1 PDF Intake Flow
 
@@ -88,11 +87,11 @@ Guard: `cm_add_source` rejects any filename starting with `verify_` and any file
 
 ### Extraction Pipeline
 
-Four-pass, one source at a time. Each pass is a separate sub-agent with its own context window. Sub-agents write directly to Convex.
-- **Pass 1:** Core extraction (claims + anchors + source synthesis). No tags, no mental models, no Research Lens.
-- **Pass 2:** Mental model scan (frameworks, analogies, terms). Separate cognitive task from extraction.
-- **Pass 3:** Enrichment (tags, confidence, extraction notes, related DPs). Uses Research Lens + source synthesis. Saves mental models.
-- **Pass 4:** Curator review by exception (only flagged items).
+Four stages, one source at a time. Each machine-led stage runs in a focused context window. Sub-agents write directly to Convex.
+- **Extract:** Core extraction of claims, anchor quotes, and source synthesis. No tags, no Secondary Capture, no Research Lens.
+- **Secondary Capture:** Optional and project-configurable. The default captures mental models such as frameworks, analogies, and memorable terms. When enabled, it runs with a fresh read of the source.
+- **Enrich:** Adds tags, confidence, extraction notes, and related data point links. Uses the Research Lens and source synthesis. Finalizes default mental model captures or custom secondary items.
+- **Review:** Curator review by exception for flagged items.
 
 Two modes: **batch** (sub-agents process silently, curator reviews flags) and **deep** (interactive, curator engages at every step).
 
@@ -126,15 +125,15 @@ Use when: scanning new sources for signals, finding emerging narratives, pressur
 
 **Trigger phrases:** "what signals are emerging", "what does the corpus say about", "challenge this brief", "what patterns do you see", "help me think through".
 
-### Mode 2 — Analyst & Verify (`cm_ask`)
+### Mode 2 — Cite & Trace (`cm_ask`)
 
 Use when: the corpus has positions and the question requires a rigorous cited answer traceable to original sources.
 
-`cm_ask` implements progressive disclosure. Always follow this layer order in the response:
+`cm_ask` implements the response-band shape. Always follow this order in the response:
 
-1. **Layer 1 — Positions first.** What does Maicol currently think about this topic? Current stance is the starting point, not evidence.
-2. **Layer 2 — Evidence next.** Curator observations and mental models that connect claims to positions; data points as atomic grounding.
-3. **Layers 3–4 — Verification on demand.** Anchor quotes and resolved source links are included in the pack; surface them when a specific claim needs verification.
+1. **Stance first.** What does the project currently say about this topic? Current stance is the starting point, not raw evidence.
+2. **Evidence next.** Curator observations and secondary items that connect claims to positions; data points as atomic grounding.
+3. **Source on demand.** Resolved source links and provenance are included in the pack; use them when a specific claim needs verification.
 
 Every substantive claim in the answer should carry an inline label drawn from the analyst pack: `[P1]` for position stances, `[O1]` for observations, `[M1]` for mental models, `[E1]` for data point evidence.
 
@@ -148,11 +147,10 @@ Every substantive claim in the answer should carry an inline label drawn from th
 
 ---
 
-## User Personas
+## User Access Model
 
-- **Research Persona (Maicol):** Curates sources, runs extraction pipeline, writes observations. Full MCP access.
-- **Analyst Persona (Maicol):** Queries knowledge base for analysis. Full progressive disclosure access (Layers 1-4).
-- **Reader Persona (Others):** Queries knowledge base externally via the web frontend at curatemind.io. Layers 1-2 only. No verbatim quotes, no original source text. The web app is the Reader interface.
+- **Curator:** Runs intake, extraction, review, synthesis, and analysis. The curator has full MCP access, including source text and verification metadata.
+- **Public web visitors:** Use the demo frontend where available. Public routes should show synthesized stance, evidence, and source links, but not full source text.
 
 ---
 
@@ -169,7 +167,7 @@ Every substantive claim in the answer should carry an inline label drawn from th
 
 ## Web Frontend
 
-The frontend (`web/`) is a live demo site at curatemind.io. It serves two purposes: (1) a public-facing demo showing Maicol's February 2026 research, and (2) an open-source methodology showcase for GitHub visitors. The MCP is still the primary research interface — the frontend is the Reader interface.
+The frontend (`web/`) is a live demo site at curatemind.io. It serves two purposes: (1) a public-facing demo showing one configured research project, and (2) an open-source methodology showcase for GitHub visitors. The MCP is still the primary research interface.
 
 **Current pages and routes:**
 
@@ -205,8 +203,8 @@ The project owner is a citizen developer. The project owner works with Claude (C
 - Do not create maintained deliverable documents (weekly learnings, synthesis docs, talking points files). Everything is generated on demand.
 - Do not add new frontend pages or components unless explicitly asked. The frontend is in a defined state — additions require explicit instruction.
 - Do not add delete mutations to Convex. This is append-only.
-- Do not load the Research Lens during Pass 1 or Pass 2. Only Pass 3 (enrichment) uses it.
-- Do not assign tags during Pass 1 extraction. Tags are assigned in Pass 3 with a holistic view of all DPs.
+- Do not load the Research Lens during Extract or Secondary Capture. Only Enrich uses it.
+- Do not assign tags during Extract. Tags are assigned during Enrich with a holistic view of all DPs.
 - Do not store data in markdown files as a primary store. Convex is the source of truth.
 - Do not modify the CRIS Convex project or database. It is archived.
 - Do not use `cm_search` to answer analyst questions. It is an exploration tool only.

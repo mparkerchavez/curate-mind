@@ -120,6 +120,8 @@
 
 **Why:** Verbatim anchor quotes and original source text come from copyrighted sources (BCG reports, HBR articles, etc.). Serving these through an API to external users, especially commercially, raises copyright concerns. The Reader gets the curator's synthesized claim (which is original work) plus a pointer to the original source (URL, title, author, date) for verification. This is a cleaner legal position.
 
+**Amendment, May 20, 2026:** The Reader persona access matrix is retired. The system now has one full-access Curator tier, while public web routes act as a demo surface rather than a separate permissioned persona. The copyright mitigation remains: anchor quotes leave the server as verification metadata used for source deep-link URLs, not as visible public-route copy. Public surfaces can show Stance, Evidence, and Source links, but they do not render full source text.
+
 ---
 
 ## Decision 14: Position Version History Replaces Evolution Logs
@@ -191,23 +193,25 @@
 
 ---
 
-## Decision 19: Four-Pass Pipeline with Separated Cognitive Tasks
+## Decision 19: Four-Stage Pipeline with Separated Cognitive Tasks
 
-**What:** The extraction pipeline is restructured from three passes to four, with each pass handling one focused cognitive task:
+**What:** The extraction pipeline is structured as four stages, with each stage handling one focused cognitive task:
 
-| Pass | Name | Cognitive task |
-|------|------|----------------|
-| 1 | Core Extraction | Comprehension + precision — extract claims, write source synthesis |
-| 2 | Mental Model Scan | Pattern recognition — identify frameworks, analogies, terms |
-| 3 | Enrichment | Judgment + evaluation — confidence, extraction notes, tags, related DPs |
-| 4 | Curator Review | Human verification — review flags, approve, annotate |
+| Stage | Cognitive task |
+|------|----------------|
+| Extract | Comprehension + precision — extract claims, write source synthesis |
+| Secondary Capture | Pattern recognition — identify configurable secondary items. Default: mental models such as frameworks, analogies, and memorable terms. |
+| Enrich | Judgment + evaluation — confidence, extraction notes, tags, related DPs |
+| Review | Human verification — review flags, approve, annotate |
 
-**Why:** The original three-pass design bundled mental model flagging and tag assignment into Pass 1 alongside data point extraction. These are different cognitive modes that degrade each other when combined, especially on longer documents. Splitting them ensures each pass stays focused.
+**Why:** The original three-pass design bundled mental model flagging and tag assignment into the first extraction step alongside data point extraction. These are different cognitive modes that degrade each other when combined, especially on longer documents. Splitting them ensures each stage stays focused.
 
 Specific changes from the original three-pass design:
-- **Tagging moved from Pass 1 to Pass 3.** Tags assigned one-at-a-time during extraction are less consistent than tags assigned after seeing all DPs together. Pass 3 has a holistic view of the source's data points, which produces better tag assignments.
-- **Mental model scanning split into its own Pass 2.** This is a different kind of reading than data point extraction — it requires pattern recognition and synthesis rather than structured decomposition. Giving it a dedicated pass with a fresh read of the source text produces higher-quality mental model captures.
-- **Source synthesis added to end of Pass 1.** A 2-3 paragraph analytical summary of the source's argument, tensions, and implications. Preserves document-level context that individual DPs cannot capture. Travels with source metadata into Pass 3 to inform enrichment.
+- **Tagging moved from Extract to Enrich.** Tags assigned one-at-a-time during extraction are less consistent than tags assigned after seeing all DPs together. Enrich has a holistic view of the source's data points, which produces better tag assignments.
+- **Secondary Capture split into its own stage.** This is a different kind of reading than data point extraction — it requires pattern recognition and synthesis rather than structured decomposition. Giving it a dedicated stage with a fresh read of the source text produces higher-quality secondary captures.
+- **Source synthesis added to end of Extract.** A 2-3 paragraph analytical summary of the source's argument, tensions, and implications. Preserves document-level context that individual DPs cannot capture. Travels with source metadata into Enrich to inform enrichment.
+
+**Amendment, May 20, 2026:** Secondary Capture is now optional and project-configurable. Mental Models remain the default capture type, but a project can disable the stage or define a different secondary capture target through its project profile.
 
 **Date:** March 22, 2026
 
@@ -215,21 +219,23 @@ Specific changes from the original three-pass design:
 
 ## Decision 20: Sub-Agent Architecture with Direct Convex Writes
 
-**What:** In batch mode, each source is processed by two sequential sub-agents. Sub-agent 1 runs Pass 1 (core extraction) and Pass 2 (mental model scan) in one context so the source text is not fetched twice. Sub-agent 2 runs Pass 3 (enrichment). Each sub-agent writes results directly to Convex via MCP tools as it works and returns only compact summaries to the orchestrator. Pass 4 (curator review) runs in the main conversation with aggregated flags.
+**What:** In batch mode, each source is processed by focused sub-agents. Extract runs in one sub-agent. Secondary Capture, when enabled, runs in its own sub-agent with a fresh context window. Enrich runs in a later sub-agent. Each sub-agent writes results directly to Convex via MCP tools as it works and returns only compact summaries to the orchestrator. Review runs in the main conversation with aggregated flags.
 
 **Why:** The system needs to handle 40+ sources per week (February had 178 sources in 28 days). Processing at this scale requires that:
 
-1. **Each sub-agent gets a bounded context window.** A single agent running all three machine-led passes for a dense report accumulates the full source text, 25+ DP records, mental model candidates, and the Research Lens — the same cognitive overload problem the multi-pass design was created to solve. The two-sub-agent model keeps the source text available for Pass 2 while giving Pass 3 a fresh context with only the DP IDs, mental model candidates, source synthesis, and Research Lens it needs.
+1. **Each sub-agent gets a bounded context window.** A single agent running all three machine-led stages for a dense report accumulates the full source text, 25+ DP records, secondary capture candidates, and the Research Lens — the same cognitive overload problem the multi-stage design was created to solve. The staged sub-agent model gives Secondary Capture a fresh read of the source while giving Enrich a fresh context with only the DP IDs, secondary candidates, source synthesis, and Research Lens it needs.
 
 2. **The orchestrator's context stays lean.** If sub-agents returned full DP records, the orchestrator would be holding summaries of thousands of data points. By writing to Convex and returning only compact summaries, the orchestrator can track dozens of sources without context window pressure.
 
-3. **Later passes read from Convex, not from the orchestrator.** Pass 3 (enrichment) retrieves the DPs from Convex that Pass 1 saved, rather than inheriting full records through the orchestrator. This is the key architectural pattern — Convex is the communication channel between extraction and enrichment, not the orchestrator context window.
+3. **Later stages read from Convex, not from the orchestrator.** Enrich retrieves the DPs from Convex that Extract saved, rather than inheriting full records through the orchestrator. This is the key architectural pattern — Convex is the communication channel between extraction and enrichment, not the orchestrator context window.
 
-**Exception: Pass 2 (mental model scan) output is small enough (0-5 candidates, ~20-30 lines) to pass directly to Pass 3 as input rather than saving to Convex first. Mental models are finalized and saved to Convex by Pass 3, which has the Research Lens context to check for duplicates.**
+**Exception: Secondary Capture output is small enough (0-5 candidates, ~20-30 lines) to pass directly to Enrich as input rather than saving to Convex first. Mental models or custom secondary items are finalized and saved to Convex by Enrich, which has the Research Lens context to check for duplicates.**
 
 **Two operating modes:**
-- **Batch mode** (cm-batch-orchestrator + cm-curator-review): Sub-agents process sources silently, curator only engages at Pass 4. For weekly volume, Tier 2-3 sources.
-- **Deep mode** (cm-deep-extract): Interactive single-source extraction where curator observes and engages at every pass. For Tier 1 reports and pipeline calibration.
+- **Batch mode** (cm-batch-orchestrator + cm-curator-review): Sub-agents process sources silently, curator engages during Review. For volume processing, Tier 2-3 sources.
+- **Deep mode** (cm-deep-extract): Interactive single-source extraction where curator observes and engages at every stage. For Tier 1 reports and pipeline calibration.
+
+**Amendment, May 20, 2026:** This reverses the earlier optimization that combined Extract and Secondary Capture in one sub-agent. Secondary Capture now runs in its own clean context window when enabled. Because Secondary Capture can be disabled per project, only projects that need it pay the extra source-text load.
 
 **Date:** March 22, 2026
 
@@ -415,6 +421,54 @@ Allowed mutation types (with justification required):
 **Relationship to Decision 5:** This is a deliberate carve-out, not a repeal. The system still does not rewrite claims, delete evidence, or mutate position history. It allows a small set of verification and attribution fields to be corrected while preserving the previous value in an append-only audit table.
 
 **Date:** May 15, 2026
+
+---
+
+## Decision 33: Secondary Capture as a Customizable Stage
+
+**What:** Secondary Capture is project-configurable. Projects can keep the default Mental Models capture, disable the stage, or define a custom secondary capture target with a label and free-text description.
+
+**Why:** Mental model scanning is valuable for the original Curate Mind corpus, but open-source users may care more about other recurring items: decision points, methodology limitations, dollar amounts, named products, risks, or quotations. Locking the second stage to mental models forces every project into one cognitive shape. A configurable label and description gives users flexibility without requiring dynamic schemas or custom extraction code.
+
+**The implementation pattern:** `secondaryCaptureEnabled`, `secondaryCaptureLabel`, and `secondaryCaptureDescription` live on the project profile. The default label is "Mental Models" and continues to use the existing mental model storage path. Non-default capture types use a generic secondary item storage path.
+
+**Date:** May 20, 2026
+
+---
+
+## Decision 34: Three-Band Response Shape Replaces Four-Layer Access Matrix
+
+**What:** The old four-layer progressive disclosure model is replaced in user-facing documentation with three response bands: Stance, Evidence, and Source.
+
+**Why:** The four-layer model was originally tied to a Reader versus Analyst access matrix. That permission model was never implemented as a separate product boundary, and the web frontend already behaves more like a public demo than an authenticated Reader interface. What remains useful is the answer shape: start with the project's current stance, support it with evidence, and provide source provenance for verification.
+
+**The guardrail:** Anchor quotes remain verification metadata. Public routes can use them to construct source deep links, but should not render them as visible public copy. MCP tools can still return full source context for the curator.
+
+**Date:** May 20, 2026
+
+---
+
+## Decision 35: Three Customization Layers
+
+**What:** Open-source customization is organized into three layers: Locked System Behavior, Project Profile, and User Style.
+
+**Why:** Users need to adapt Curate Mind to their own research without accidentally weakening the parts that make the system reliable. The locked layer protects the method: citation contracts, append-only behavior, the extraction stages, and the Explore versus Cite-and-Trace query boundary. The project profile captures facts that vary by research project: domain, audience, time horizon, preferred vocabulary, suggested prompts, and Secondary Capture settings. User style captures writing preferences that should follow the person across projects.
+
+**The implementation pattern:** Locked behavior remains in source code and can be previewed but not edited. Project Profile lives on the `projects` table and is read with `cm_get_project_profile`. User Style lives in a singleton preferences record and is read separately so one person's voice can apply across projects.
+
+**Date:** May 20, 2026
+
+---
+
+## Decision 36: Descriptive Stage Naming in User-Facing Surfaces
+
+**What:** User-facing surfaces use descriptive stage names: Extract, Secondary Capture, Enrich, and Review. Pass numbers are deprecated in current workflow instructions, README language, and agent-facing guidance.
+
+**Why:** The repo had accumulated overlapping vocabularies: pass numbers in the architecture spec, sub-agent labels in batch orchestration, and phase language in weekly skills. New users could not tell whether these were different workflows or different names for the same workflow. Descriptive stage names make the workflow self-explanatory and portable across projects.
+
+**The guardrail:** Internal implementation details can keep existing function names where changing them would create churn. Documentation, prompts, skills, and assistant instructions should use the stage names unless they are describing historical decisions.
+
+**Date:** May 20, 2026
 
 ---
 
