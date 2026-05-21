@@ -334,7 +334,7 @@ export function getSuggestions(routeKind: RouteKind) {
   if (routeKind === "source") return ["What are the highest-signal claims in this source?", "Where is this source most cautious or uncertain?", "How does this source change the larger research position?"];
   if (routeKind === "position") return ["What is the strongest supporting evidence for this position?", "What counter-evidence weakens this stance?", "What would change confidence in this position?"];
   if (routeKind === "theme") return ["What are the main tensions inside this theme?", "Which positions here are most evidence-rich?", "What questions remain unresolved in this theme?"];
-  return ["What patterns predict successful enterprise AI adoption?", "Where does the corpus disagree most strongly?", "What is emerging about agentic workflows?", "How does the specification bottleneck constrain AI value capture?"];
+  return ["What patterns are emerging across the corpus?", "Where does the corpus disagree most strongly?", "Which claims have the strongest evidence?", "What questions remain unresolved?"];
 }
 
 /* ── Rich text rendering (JSX) ── */

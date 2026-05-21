@@ -10,7 +10,6 @@ import { OpenSourceSection } from "@/components/OpenSourceSection";
 import { SiteFooter } from "@/components/SiteFooter";
 import { ThemeCard } from "@/components/ThemeCard";
 import {
-  EXAMPLE_PROMPTS,
   FLAGSHIP_POSITION_ID,
   GITHUB_URL,
   SETUP_GUIDE_URL,
@@ -19,7 +18,7 @@ import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { navigateWithTransition } from "@/utils/navigateWithTransition";
 
 export default function LandingPage() {
-  const { themes, allPositions, navigate, handleAskQuestion, pending } = useWorkspace();
+  const { themes, allPositions, navigate, handleAskQuestion, pending, suggestedPrompts } = useWorkspace();
 
   const [heroInput, setHeroInput] = useState("");
   const heroInputRef = useRef<HTMLTextAreaElement>(null);
@@ -84,16 +83,15 @@ export default function LandingPage() {
         <div className="cm-hero-vignette absolute inset-0" aria-hidden="true" />
         <div className="relative mx-auto max-w-4xl px-6 pt-12 pb-16 text-center lg:pt-16 lg:pb-24">
           <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
-            February 2026 research &middot; Open source
+            Live research corpus &middot; Open source
           </p>
           <h1 className="mx-auto mt-4 max-w-3xl text-display-lg font-semibold tracking-[-0.025em] text-primary">
             An open-source MCP server for research you can&nbsp;trust.
           </h1>
           <p className="mx-auto mt-5 max-w-xl text-base leading-8 text-tertiary">
-            Demoed on 178 sources of February 2026 AI strategy, with
-            every claim linked back to a verbatim quote and the original
-            source. Read the positions, trace the evidence, or run the
-            system yourself.
+            Demoed on a curated research corpus, with every claim linked
+            back to a verbatim quote and the original source. Read the
+            positions, trace the evidence, or run the system yourself.
           </p>
 
           {/* Two CTAs: anchor-scroll to the themes grid, and link to the
@@ -164,11 +162,13 @@ export default function LandingPage() {
                 inputRef={heroInputRef}
               />
             </div>
-            <ExamplePromptChips
-              prompts={EXAMPLE_PROMPTS}
-              onSelect={handleChipSelect}
-              disabled={pending}
-            />
+            {suggestedPrompts.length > 0 && (
+              <ExamplePromptChips
+                prompts={suggestedPrompts}
+                onSelect={handleChipSelect}
+                disabled={pending}
+              />
+            )}
           </div>
         </div>
       </div>

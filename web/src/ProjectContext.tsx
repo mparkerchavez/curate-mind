@@ -6,39 +6,52 @@ import { ENV_PROJECT_ID } from "./convex";
 type Ctx = {
   projectId: Id<"projects"> | null;
   projectName: string | null;
+  assistantRoleName: string;
+  suggestedPrompts: string[];
   loading: boolean;
 };
 
 const ProjectCtx = createContext<Ctx>({
   projectId: null,
   projectName: null,
+  assistantRoleName: "research assistant",
+  suggestedPrompts: [],
   loading: true,
 });
 
 export function ProjectProvider({ children }: { children: ReactNode }) {
   // If env supplies a project ID, prefer it. Otherwise pick the first project.
-  const projects = useQuery(api.projects.listProjects, {});
   const envId = ENV_PROJECT_ID || null;
+  const projects = useQuery(api.projects.listProjects, envId ? "skip" : {});
+  const selectedProjectId = (envId ?? projects?.[0]?._id ?? null) as Id<"projects"> | null;
+  const project = useQuery(
+    api.projects.getProjectProfile,
+    selectedProjectId ? { projectId: selectedProjectId } : "skip",
+  );
 
-  let projectId: Id<"projects"> | null = null;
-  let projectName: string | null = null;
-  let loading = true;
-
-  if (envId) {
-    projectId = envId as Id<"projects">;
-    projectName =
-      projects?.find((p: Doc<"projects">) => p._id === envId)?.name ?? null;
-    loading = projects === undefined;
-  } else if (projects !== undefined) {
-    loading = false;
-    if (projects.length > 0) {
-      projectId = projects[0]._id as Id<"projects">;
-      projectName = projects[0].name;
-    }
-  }
+  const loading =
+    (!envId && projects === undefined) ||
+    (selectedProjectId !== null && project === undefined);
+  const projectId = selectedProjectId;
+  const projectName =
+    project?.name ??
+    projects?.find((p: Doc<"projects">) => p._id === selectedProjectId)?.name ??
+    null;
+  const assistantRoleName =
+    project?.assistantRoleName?.trim() || "research assistant";
+  const suggestedPrompts =
+    project?.suggestedPrompts?.map((prompt: string) => prompt.trim()).filter(Boolean) ?? [];
 
   return (
-    <ProjectCtx.Provider value={{ projectId, projectName, loading }}>
+    <ProjectCtx.Provider
+      value={{
+        projectId,
+        projectName,
+        assistantRoleName,
+        suggestedPrompts,
+        loading,
+      }}
+    >
       {children}
     </ProjectCtx.Provider>
   );

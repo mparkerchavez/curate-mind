@@ -16,7 +16,6 @@ import { ExamplePromptChips } from "@/components/ExamplePromptChips";
 import { HeroAskInput } from "@/components/HeroAskInput";
 import { OpenSourceSection } from "@/components/OpenSourceSection";
 import { SiteFooter } from "@/components/SiteFooter";
-import { EXAMPLE_PROMPTS } from "@/config/homepage";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useScrollHighlightedClaim } from "@/hooks/use-linked-evidence-scroll";
 import { renderAnswerBlocks, USER_TURN_LIMIT } from "@/lib/workspace-utils";
@@ -37,11 +36,12 @@ export default function AskPage() {
     highlightedEvidenceOrigin,
     highlightedEvidenceNonce,
     focusAnswerEvidence,
+    assistantRoleName,
+    suggestedPrompts,
   } = useWorkspace();
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const askInputRef = useRef<HTMLTextAreaElement>(null);
-  const suggestions = EXAMPLE_PROMPTS;
   const questionsRemaining = Math.max(USER_TURN_LIMIT - userTurnsCount, 0);
   const threadComplete = reachedTurnLimit && !pending;
   const questionsUsed = Math.min(userTurnsCount, USER_TURN_LIMIT);
@@ -105,11 +105,13 @@ export default function AskPage() {
               inputRef={askInputRef}
             />
             <DemoLimitStatus title={statusTitle} description={statusDescription} />
-            <ExamplePromptChips
-              prompts={suggestions}
-              onSelect={handlePromptSelect}
-              disabled={pending || reachedTurnLimit}
-            />
+            {suggestedPrompts.length > 0 && (
+              <ExamplePromptChips
+                prompts={suggestedPrompts}
+                onSelect={handlePromptSelect}
+                disabled={pending || reachedTurnLimit}
+              />
+            )}
           </div>
         ) : (
           /* Conversation */
@@ -119,7 +121,7 @@ export default function AskPage() {
                 {turn.role === "assistant" ? (
                   <div className="rounded-xl border border-secondary bg-primary px-4 py-3">
                     <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
-                      Research assistant
+                      {assistantRoleName}
                     </p>
                     <div
                       className="cm-readable-prose mt-2 space-y-3 text-sm leading-7 text-secondary"

@@ -1999,9 +1999,9 @@ function getSuggestions(routeKind: RouteKind) {
   }
 
   return [
-    "What patterns predict successful enterprise AI adoption?",
+    "What patterns are emerging across the corpus?",
     "Where does the corpus disagree most strongly?",
-    "What is emerging about agentic workflows?",
+    "Which claims have the strongest evidence?",
   ];
 }
 

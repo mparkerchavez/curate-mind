@@ -7,7 +7,6 @@ import SourceEvidenceGroup from "@/components/SourceEvidenceGroup";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { cn } from "@/lib/cn";
 import {
-  getSuggestions,
   groupDataPointsBySource,
   renderAnswerBlocks,
 } from "@/lib/workspace-utils";
@@ -25,10 +24,11 @@ export default function ChatPanel() {
     activeAnswer,
     highlightedEvidenceId,
     focusAnswerEvidence,
+    assistantRoleName,
+    suggestedPrompts,
   } = useWorkspace();
 
   const bottomRef = useRef<HTMLDivElement>(null);
-  const suggestions = getSuggestions("home"); // always corpus-wide suggestions
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -63,24 +63,26 @@ export default function ChatPanel() {
               </EmptyState.Content>
             </EmptyState>
 
-            <div className="space-y-2">
-              <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
-                Suggested prompts
-              </p>
-              {suggestions.map((prompt) => (
-                <button
-                  key={prompt}
-                  type="button"
-                  onClick={() => void handleAskQuestion(prompt)}
-                  className="group w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-left text-sm leading-6 text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <span>{prompt}</span>
-                    <ArrowRight className="mt-0.5 size-4 shrink-0 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-utility-brand-600" />
-                  </div>
-                </button>
-              ))}
-            </div>
+            {suggestedPrompts.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
+                  Suggested prompts
+                </p>
+                {suggestedPrompts.map((prompt) => (
+                  <button
+                    key={prompt}
+                    type="button"
+                    onClick={() => void handleAskQuestion(prompt)}
+                    className="group w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-left text-sm leading-6 text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <span>{prompt}</span>
+                      <ArrowRight className="mt-0.5 size-4 shrink-0 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-utility-brand-600" />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         ) : (
           <div className="space-y-4">
@@ -95,7 +97,7 @@ export default function ChatPanel() {
                   )}
                 >
                   <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
-                    {turn.role === "user" ? "You" : "Research assistant"}
+                    {turn.role === "user" ? "You" : assistantRoleName}
                   </p>
                   {turn.role === "assistant" ? (
                     <div className="mt-2 space-y-3 text-sm leading-7 text-slate-700">
