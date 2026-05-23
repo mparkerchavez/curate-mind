@@ -1021,8 +1021,8 @@ export function registerIntakeTools(server: McpServer): void {
   // ============================================================
   // cm_update_source_metadata — Repair descriptive metadata on a source
   // Partial update: only fields explicitly passed are patched in Convex.
-  // Use this when a source landed in Convex with null author/publisher/
-  // publishedDate/canonicalUrl because the markdown header still had
+  // Use this when a source landed in Convex with wrong tier or null author/
+  // publisher/publishedDate/canonicalUrl because the markdown header still had
   // [verify] placeholders at ingest time. The data points and source
   // synthesis are untouched.
   // ============================================================
@@ -1035,7 +1035,7 @@ export function registerIntakeTools(server: McpServer): void {
         "Partial update: only fields explicitly passed are written; fields " +
         "left undefined are kept as is. Use this when a source was ingested " +
         "with placeholder ([verify]) metadata that the parser dropped, leaving " +
-        "the row with null publisher/author/publishedDate/canonicalUrl. " +
+        "the row with wrong tier or null publisher/author/publishedDate/canonicalUrl. " +
         "Does not touch data points, source synthesis, or status.\n\n" +
         "Args:\n" +
         "  - sourceId (string): The source to update\n" +
@@ -1043,6 +1043,7 @@ export function registerIntakeTools(server: McpServer): void {
         "  - publisherName (string, optional): Publication or platform\n" +
         "  - publishedDate (string, optional): Original publication date\n" +
         "  - canonicalUrl (string, optional): URL to original source\n" +
+        "  - tier (number, optional): 1 (primary research), 2 (informed analysis), 3 (commentary)\n" +
         "  - derivedFrom (string|null, optional): Source ID this source is derived from, or null to clear\n" +
         "  - derivedFromKind (string|null, optional): commentary, summary, presentation, translation, or null to clear\n" +
         "  - repairNote (string): Short note explaining why this update is needed\n\n" +
@@ -1054,6 +1055,13 @@ export function registerIntakeTools(server: McpServer): void {
         publisherName: z.string().optional().describe("Publication or platform"),
         publishedDate: z.string().optional().describe("Original publication date"),
         canonicalUrl: z.string().optional().describe("URL to original source"),
+        tier: z.number()
+          .int("tier must be an integer")
+          .refine((value) => [1, 2, 3].includes(value), {
+            message: "tier must be one of 1, 2, or 3",
+          })
+          .optional()
+          .describe("1=primary research, 2=informed analysis, 3=commentary"),
         derivedFrom: z.union([z.string(), z.null()]).optional()
           .describe("Source ID this source is derived from, or null to clear with derivedFromKind"),
         derivedFromKind: z.union([
@@ -1081,6 +1089,7 @@ export function registerIntakeTools(server: McpServer): void {
             publisherName: params.publisherName,
             publishedDate: params.publishedDate,
             canonicalUrl: params.canonicalUrl,
+            tier: params.tier,
             derivedFrom: params.derivedFrom === undefined
               ? undefined
               : params.derivedFrom === null
@@ -1093,8 +1102,8 @@ export function registerIntakeTools(server: McpServer): void {
 
         const patchedKeys = Object.keys(result.patched);
         const summaryLines = patchedKeys.map((key) => {
-          const previousValue = (result.previous as Record<string, string | null>)[key];
-          const newValue = (result.patched as Record<string, string | null | undefined>)[key];
+          const previousValue = (result.previous as Record<string, string | number | null>)[key];
+          const newValue = (result.patched as Record<string, string | number | null | undefined>)[key];
           return `  - ${key}: ${previousValue ?? "(null)"} -> ${newValue ?? "(null)"}`;
         });
 

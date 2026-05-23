@@ -410,7 +410,7 @@ Allowed mutation types (with justification required):
 
 ## Decision 32: Logged Corrections for Anchors, Attribution, and Source Metadata
 
-**What:** Data points are append-only with respect to claims and tags, but their verbatim anchor and speaker-attribution fields support corrections through a logged in-place write. Source descriptive metadata fields (`publisherName`, `authorName`, `canonicalUrl`, `publishedDate`) use the same correction pattern. Every correction creates an immutable row in the `corrections` table before the target field is patched.
+**What:** Data points are append-only with respect to claims and tags, but their verbatim anchor and speaker-attribution fields support corrections through a logged in-place write. Source descriptive metadata fields (`publisherName`, `authorName`, `canonicalUrl`, `publishedDate`, `tier`) use the same correction pattern. Every correction creates an immutable row in the `corrections` table before the target field is patched.
 
 **Why:** Pass 4 review and post-hoc audits surface small factual-plumbing errors that should not require re-extraction or pointer recovery: mistyped anchors, wrong anchor passages, missing transcript speaker attribution, or source metadata misread during intake. Versioning every typo or attribution fix would add ceremony without improving analysis. The correction row preserves the previous value and curator rationale, so the audit trail remains intact.
 

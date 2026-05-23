@@ -282,6 +282,7 @@ export const updateSourceDescriptiveMetadata = mutation({
     publisherName: v.optional(v.string()),
     publishedDate: v.optional(v.string()),
     canonicalUrl: v.optional(v.string()),
+    tier: v.optional(v.union(v.literal(1), v.literal(2), v.literal(3))),
     derivedFrom: v.optional(v.union(v.id("sources"), v.null())),
     derivedFromKind: v.optional(v.union(derivedFromKindValidator, v.null())),
     repairNote: v.string(),
@@ -297,10 +298,11 @@ export const updateSourceDescriptiveMetadata = mutation({
       publisherName?: string;
       publishedDate?: string;
       canonicalUrl?: string;
+      tier?: Doc<"sources">["tier"];
       derivedFrom?: Id<"sources"> | undefined;
       derivedFromKind?: Doc<"sources">["derivedFromKind"] | undefined;
     } = {};
-    const patchedForReturn: Record<string, string | Id<"sources"> | null> = {};
+    const patchedForReturn: Record<string, string | number | Id<"sources"> | null> = {};
 
     if (args.authorName !== undefined) {
       const trimmed = args.authorName.trim();
@@ -346,6 +348,11 @@ export const updateSourceDescriptiveMetadata = mutation({
       patchedForReturn.canonicalUrl = trimmed;
     }
 
+    if (args.tier !== undefined) {
+      patch.tier = args.tier;
+      patchedForReturn.tier = args.tier;
+    }
+
     if (args.derivedFrom === null || args.derivedFromKind === null) {
       if (args.derivedFrom !== null || args.derivedFromKind !== null) {
         throw new Error(
@@ -378,7 +385,7 @@ export const updateSourceDescriptiveMetadata = mutation({
 
     if (Object.keys(patchedForReturn).length === 0) {
       throw new Error(
-        "At least one of authorName, publisherName, publishedDate, canonicalUrl, derivedFrom, or derivedFromKind must be provided"
+        "At least one of authorName, publisherName, publishedDate, canonicalUrl, tier, derivedFrom, or derivedFromKind must be provided"
       );
     }
 
@@ -391,6 +398,7 @@ export const updateSourceDescriptiveMetadata = mutation({
         publisherName: source.publisherName ?? null,
         publishedDate: source.publishedDate ?? null,
         canonicalUrl: source.canonicalUrl ?? null,
+        tier: source.tier,
         derivedFrom: source.derivedFrom ?? null,
         derivedFromKind: source.derivedFromKind ?? null,
       },
