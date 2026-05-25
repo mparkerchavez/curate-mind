@@ -4,6 +4,23 @@ These workflows are assistant-neutral. Use them with Claude, Codex, or another M
 
 Each workflow includes a copy-paste prompt and a done check. Replace placeholders such as `<URL>` or `<file path>` with your real values.
 
+## Plain-English Command Menu
+
+Use these prompts when you want the assistant to run the workflow without you naming tools. If your assistant supports skills, ask it to use `cm-workflow-router`; otherwise ask it to read `skills/cm-workflow-router/SKILL.md`.
+
+| What you want | Prompt |
+|---|---|
+| Ingest local files | `Use the Curate Mind workflow router. Let's start ingestion for new files in folder <folder path>. Show me what you find, prepare reviewable markdown where needed, and stop before Convex ingestion until I confirm the files are reviewed.` |
+| Fetch a link | `Use the Curate Mind workflow router. Fetch this source for review: <URL>. Save it to the Curate Mind sources folder and tell me which metadata fields I need to verify.` |
+| Review pending files | `Use the Curate Mind workflow router. Show me the Curate Mind review queue and recommend the next file to review.` |
+| Ingest a reviewed file | `Use the Curate Mind workflow router. This file is reviewed and ready: <file path>. Ingest it into Curate Mind and show me the new source ID.` |
+| Process sources | `Use the Curate Mind workflow router. Run batch extraction on the indexed sources. Show me the source list and batch size before you start.` |
+| Ask the corpus | `Use the Curate Mind workflow router. Ask my Curate Mind research base: <question>. Use a cited answer if there are relevant positions; otherwise tell me it is exploratory.` |
+| Link evidence | `Use the Curate Mind workflow router. Link the latest extracted evidence to my current research positions. Start with the most relevant tags and show me candidates before updating positions.` |
+| Change setup | `Use the Curate Mind workflow router. Help me update the Curate Mind project profile. Show me the current settings first, then save only the changes I approve.` |
+
+Agents should translate these prompts into the correct MCP calls. Users should not need to remember the exact tool names unless they are debugging.
+
 ## Set Up Project Profile
 
 Use this after the MCP server is connected and before serious extraction begins. The project profile tells Curate Mind what you are researching, who the research is for, what time horizon matters, and how Secondary Capture should behave.
@@ -39,6 +56,7 @@ Confirm the repo path, MCP connection, and available tools. Then ask which sourc
 Done when:
 
 - Your assistant can see `cm_add_source`, `cm_fetch_url`, `cm_fetch_youtube`, `cm_extract_pdf`, and `cm_review_queue`.
+- The MCP server is using the right toolset: `daily` for intake/query only, `pipeline` for extraction workflows, or `admin` for explicit repair work.
 - Required keys are present for the intake paths you use.
 - At least one test source lands in `sources/` or one reviewed markdown source is ingested.
 

@@ -9,6 +9,12 @@ Curate Mind uses a review-first workflow:
 3. Ingest the reviewed file with `cm_add_source` and `reviewed=true`.
 4. Run `cm-deep-extract` or `cm-batch-orchestrator` to process it.
 
+For normal use, you can ask through the workflow router instead of naming tools:
+
+```text
+Use the Curate Mind workflow router. Let's start ingestion for new files in folder <folder path>.
+```
+
 The review step matters because extracted data points are designed to be durable. It is better to remove navigation junk, scraper artifacts, or transcript errors before the source enters Convex.
 
 ## Intake Options
@@ -155,7 +161,7 @@ Run cm-deep-extract on this source: <sourceId>
 To process a batch of indexed sources:
 
 ```text
-Run cm-batch-orchestrator on the pending indexed sources.
+Use the Curate Mind workflow router. Run batch extraction on the pending indexed sources.
 ```
 
 ## Troubleshooting

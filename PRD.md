@@ -1,11 +1,12 @@
 # Curate Mind: Product Requirements Document
 
-**Version:** 1.1
-**Date:** May 20, 2026
+**Version:** 1.2
+**Date:** May 25, 2026
 **Owner:** Maicol Parker-Chavez
 **Status:** Active. Governs v1 GitHub release.
 
 **Change log:**
+- 1.2 (2026-05-25): Adds MCP toolsets (`daily`, `pipeline`, `admin`, `all`) and the `cm-workflow-router` skill so citizen-developer workflows can be prompted in plain language while repair tools stay out of the default surface. Clarifies that curatemind.io Ask uses `askAnalyst` / `cm_ask`; the older retrieval-only evidence-pack tool was removed.
 - 1.1 (2026-05-20): Reflects the customization architecture decisions in `Customization_Design_Proposal_2026-05-20.md`. Renames the four extraction passes to descriptive stages (Extract, Secondary Capture, Enrich, Review). Retires the Reader persona; consolidates personas into one Curator with two query modes. Replaces the four-layer access matrix with the three-band response shape (Stance, Evidence, Source). Adds the customization layer (project profile, user preferences, MCP tools, copy-paste prompt library) to in-scope v1 deliverables. Marks Secondary Capture as configurable per project.
 - 1.0 (2026-05-06): Initial v1 scope.
 
@@ -48,7 +49,7 @@ The Curator works in two query modes, both available through MCP:
 
 | Tier | Who | What they get |
 |---|---|---|
-| Curator (authenticated, via MCP) | The owner of the instance | Every tool, every field, full source text, anchor quote text, all customization tools |
+| Curator (authenticated, via MCP) | The owner of the instance | The active MCP toolset, every stored field, full source text, anchor quote text, and customization tools. `pipeline` is the default; `admin`/`all` expose repair and compatibility tools when explicitly needed. |
 | Public viewer (unauthenticated, via curatemind.io) | Anyone | Stance and Evidence rendered through the web. Anchor quotes leave the server only as URL fragment metadata for "Open at source" deep links, never as visible text on live routes. Full source text is never served. |
 
 ---
@@ -63,18 +64,31 @@ Skills are the orchestration layer. They contain the step-by-step instructions t
 
 | Skill | Purpose |
 |-------|---------|
+| `cm-workflow-router` | Plain-language front door. Routes requests like "ingest this folder", "show pending sources", "process indexed sources", and "ask my research base" to the correct tool or workflow skill |
 | `cm-batch-orchestrator` | Processes multiple sources by spawning sub-agents; coordinates the Batch Extract phase (Extract, Secondary Capture if enabled, Enrich) across a queue and emits the flag report |
 | `cm-deep-extract` | Interactive single-source extraction for high-value Tier 1 sources; curator engages at each stage (Extract, Secondary Capture, Enrich, Review) |
 | `cm-curator-review` | Batch Review phase: walks the curator through the flag report from Batch Extract and produces the Decisions Document |
 | `cm-evidence-linker` | Batch Integrate phase: executes the Decisions Document, then runs tag-based evidence linking to connect data points to Research Positions |
 
 **MCP tools (underlying primitives the skills call)**
-- `extraction.ts` — `cm_extract_source`, `cm_save_data_points`, `cm_save_source_synthesis`, `cm_enrich_data_points_batch`, `cm_update_data_points_tags_batch`, `cm_remove_data_point_tag_batch`, `cm_update_source_status`
-- `query.ts` — `cm_ask` (Cite-and-trace mode: returns the three-band Stance/Evidence/Source response pack with resolved source links), themes, positions, evidence, data points, `cm_search` (Explore mode: semantic exploration), source text, tag trends, position history
-- `synthesis.ts` — `cm_create_theme`, `cm_create_position`, `cm_update_position`, `cm_update_research_lens`, `cm_create_tag`, `cm_generate_embeddings`
-- `intake.ts` (validation phase) — `cm_add_source`, `cm_add_curator_observation`, and `cm_add_mental_model` are functional; `cm_fetch_url`, `cm_fetch_youtube`, and `cm_extract_pdf` exist for two-step local intake and are being manually tested before being treated as production-ready
-- `review.ts` — local file review queue for fetched markdown files; part of the current MCP-based intake validation path
-- `customization.ts` (new in 1.1) — `cm_get_project_profile`, `cm_update_project_profile`, `cm_get_user_preferences`, `cm_update_user_preferences`, `cm_preview_prompt_profile`, `cm_validate_profile`, `cm_reset_profile_to_defaults`. These are the customization layer the AI assistant calls during onboarding and later edits. See `Customization_Design_Proposal_2026-05-20.md` Section 8 for full signatures.
+
+Curate Mind exposes tools through named toolsets, controlled by `CURATE_MIND_TOOLSET`. If unset, the server uses `pipeline`.
+
+| Toolset | Count | Purpose |
+|---|---:|---|
+| `daily` | 25 | Project setup, source intake, review queue, profile edits, browsing, and questions |
+| `pipeline` | 44 | Default curator workflow: `daily` plus extraction, enrichment, evidence linking, and embeddings |
+| `admin` | 52 | `pipeline` plus repair, reset, correction, and retirement tools |
+| `all` | 52 | Debug mode; registers every tool without filtering |
+
+The full inventory lives in `docs/mcp-tool-inventory.md`. Agents should treat skills and natural workflow prompts as the primary interface, not ask the user to name low-level tools.
+
+Key user-facing tools:
+- Intake: `cm_fetch_url`, `cm_fetch_youtube`, `cm_extract_pdf`, `cm_review_queue`, `cm_add_source`
+- Query: `cm_search` for exploration, `cm_ask` for cited answers. The public Ask page calls Convex `api.chat.askAnalyst`, the same backend path exposed through `cm_ask`.
+- Workflow support: `cm_extract_source`, `cm_save_data_points`, `cm_save_source_synthesis`, `cm_update_data_points_tags_batch`, `cm_enrich_data_points_batch`, `cm_update_source_status`, `cm_generate_embeddings`
+- Evidence linking: `cm_get_data_points_by_tag`, `cm_get_position_arrays`, `cm_link_evidence_to_position`, `cm_update_positions_batch`
+- Customization: `cm_get_project_profile`, `cm_update_project_profile`, `cm_get_user_preferences`, `cm_update_user_preferences`, `cm_preview_prompt_profile`, `cm_validate_profile`
 
 **Convex backend**
 - All seven core entity types: Projects, Sources, Data Points, Curator Observations, Mental Models, Research Positions (with append-only versioning), Tags
@@ -141,15 +155,16 @@ This work is intentionally parked until the current MCP intake tools have been t
 The v1 GitHub release is complete when all of the following are true:
 
 ### Skills and MCP server
-- [ ] All four active skills are documented in the README or a dedicated setup guide, using the renamed stage vocabulary (Extract, Secondary Capture, Enrich, Review) and the Batch Extract / Batch Review / Batch Integrate phase names
+- [ ] All five active skills are documented in the README or a dedicated setup guide, using the renamed stage vocabulary (Extract, Secondary Capture, Enrich, Review), the Batch Extract / Batch Review / Batch Integrate phase names, and plain-language workflow routing for users
 - [ ] Every skill opens with the three-block signpost (where you are, what happens in this chat, what comes next, with copy-paste handoff prompt when the next step is a separate chat)
-- [ ] `cm-batch-orchestrator`, `cm-deep-extract`, `cm-curator-review`, and `cm-evidence-linker` are functional end-to-end against a fresh Convex project
+- [ ] `cm-workflow-router`, `cm-batch-orchestrator`, `cm-deep-extract`, `cm-curator-review`, and `cm-evidence-linker` are functional end-to-end against a fresh Convex project
 - [ ] Core MCP tool files are functional: `extraction.ts`, `query.ts`, `synthesis.ts`, `customization.ts`, and the working tools in `intake.ts`
 - [ ] `cm_add_source` successfully ingests a markdown file and stores fullText in Convex
 - [ ] The four-stage source processing loop (Extract, Secondary Capture, Enrich, Review) runs without errors on a single source via `cm-deep-extract` or `cm-batch-orchestrator`. Secondary Capture is skipped when the project profile has `secondaryCaptureEnabled: false`.
 - [ ] Secondary Capture runs in its own sub-agent with a clean context window when enabled (reverses the previous P1+P2 sub-agent combination)
 - [ ] `cm_search` returns semantic results (embeddings are generated and stored correctly)
 - [ ] `cm_ask` returns the three-band Stance/Evidence/Source pack with inline `[E#]` citations on every source-backed claim, `[P#]` position labels available as plain references, and `[O#]`/`[M#]` observations and mental models available as background context (not cited inline); every evidence item includes a resolved source link
+- [ ] `CURATE_MIND_TOOLSET=daily`, `pipeline`, `admin`, and `all` register the expected tool counts documented in `docs/mcp-tool-inventory.md`
 - [ ] `cm_fetch_url`, `cm_fetch_youtube`, `cm_extract_pdf`, and `cm_review_queue` have been manually smoke-tested against representative sources before being documented as production-ready intake tools
 
 ### Customization layer (new in 1.1)
@@ -206,11 +221,13 @@ These rules apply to every agent working on this project. Do not deviate without
 - Do not use the old "Pass 1 / Pass 2 / Pass 3 / Pass 4" or "Layer 1 / 2 / 3 / 4" language in any user-facing text (skill openings, MCP tool descriptions, prompts, web copy). Use the renamed stages (Extract, Secondary Capture, Enrich, Review) and the three response bands (Stance, Evidence, Source). Internal code identifiers are exempt.
 - Do not use `cm_search` for evidence linking. Use `cm_get_data_points_by_tag`. Semantic search returns embedding vectors that blow out context windows.
 - Do not use `cm_search` to answer analyst questions that require cited sources. Use `cm_ask`, which returns the three-band Stance/Evidence/Source pack with resolved source links.
+- Do not reintroduce a retrieval-only evidence-pack tool for answer workflows. `cm_ask` is the single cite-and-trace interface.
 
 **Customization layer — never break these:**
 - Do not hardcode owner identity, domain, audience, vocabulary, persona name, suggested prompts, or writing style anywhere in code, skills, or prompts. All of these come from the project profile or the user preferences singleton at runtime.
 - Do not edit or expose tools that mutate locked prompt blocks. Locked is locked.
 - Do not bypass `cm_validate_profile` checks when updating profiles through MCP tools.
+- Do not require users to know MCP tool names for normal operation. Plain-language requests should route through `cm-workflow-router` or the relevant dedicated workflow skill.
 
 **Frontend — follow these exactly:**
 - Do not add new pages or components unless explicitly asked.
@@ -240,6 +257,7 @@ curate-mind/                    ← CURATE_MIND_PATH points here
 │       ├── tools/              ← MCP tool registrations
 │       └── lib/                ← Convex client, OpenAI, Supadata
 ├── skills/                     ← Skills (checked in)
+│   ├── cm-workflow-router/
 │   ├── cm-batch-orchestrator/
 │   ├── cm-deep-extract/
 │   ├── cm-curator-review/
@@ -260,6 +278,7 @@ curate-mind/                    ← CURATE_MIND_PATH points here
 | `OPENAI_API_KEY` | OpenAI key for embeddings (`text-embedding-3-small`) |
 | `SUPADATA_API_KEY` | Supadata key for URL scraping and YouTube transcripts; required when testing or using MCP fetch tools |
 | `CURATE_MIND_PATH` | Absolute path to the repo root on the user's machine |
+| `CURATE_MIND_TOOLSET` | Optional MCP tool filter: `daily`, `pipeline`, `admin`, or `all`; defaults to `pipeline` |
 
 ---
 

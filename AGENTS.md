@@ -34,6 +34,19 @@ The foundation is a set of persistent, append-only entities in Convex (Data Poin
 - `Design_Decisions_Log.md` — Why decisions were made (not just what). Read this when you hit a judgment call during implementation.
 - `PRD.md` — Product requirements, v1 scope, definition of done, and agent alignment rules.
 
+## Plain-Language Workflow Routing
+
+The curator should not need to remember MCP tool names. When the user asks in normal language to add sources, ingest a folder, review pending files, process sources, ask the corpus, link evidence, update setup, or repair a record, use `skills/cm-workflow-router/SKILL.md` to route the request to the right workflow.
+
+Examples:
+- "Let's start ingestion for new files in folder X."
+- "Show me what's waiting for review."
+- "Run extraction on the indexed sources."
+- "Ask my research base this question."
+- "Link the latest evidence to my current positions."
+
+Use the dedicated workflow skills after routing: `cm-batch-orchestrator`, `cm-deep-extract`, `cm-curator-review`, and `cm-evidence-linker`.
+
 ### Agent Instruction Docs
 
 `CLAUDE.md` is the canonical project instruction file. `AGENTS.md` mirrors it so Codex and other agent tools receive the same context when the repo is cloned.
@@ -99,7 +112,7 @@ Two modes: **batch** (sub-agents process silently, curator reviews flags) and **
 
 After extraction waves, data points need to be connected to Research Positions. This is a separate phase from extraction.
 
-**Workflow:** Tag retrieval (`cm_get_data_points_by_tag`) → Curator triage → Position update (`cm_update_position`). Batch 2-3 themes at a time. Prefer tag-based retrieval over semantic search for evidence linking: it scopes to a deliberate vocabulary slice and returns a tight, predictable shape. See Architecture_Spec.md → Evidence Linking Pattern and Design Decisions 27-29.
+**Workflow:** Tag retrieval (`cm_get_data_points_by_tag`) → Curator triage → additive position update (`cm_link_evidence_to_position` or `cm_update_positions_batch`). Batch 2-3 themes at a time. Prefer tag-based retrieval over semantic search for evidence linking: it scopes to a deliberate vocabulary slice and returns a tight, predictable shape. Use `cm_update_position` only when the stance text or open questions are changing. See Architecture_Spec.md → Evidence Linking Pattern and Design Decisions 27-29.
 
 **Skill:** `cm-evidence-linker` orchestrates this workflow.
 

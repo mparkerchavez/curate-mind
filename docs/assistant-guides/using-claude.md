@@ -33,17 +33,24 @@ After setup, Claude should be able to see Curate Mind tools such as:
 
 The repo includes workflow skills in `skills/`:
 
+- `skills/cm-workflow-router/`
 - `skills/cm-deep-extract/`
 - `skills/cm-batch-orchestrator/`
 - `skills/cm-curator-review/`
 - `skills/cm-evidence-linker/`
 
-In Claude Code, these can be installed as slash commands such as `/cm-deep-extract` and `/cm-batch-orchestrator`. In Claude Desktop, add the skill folders through Settings if your Claude plan and app version support skills.
+In Claude Code, these can be installed as slash commands such as `/cm-workflow-router`, `/cm-deep-extract`, and `/cm-batch-orchestrator`. In Claude Desktop, add the skill folders through Settings if your Claude plan and app version support skills.
 
 If slash commands are not available, Claude can still follow the workflow. Ask it to read the relevant `SKILL.md` file:
 
 ```text
 Run Curate Mind Deep Extract on source <sourceId>. Use the instructions in skills/cm-deep-extract/SKILL.md.
+```
+
+For everyday use, start with the router:
+
+```text
+Use the Curate Mind workflow router. I want to: <plain-English goal>.
 ```
 
 ## Claude Dispatch And Mobile Capture
@@ -83,10 +90,10 @@ Help me set up Curate Mind for the first time. First call cm_get_project_profile
 ### Source Intake
 
 ```text
-Help me add a new source to Curate Mind.
-
-Start by calling cm_get_project_profile so you understand the project. Then help me choose the right intake path for this source: article, YouTube, PDF, or already-clean markdown. Save local markdown for review first. Do not ingest until I confirm the file is reviewed.
+Use the Curate Mind workflow router. Help me add a new source to Curate Mind.
 ```
+
+You can also be more direct: "Fetch this article for review: <URL>" or "Let's start ingestion for new files in folder <folder path>."
 
 ### Deep Extract
 

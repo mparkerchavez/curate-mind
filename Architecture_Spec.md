@@ -1,6 +1,6 @@
 # Curate Mind: Architecture Specification
 
-**Date:** March 17, 2026 (last updated March 22, 2026)
+**Date:** March 17, 2026 (last updated May 25, 2026)
 **Author:** Maicol Parker-Chavez (with Claude)
 **Status:** Actively being built (Phases 1-3 complete)
 **Predecessor:** CRIS Research System (February 2026)
@@ -280,7 +280,7 @@ Extract begins by classifying the document and determining processing strategy:
 
 **Flags for curator review:** Confidence mismatches (Tier 1 + suggestive, Tier 3 + strong), position contradictions, anchor concerns, novel signals.
 
-**Writes to Convex:** Tag assignments (via `cm_update_data_point_tags`), enrichment (via `cm_enrich_data_point`), mental models (via `cm_add_mental_model`), or custom secondary items.
+**Writes to Convex:** Tag assignments (via `cm_update_data_points_tags_batch`), enrichment (via `cm_enrich_data_points_batch`), mental models (via `cm_add_mental_model`), or custom secondary items.
 
 ### Review (Main conversation)
 
@@ -352,14 +352,31 @@ When reprocessing sources that were previously extracted:
 
 ## MCP Tool Architecture (Curate Mind v1)
 
-### Intake & Extraction Tools
+The MCP surface is intentionally split into toolsets. This keeps normal assistant interactions focused while preserving repair and compatibility tools for explicit maintenance work.
 
-| Tool | Description |
-|------|-------------|
-| `add_source` | Ingest a source from URL, file, or text. Extracts and stores fullText in Convex. Uploads original file to Convex file storage for Tier 1/2 PDFs. Requires: title, sourceType, tier. Optional: intakeNote, sourceRelationships, urlAccessibility. |
-| `extract_source` | Retrieve source text and metadata for Extract. The active skills orchestrate the four-stage workflow and return progress or flagged items for curator review. |
-| `add_curator_observation` | Create a new Curator Observation, linking it to data points and/or positions. |
-| `add_mental_model` | Create a new Mental Model record (can also be created automatically when Secondary Capture uses the default mental-model configuration). |
+| Toolset | Count | Purpose |
+|---|---:|---|
+| `daily` | 25 | Project setup, source intake, local review queue, profile edits, browsing, and questions |
+| `pipeline` | 44 | Default. `daily` plus extraction, enrichment, evidence linking, and embeddings |
+| `admin` | 52 | `pipeline` plus repair, reset, correction, and retirement tools |
+| `all` | 52 | Debug mode; registers every tool without filtering |
+
+`CURATE_MIND_TOOLSET` controls the active surface. If unset, the server uses `pipeline`. The complete inventory lives in `docs/mcp-tool-inventory.md`.
+
+### User-Facing Workflow Tools
+
+Users should not need to name low-level tools. The expected interaction is a natural workflow prompt such as "start ingestion for new files in folder X", "show pending sources", "run batch extraction", or "ask my research base this question". Agents then choose the tools below.
+
+The `cm-workflow-router` skill is the front door for these requests. It reads the user's plain-language intent, checks project context when needed, and routes to intake tools, query tools, repair tools, or one of the dedicated workflow skills.
+
+| Workflow | Primary tools |
+|---|---|
+| Intake | `cm_fetch_url`, `cm_fetch_youtube`, `cm_extract_pdf`, `cm_review_queue`, `cm_add_source` |
+| Extraction | `cm_extract_source`, `cm_save_data_points`, `cm_save_source_synthesis`, `cm_update_data_points_tags_batch`, `cm_enrich_data_points_batch`, `cm_update_source_status`, `cm_generate_embeddings` |
+| Secondary Capture | `cm_add_mental_model` by default; future custom capture types route through their dedicated storage |
+| Review and repair | Normal Review uses `cm_update_source_status` and batch enrichment tools. Repair-only tools such as `cm_correct_anchor`, `cm_correct_attribution`, and `cm_update_source_metadata` live in `admin`. |
+| Evidence linking | `cm_get_data_points_by_tag`, `cm_get_position_arrays`, `cm_link_evidence_to_position`, `cm_update_positions_batch`, `cm_update_research_lens` |
+| Customization | `cm_get_project_profile`, `cm_update_project_profile`, `cm_get_user_preferences`, `cm_update_user_preferences`, `cm_preview_prompt_profile`, `cm_validate_profile` |
 
 ### Query & Analysis Tools
 
@@ -368,25 +385,28 @@ The query tools operate in two distinct modes. **Mode 1 (`cm_search`)** is Explo
 | Tool | Description |
 |------|-------------|
 | `cm_ask` | **Mode 2 — Cite & Trace.** Fetches a structured pack: positions first (Stance), then curator observations, secondary items, and data points with resolved source links (Evidence), plus source provenance and anchor metadata for verification (Source). Returns `[P#]`, `[O#]`, `[M#]`, `[E#]` citation labels on every claim. Use for any question requiring a cited, traceable answer. |
-| `get_themes` | Return all Research Themes with position counts and summary stats. (Stance) |
-| `get_positions` | Return positions within a theme, or all positions matching a filter. Current stance, confidence, status. (Stance) |
-| `get_position_detail` | Return a position with all linked evidence, counter-evidence, observations, mental models, and version history. (Evidence) |
-| `get_data_point` | Return a single DP with full detail including anchor quote and extraction note. (Evidence + Source metadata) |
-| `get_source_text` | Return the full text of a source. (Curator-only full source context) |
 | `cm_search` | **Mode 1 — Explore & Synthesize.** Semantic vector search across data points, positions, observations, and mental models. Use for scanning emerging signals, pressure-testing a brief, or exploring the corpus when positions don't yet exist. Do not use for producing cited answers — source links in `cm_search` results are not resolved. |
-| `get_data_points_by_tag` | Retrieve all DPs linked to a specific tag by slug. Returns clean data (ID, claim, evidence type, confidence, source title, source tier) without embeddings. Primary tool for building evidence pools during evidence linking. See Evidence Linking Pattern below. |
-| `get_tag_trends` | Return tag frequency over time periods. Identifies emerging and growing topics. |
-| `get_position_history` | Return all versions of a position with diffs. Supports the 3-6 month cross-referencing use case. |
-| `compare_positions` | Show how two or more positions relate, including shared evidence and tension points. |
+| `cm_get_themes` | Return all Research Themes with position counts. |
+| `cm_get_positions` | Return positions within a theme, or all positions. Current stance, confidence, and status. |
+| `cm_get_position_detail` | Return a position with linked evidence, counter-evidence, observations, and mental models. |
+| `cm_get_data_point` | Return a single data point with anchor quote and source metadata. |
+| `cm_get_source` | Return source metadata without full text. |
+| `cm_get_source_text` | Return full source text for curator-only verification. |
+| `cm_get_data_points_by_tag` | Retrieve project-scoped DPs linked to a tag slug. Primary evidence-linking retrieval tool. |
+| `cm_get_tag_trends` | Return project-scoped tag usage counts. |
+| `cm_get_position_history` | Return all versions of a position. Admin toolset because it is large and rarely needed. |
 
 ### Synthesis Tools (Position Management)
 
 | Tool | Description |
 |------|-------------|
-| `update_position` | Create a new version of a Research Position. Append-only: previous version preserved. Requires change summary. |
-| `create_position` | Create a new Research Position under a theme with initial stance and evidence. |
-| `create_theme` | Create a new Research Theme. |
-| `update_research_lens` | Regenerate the Research Lens from current position states. |
+| `cm_create_theme` | Create a new Research Theme. |
+| `cm_create_position` | Create a new Research Position under a theme with initial stance and evidence. |
+| `cm_update_position` | Create a full new version of a Research Position. Use when stance or open questions change. |
+| `cm_link_evidence_to_position` | Add evidence arrays without touching stance text. Preferred for evidence-linking updates. |
+| `cm_update_positions_batch` | Add evidence arrays to multiple positions in one atomic transaction. |
+| `cm_update_research_lens` | Regenerate the Research Lens from current position states. |
+| `cm_create_tag` | Create a project-scoped tag. |
 
 ---
 
@@ -404,7 +424,7 @@ After extraction is complete for a batch of sources, data points exist in Convex
 |------|-------|------|---------|
 | 1. Tag Retrieval | Agent | `cm_get_data_points_by_tag` | Pull candidate DPs using 2-4 relevant tags per theme. Returns clean data without embeddings. |
 | 2. Curator Triage | Curator | Conversation | Review candidates. Classify each DP as: supporting, counter-evidence, or skip. |
-| 3. Position Update | Agent | `cm_update_position` | Execute position updates with triaged evidence arrays. Creates new version (append-only). |
+| 3. Position Update | Agent | `cm_link_evidence_to_position` or `cm_update_positions_batch` | Add only the newly triaged evidence IDs. Creates new version (append-only) and copies stance forward. |
 
 ### Key Constraints
 
@@ -417,6 +437,8 @@ After extraction is complete for a batch of sources, data points exist in Convex
 **Overlap is expected.** A DP can appear in multiple tag pools and can support multiple positions. The same DP ID in two positions' `supportingEvidence` is correct behavior.
 
 **Stance text stays stable during evidence linking.** When linking evidence to existing positions, keep `currentStance`, `confidenceLevel`, and `status` unchanged unless the evidence warrants a revision. The `changeSummary` should describe what evidence was linked and why.
+
+**Use additive linking tools for evidence-only updates.** `cm_update_position` is still available for true stance revisions, but evidence-only updates should use `cm_link_evidence_to_position` or `cm_update_positions_batch` so agents do not accidentally omit existing evidence arrays.
 
 ### When to Run
 

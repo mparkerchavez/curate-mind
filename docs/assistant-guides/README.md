@@ -4,6 +4,26 @@ You only need one AI assistant to use Curate Mind.
 
 Curate Mind is built around an MCP-connected assistant. MCP stands for Model Context Protocol: it is the connection that lets an AI assistant call Curate Mind tools such as `cm_add_source`, `cm_fetch_url`, `cm_search`, and `cm_ask`, then follow workflow instructions such as `cm-deep-extract` or `cm-batch-orchestrator`.
 
+You do not need to prompt with exact tool names during normal use. The easiest pattern is to ask for the workflow:
+
+```text
+Let's start ingestion for new files in folder <folder path>.
+```
+
+or:
+
+```text
+Ask my Curate Mind research base: <question>.
+```
+
+The assistant should translate that plain-English request into the right tool calls.
+
+Curate Mind includes a `cm-workflow-router` skill for this. When you are not sure which exact workflow to ask for, start with the router:
+
+```text
+Use the Curate Mind workflow router. I want to: <plain-English goal>.
+```
+
 Once the MCP server is connected, a single assistant can operate the full workflow:
 
 1. Set up the project profile and writing preferences.
@@ -36,7 +56,9 @@ Use cm_fetch_url to fetch this article for review: <URL>
 
 The assistant calls the tool, the tool saves markdown into `sources/`, and you review that file before ingestion.
 
-The assistant can also run higher-level workflow instructions, such as Deep Extract or Batch Extract, by following the project skills in `skills/`. Some products expose these as slash commands. Others may need you to paste the relevant prompt or ask the assistant to read the `SKILL.md` file.
+The assistant can also run higher-level workflow instructions by following the project skills in `skills/`. Start with `cm-workflow-router` when your request is broad or plain-English. Use the dedicated skills when you already know the stage: Deep Extract, Batch Extract, Batch Review, or Evidence Linking. Some products expose these as slash commands. Others may need you to paste the relevant prompt or ask the assistant to read the `SKILL.md` file.
+
+The MCP server also supports toolsets. `pipeline` is the default and covers normal curator work. `daily` is smaller for intake and questions. `admin` exposes repair tools only when explicitly needed. See [MCP tool inventory](../mcp-tool-inventory.md).
 
 ## One Assistant Is Enough
 

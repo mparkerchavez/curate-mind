@@ -133,7 +133,7 @@ Before starting tag-based evidence linking:
 1. At least one extraction wave is complete. Sources extracted, data points tagged.
 2. Research Positions exist (bootstrapped from a prior corpus or created during synthesis).
 3. The `cm_get_data_points_by_tag` tool is available.
-4. The `cm_update_position` tool is available.
+4. The `cm_link_evidence_to_position` or `cm_update_positions_batch` tool is available for evidence-only updates. Use `cm_update_position` only when revising stance text or open questions.
 
 ## Three-step workflow
 
@@ -141,7 +141,7 @@ Before starting tag-based evidence linking:
 
 For each theme being processed:
 
-1. Identify 2 to 4 relevant tag slugs that map to the theme's positions. Use `cm_get_tag_trends` to see available tags and their data point counts.
+1. Identify 2 to 4 relevant tag slugs that map to the theme's positions. Use `cm_get_tag_trends(projectId)` to see available tags and their data point counts.
 2. Pull data points for each tag using `cm_get_data_points_by_tag(projectId, tagSlug)`. This returns clean data (identifier, claim text, evidence type, confidence, source title, source tier) without embedding vectors.
 3. Handle truncation. Tool responses truncate at 25,000 characters. Large tag pools (50 or more data points) are partially visible. This is acceptable. Work with what is visible. If exhaustive coverage is needed, use narrower tags or multiple queries.
 
@@ -219,7 +219,7 @@ After incremental linking, assess emerging positions for promotion:
 
 1. **Context window saturation.** If you are processing too many tags or themes at once, the context fills up and triage quality degrades. Reduce to two themes per session.
 2. **Over-linking.** Not every data point tagged with a relevant slug is actually relevant to a specific position. The curator triage step exists to filter. Do not skip it.
-3. **Missing evidence.** If a position has zero candidates from tag retrieval, the position may need different tags, or the evidence may exist under unexpected tags. Try `cm_get_tag_trends` to find related tags, or use a targeted `cm_search` query for a specific gap.
+3. **Missing evidence.** If a position has zero candidates from tag retrieval, the position may need different tags, or the evidence may exist under unexpected tags. Try `cm_get_tag_trends(projectId)` to find related tags, or use a targeted `cm_search` query for a specific gap.
 4. **Stale Research Lens.** If the lens was last generated before evidence linking, it does not reflect the strengthened positions. Always regenerate after linking is complete.
 5. **Using the wrong read tool.** Never use `cm_get_position_detail` or `cm_get_position_history` to fetch current arrays before a linkage operation. `cm_get_position_detail` returns embedding vectors that cause truncation. `cm_get_position_history` returns all prior versions unnecessarily. Always use `cm_get_position_arrays`. It returns only the current version's identifier arrays.
 6. **Overwriting evidence arrays via `cm_update_position`.** If you call `cm_update_position` for a linkage-only update, you must pass the full merged arrays or existing evidence is lost. Avoid this pattern entirely for linkage. `cm_link_evidence_to_position` and `cm_update_positions_batch` accept only the new additions and handle merging internally.

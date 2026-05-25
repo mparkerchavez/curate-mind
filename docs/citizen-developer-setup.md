@@ -75,7 +75,7 @@ Run:
 cp .env.example .env.local
 ```
 
-Now walk the user through each of the four variables one at a time. For each one, ask for the value, paste it into `.env.local` for them, and confirm before moving to the next.
+Now walk the user through each required variable one at a time. For each one, ask for the value, paste it into `.env.local` for them, and confirm before moving to the next.
 
 **CONVEX_URL.** Tell the user: "Open the Convex dashboard at [dashboard.convex.dev](https://dashboard.convex.dev), select the project you just created, and copy the deployment URL. It looks like `https://something.convex.cloud`. Paste it here." Set the value in `.env.local`.
 
@@ -85,7 +85,9 @@ Now walk the user through each of the four variables one at a time. For each one
 
 **CURATE_MIND_PATH.** Run `pwd` from the repo root to get the absolute path. Tell the user: "This is the full path to the folder where you cloned Curate Mind. The MCP server uses it when it needs to write files into the `sources/` folder. I am going to set it to: `/Users/yourname/projects/curate-mind` (substituting their real path). Confirm that looks right." Set the value.
 
-After all four are filled in, tell the user: "Your `.env.local` is configured. Never share this file or commit it to git, since it has your API keys in it."
+**CURATE_MIND_TOOLSET.** Tell the user: "This controls how many MCP tools your assistant sees. I recommend `pipeline` because it supports normal Curate Mind work while hiding repair-only tools. You can switch to `daily` for a simpler intake/query setup or `admin` for repairs later." Set it to `pipeline` unless the user chooses otherwise.
+
+After these are filled in, tell the user: "Your `.env.local` is configured. Never share this file or commit it to git, since it has your API keys in it."
 
 ### Step 5: Connect the MCP server to Claude
 
@@ -118,7 +120,8 @@ Show them this config block and explain that you will fill it in with the values
         "CONVEX_URL": "<from .env.local>",
         "OPENAI_API_KEY": "<from .env.local>",
         "SUPADATA_API_KEY": "<from .env.local or empty>",
-        "CURATE_MIND_PATH": "<from .env.local>"
+        "CURATE_MIND_PATH": "<from .env.local>",
+        "CURATE_MIND_TOOLSET": "pipeline"
       }
     }
   }
@@ -135,25 +138,26 @@ Tell the user: "Quit Claude Desktop completely, then reopen it. The Curate Mind 
 claude mcp add curate-mind node /absolute/path/to/curate-mind/mcp/dist/index.js
 ```
 
-Then set the four environment variables in their shell profile or in the MCP entry's `env` field.
+Then set the same environment variables in their shell profile or in the MCP entry's `env` field.
 
 Verify the server is connected by running `claude mcp list` and confirming `curate-mind` appears.
 
 ### Step 6: Install the skills
 
-Tell the user: "The `skills/` folder has four active files that tell Claude how to run the extraction pipeline. I am going to make them available to Claude now."
+Tell the user: "The `skills/` folder has five active files. The workflow router lets you ask for Curate Mind tasks in plain language, and the other skills run extraction, review, and evidence linking. I am going to make them available to Claude now."
 
 **If Claude Code:** Run:
 
 ```bash
 mkdir -p ~/.claude/skills
+ln -s "$(pwd)/skills/cm-workflow-router" ~/.claude/skills/cm-workflow-router
 ln -s "$(pwd)/skills/cm-batch-orchestrator" ~/.claude/skills/cm-batch-orchestrator
 ln -s "$(pwd)/skills/cm-deep-extract" ~/.claude/skills/cm-deep-extract
 ln -s "$(pwd)/skills/cm-curator-review" ~/.claude/skills/cm-curator-review
 ln -s "$(pwd)/skills/cm-evidence-linker" ~/.claude/skills/cm-evidence-linker
 ```
 
-Tell the user: "Restart any open Claude Code sessions. The skills are now available as slash commands like `/cm-deep-extract`."
+Tell the user: "Restart any open Claude Code sessions. The skills are now available as slash commands like `/cm-workflow-router` and `/cm-deep-extract`."
 
 **If Claude Desktop:** Walk the user through adding each `skills/cm-*` folder in Settings under the Skills section.
 
@@ -165,13 +169,13 @@ This is the moment of truth. Walk the user through their first end-to-end extrac
 
 2. Open Claude (Desktop or Code) and confirm the MCP server is connected. Look for the `cm_*` tools in the tools list.
 
-3. Have the user paste this prompt into Claude: "Use `cm_add_source` with reviewed=true to ingest the file at `/tmp/first-source.md`, then run `cm-deep-extract` on it."
+3. Have the user paste this prompt into Claude: "Use the Curate Mind workflow router. This file is reviewed and ready: `/tmp/first-source.md`. Ingest it, then run Deep Extract on it."
 
 4. Watch the extraction unfold. Claude will run Extract (claims, anchors, and source synthesis), Secondary Capture when enabled, Enrich (tags, confidence, and notes), and Review (human check). Explain what is happening at each stage in plain language.
 
-5. Once extraction completes, have the user run: "Use `cm_get_themes` to show me what was extracted." They should see structured data points and themes from their source.
+5. Once extraction completes, have the user run: "Use the Curate Mind workflow router. Ask my research base what was extracted from the first source." They should get a plain-language answer grounded in the new source.
 
-Congratulate them. The system is now live with one source in it. They can keep adding markdown files and run `cm-batch-orchestrator` to process them in waves.
+Congratulate them. The system is now live with one source in it. They can keep adding sources with plain-language router prompts and run Batch Extract when they have several indexed sources ready.
 
 ### Step 8: Set up source intake paths
 
@@ -241,4 +245,4 @@ Once setup is complete, point the user to:
 - [Source intake setup prompt](../prompts/setup_source_intake.md) if they want an AI assistant to re-run or troubleshoot source intake setup later.
 - [curatemind.io](https://curatemind.io) to see a live example of what a complete extraction cycle produces.
 
-If the user wants to start ingesting more sources, suggest they read the `cm-batch-orchestrator` skill's `SKILL.md` for how to process multiple files at once.
+If the user wants to start ingesting more sources, suggest: "Use the Curate Mind workflow router. Let's start ingestion for new files in folder <folder path>."

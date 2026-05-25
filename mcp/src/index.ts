@@ -21,6 +21,7 @@ import { registerQueryTools } from "./tools/query.js";
 import { registerReviewTools } from "./tools/review.js";
 import { registerSynthesisTools } from "./tools/synthesis.js";
 import { registerProfileTools } from "./tools/profile.js";
+import { installToolsetFilter } from "./toolsets.js";
 
 let activeServer: McpServer | null = null;
 let activeTransport: StdioServerTransport | null = null;
@@ -58,6 +59,7 @@ async function main(): Promise<void> {
     version: "1.0.0",
   });
   activeServer = server;
+  const reportToolset = installToolsetFilter(server);
 
   // Register all tools
   registerIntakeTools(server);
@@ -66,6 +68,7 @@ async function main(): Promise<void> {
   registerReviewTools(server);
   registerSynthesisTools(server);
   registerProfileTools(server);
+  reportToolset();
 
   // Connect via stdio transport (for local MCP hosts)
   const transport = new StdioServerTransport();

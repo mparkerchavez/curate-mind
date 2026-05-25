@@ -12,10 +12,25 @@ The `web/` directory contains the source for curatemind.io. It is included for t
 
 ## How it works
 
-1. You capture sources as reviewed markdown, using manual files or the MCP intake tools.
-2. You invoke a Curate Mind skill in your MCP host (for example, `cm-deep-extract` or `cm-batch-orchestrator`).
-3. The skill orchestrates the four-stage extraction workflow: Extract with verbatim anchors and source synthesis, optional Secondary Capture, Enrich with tags and confidence, and Review by exception. Sub-agents write directly to your Convex database.
-4. You query the foundation through MCP tools (`cm_get_themes`, `cm_search`, `cm_get_position_detail`, and others) from any MCP-compatible client.
+You should not need to memorize tool names. Ask your assistant for the workflow you want, then let the assistant choose the underlying MCP tools.
+
+Common natural prompts:
+
+- "Let's start ingestion for new files in folder X."
+- "Fetch this article for review: <URL>."
+- "Show me what sources are waiting for review."
+- "Run batch extraction on the indexed sources."
+- "Ask my research base: <question>."
+- "Link this week's evidence to the current positions."
+
+The `cm-workflow-router` skill maps these plain-language requests to the right Curate Mind workflow, so users do not have to learn the underlying tool list.
+
+Under the hood:
+
+1. Source capture creates reviewed markdown in the local `sources/` inbox.
+2. Ingestion stores reviewed source text and original PDF files, when present, in Convex.
+3. Extraction skills orchestrate Extract, optional Secondary Capture, Enrich, and Review.
+4. Query workflows use `cm_search` for exploration and `cm_ask` for cited answers.
 
 The MCP server is the primary interface. The web demo is a public view of one curated knowledge base.
 
@@ -27,6 +42,19 @@ Curate Mind is designed to be operated through an MCP-connected AI assistant. Yo
 - **Codex workflow:** Codex can handle repo setup, documentation, code maintenance, commits, and the Curate Mind research workflow when the MCP server is configured. Codex can also support a ChatGPT mobile capture pattern when your workspace has repo and MCP access.
 
 Read the full [assistant workflow guide](docs/assistant-guides/README.md), including [Using Claude](docs/assistant-guides/using-claude.md), [Using Codex](docs/assistant-guides/using-codex.md), and [Common workflows](docs/assistant-guides/common-workflows.md).
+
+## MCP toolsets
+
+The MCP server can expose different tool surfaces with `CURATE_MIND_TOOLSET`:
+
+| Value | Use when | Tool count |
+|-------|----------|------------|
+| `daily` | You mainly ingest, review, and ask questions | 25 |
+| `pipeline` | You run the full research workflow, including extraction and evidence linking | 44 |
+| `admin` | You need repair and maintenance tools | 52 |
+| `all` | You are debugging tool registration itself | 52 |
+
+If unset, Curate Mind uses `pipeline`, which supports the normal curator workflow while hiding legacy and repair-only tools from the default surface. See [MCP tool inventory](docs/mcp-tool-inventory.md) for the full list.
 
 ## Source intake options
 
@@ -56,8 +84,9 @@ For profile changes, ask your assistant to call `cm_get_project_profile` and `cm
 
 ## What you get
 
-Four skills do the orchestration work. Your MCP host follows them as workflow instructions or slash commands, depending on the product.
+Five skills do the orchestration work. Your MCP host follows them as workflow instructions or slash commands, depending on the product.
 
+- **cm-workflow-router** is the plain-language front door. It maps user requests like "ingest this folder" or "ask my research base" to the correct workflow.
 - **cm-batch-orchestrator** processes multiple sources by spawning sub-agents and coordinating the full pipeline across a queue.
 - **cm-deep-extract** runs interactive single-source extraction for high-value Tier 1 sources. The curator engages at each stage.
 - **cm-curator-review** runs Review, the human-in-the-loop check of items flagged during extraction.
@@ -67,7 +96,7 @@ Four skills do the orchestration work. Your MCP host follows them as workflow in
 
 You need a Convex account (free tier works), an OpenAI API key, and Node.js 18 or higher. Supadata is required for article and YouTube intake. Python PDF dependencies are required only if you want PDF intake.
 
-Set these four environment variables in `.env.local`:
+Set these environment variables in `.env.local`:
 
 | Variable | Purpose |
 |----------|---------|
@@ -75,6 +104,7 @@ Set these four environment variables in `.env.local`:
 | `OPENAI_API_KEY` | OpenAI key for embeddings (`text-embedding-3-small`). Powers semantic search. |
 | `SUPADATA_API_KEY` | Supadata key for URL scraping and YouTube transcripts. Required when testing or using the MCP fetch tools; optional if you only ingest markdown files you create manually. |
 | `CURATE_MIND_PATH` | Absolute path to this repo on your machine. Used by the MCP server when it writes intake files to `sources/`. |
+| `CURATE_MIND_TOOLSET` | Optional. `daily`, `pipeline`, `admin`, or `all`. Defaults to `pipeline`. |
 
 For PDF intake, install the local Python dependencies:
 

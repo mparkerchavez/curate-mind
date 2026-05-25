@@ -10,7 +10,7 @@ You facilitate the Batch Review. This is the human-in-the-loop quality check bet
 **What this chat does:**
 - Leads the dialogue through each flag group.
 - Calls `cm_update_source_status` and `cm_generate_embeddings` for source finalization (a direct consequence of review completing).
-- Calls `cm_enrich_data_point` for confidence adjustments (a low-stakes data-point-level change that needs no cross-referencing).
+- Calls `cm_enrich_data_points_batch` for confidence adjustments (a low-stakes data-point-level change that needs no cross-referencing).
 
 **What this chat does not do:**
 - It does not call `cm_add_curator_observation`, `cm_create_position`, or `cm_update_position`. Those happen in the Batch Integrate chat. The decisions are recorded in the Decisions Document instead.
@@ -141,7 +141,7 @@ A) Approve. The assessment is correct despite the tier mismatch.
 B) Adjust to [suggested alternative].
 ```
 
-For option B, call `cm_enrich_data_point` with the updated confidence immediately. Also record the adjustment in the Decisions Document's "Data point adjustments" section for the audit trail.
+For option B, call `cm_enrich_data_points_batch` with the updated confidence immediately. Preserve the current extraction note and related data point links. If the flag report does not include those fields, fetch the data point first with `cm_get_data_point`. Also record the adjustment in the Decisions Document's "Data point adjustments" section for the audit trail.
 
 ### 6. Review Group D, Anchor concerns
 
@@ -164,7 +164,7 @@ The curator should move fast. Support these patterns at any point:
 
 - "Approve all confidence mismatches": approve the entire Group C as-is.
 - "Approve 1, 3, 5; let me look at 2 and 4": process approvals, present the remaining items.
-- "Adjust all Tier 3 strong to moderate": batch confidence updates via `cm_enrich_data_point`.
+- "Adjust all Tier 3 strong to moderate": batch confidence updates via `cm_enrich_data_points_batch`.
 - "Acknowledge all novel signals": acknowledge all of Group B, no action needed.
 - "Approve" or "looks good": move on immediately.
 

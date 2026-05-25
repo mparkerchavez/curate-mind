@@ -20,7 +20,7 @@ When Codex is also connected to the Curate Mind MCP server, it can run the resea
 - Source intake.
 - Review queue checks.
 - Source ingestion.
-- Deep Extract or Batch Extract by following the `skills/` instructions.
+- Plain-language workflow routing, then Deep Extract or Batch Extract by following the `skills/` instructions.
 - Exploratory and cited questions through `cm_search` and `cm_ask`.
 
 ## Setup Expectations
@@ -62,6 +62,7 @@ Use cm_add_source with reviewed=true to ingest this reviewed file: <file path>
 
 The workflow instructions live in `skills/`:
 
+- `skills/cm-workflow-router/SKILL.md`
 - `skills/cm-deep-extract/SKILL.md`
 - `skills/cm-batch-orchestrator/SKILL.md`
 - `skills/cm-curator-review/SKILL.md`
@@ -73,6 +74,12 @@ Example:
 
 ```text
 Run Deep Extract for source <sourceId>. Read skills/cm-deep-extract/SKILL.md first and follow that workflow. Use the Curate Mind MCP tools for database operations.
+```
+
+For everyday use, start with the router:
+
+```text
+Use the Curate Mind workflow router. I want to: <plain-English goal>.
 ```
 
 ## Example Prompts
@@ -88,10 +95,10 @@ Start by reading README.md, docs/setup-guide.md, and docs/citizen-developer-setu
 ### Source Intake
 
 ```text
-Help me add a source to Curate Mind using the MCP tools.
-
-First call cm_get_project_profile. Then ask me what kind of source I have: article, YouTube, PDF, or already-clean markdown. Use the appropriate intake tool, save local markdown for review first, and do not call cm_add_source until I confirm reviewed=true is appropriate.
+Use the Curate Mind workflow router. Help me add a source to Curate Mind.
 ```
+
+Direct examples: "Fetch this source for review: <URL>" or "Let's start ingestion for new files in folder <folder path>."
 
 ### PDF Intake
 

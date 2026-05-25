@@ -64,6 +64,7 @@ Open `.env.local` and fill in each variable.
 - **`OPENAI_API_KEY`**: Paste the key you created on [platform.openai.com/api-keys](https://platform.openai.com/api-keys). Used for embeddings only.
 - **`SUPADATA_API_KEY`**: Paste your Supadata key if you want to test URL or YouTube intake. Leave it blank if you only ingest markdown files manually.
 - **`CURATE_MIND_PATH`**: The absolute path to this repo on your machine. The MCP server uses it when intake tools write source files to `sources/`. Run `pwd` from the repo root to get the value, then paste it in. Example: `/Users/yourname/projects/curate-mind`.
+- **`CURATE_MIND_TOOLSET`**: Optional. Leave unset or set to `pipeline` for the normal curator workflow. Use `daily` for a smaller intake/query surface, `admin` for repair tools, and `all` only when debugging registration.
 
 Never commit `.env.local`. It is already gitignored.
 
@@ -100,7 +101,8 @@ Add a `mcpServers` entry. Replace every `/absolute/path/to/curate-mind` with the
         "CONVEX_URL": "https://your-project.convex.cloud",
         "OPENAI_API_KEY": "sk-...",
         "SUPADATA_API_KEY": "",
-        "CURATE_MIND_PATH": "/absolute/path/to/curate-mind"
+        "CURATE_MIND_PATH": "/absolute/path/to/curate-mind",
+        "CURATE_MIND_TOOLSET": "pipeline"
       }
     }
   }
@@ -117,13 +119,13 @@ Add the server to your project from the repo root:
 claude mcp add curate-mind node /absolute/path/to/curate-mind/mcp/dist/index.js
 ```
 
-Set the same four environment variables in your shell or in the MCP entry's `env` field.
+Set the same environment variables in your shell or in the MCP entry's `env` field.
 
 Verify the server is connected by running `claude mcp list` and confirming `curate-mind` appears.
 
 ## 6. Install the skills
 
-The `skills/` folder contains four active `SKILL.md` files. Claude reads these as slash commands and runs the workflows they describe.
+The `skills/` folder contains five active `SKILL.md` files. Claude reads these as slash commands and runs the workflows they describe. Start with `cm-workflow-router` for normal plain-language requests, then use the dedicated skills when you already know the stage.
 
 ### Claude Code
 
@@ -131,6 +133,7 @@ From the repo root, the skills folder is already in the right place. Make Claude
 
 ```bash
 mkdir -p ~/.claude/skills
+ln -s "$(pwd)/skills/cm-workflow-router" ~/.claude/skills/cm-workflow-router
 ln -s "$(pwd)/skills/cm-batch-orchestrator" ~/.claude/skills/cm-batch-orchestrator
 ln -s "$(pwd)/skills/cm-deep-extract" ~/.claude/skills/cm-deep-extract
 ln -s "$(pwd)/skills/cm-curator-review" ~/.claude/skills/cm-curator-review
@@ -158,12 +161,12 @@ Open Claude (Desktop or Code) and confirm the MCP server is connected. Then:
    EOF
    ```
 
-2. In Claude, ask: "Use cm_add_source with reviewed=true to ingest /tmp/first-source.md, then run cm-deep-extract on it." Claude will call the MCP tools to push the file to Convex and then walk you through the extraction stages interactively.
+2. In Claude, ask: "Use the Curate Mind workflow router. This file is reviewed and ready: /tmp/first-source.md. Ingest it, then run Deep Extract on it." Claude will call the MCP tools to push the file to Convex and then walk you through the extraction stages interactively.
 
 3. Once extraction completes, query the result:
 
    ```
-   Use cm_get_themes to show me what was extracted.
+   Use the Curate Mind workflow router. Ask my research base what was extracted from the first source.
    ```
 
    Or browse the Convex dashboard directly to see the new entities in your database.
@@ -217,6 +220,7 @@ curate-mind/                    <- CURATE_MIND_PATH points here
 │       ├── tools/              <- MCP tool registrations
 │       └── lib/                <- Convex client, OpenAI, Supadata
 ├── skills/                     <- Claude skills (checked in)
+│   ├── cm-workflow-router/
 │   ├── cm-batch-orchestrator/
 │   ├── cm-deep-extract/
 │   ├── cm-curator-review/

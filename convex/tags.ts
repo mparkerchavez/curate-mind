@@ -152,9 +152,13 @@ export const listByCategory = query({
 // Powers trend detection
 // ============================================================
 export const getTagUsageCounts = query({
-  args: {},
-  handler: async (ctx) => {
-    const tags = (await ctx.db.query("tags").collect()).filter((tag) => !tag.retired);
+  args: {
+    projectId: v.id("projects"),
+  },
+  handler: async (ctx, args) => {
+    const tags = (await ctx.db.query("tags").collect()).filter(
+      (tag) => tag.projectId === args.projectId && !tag.retired
+    );
 
     const tagCounts = await Promise.all(
       tags.map(async (tag) => {
