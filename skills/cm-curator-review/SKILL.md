@@ -15,6 +15,15 @@ You facilitate the Batch Review. This is the human-in-the-loop quality check bet
 **What this chat does not do:**
 - It does not call `cm_add_curator_observation`, `cm_create_position`, or `cm_update_position`. Those happen in the Batch Integrate chat. The decisions are recorded in the Decisions Document instead.
 
+## Curator consent contract
+
+This stage runs under the Curator consent contract defined in `skills/cm-workflow-router/SKILL.md`. Read it as binding here. In short:
+
+- The default at every checkpoint is to pause and wait for an explicit curator "yes". Nothing auto-advances.
+- Adjudicating extraction flags is a hard-stop checkpoint. Every flag resolution (approve, reclassify, adjust confidence, draft an observation, mark for re-extraction) waits for the curator's explicit decision on that item or that group. Present the item and its options, then wait. Do not pre-resolve flags.
+- Recording a Research Lens decision in the Decisions Document is a recommendation only. It does not authorize regeneration. The lens is regenerated later, in Batch Integrate, and only on an explicit "yes".
+- Auto-approve is opt-in per stage and per session. The batch shortcuts below (for example "approve all confidence mismatches") count as that explicit in-session grant for the group named, and only that group. A grant never carries to a later group, a later stage, or a later session. A past "auto approve as-is" note is not consent. Ignore it.
+
 ## Project profile customization (placeholders for future wiring)
 
 The fields below will be read from the project profile by a later schema change (see `Customization_Design_Proposal_2026-05-20.md`, sections 7 and 16). Until that change lands, use the defaults in the right column.
@@ -160,7 +169,7 @@ B) Flag for re-extraction (manual follow-up, recorded in the Decisions Document)
 
 ### 7. Support batch decisions
 
-The curator should move fast. Support these patterns at any point:
+The curator should move fast. Each pattern below is acted on only when the curator states it in the current session. It is an explicit per-group grant, not a standing mode, and it does not carry to the next group or stage. Support these patterns at any point:
 
 - "Approve all confidence mismatches": approve the entire Group C as-is.
 - "Approve 1, 3, 5; let me look at 2 and 4": process approvals, present the remaining items.

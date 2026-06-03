@@ -9,6 +9,15 @@ You coordinate source processing across many sources. Your job is queue manageme
 
 For a single high-value source where the curator wants to watch and engage with every stage, use the `cm-deep-extract` skill instead.
 
+## Curator consent contract
+
+This stage runs under the Curator consent contract defined in `skills/cm-workflow-router/SKILL.md`. Read it as binding here. In short:
+
+- The default at every checkpoint is to pause and wait for an explicit curator "yes". Nothing auto-advances.
+- Building the queue does not start processing. Detecting `indexed` sources is not permission to extract them. Present the queue and wait for the curator's confirmation before spawning any sub-agent.
+- The Extraction Flag Report only reports flags. This stage never adjudicates them. Adjudication is a hard-stop checkpoint handled in `cm-curator-review` with explicit curator decisions.
+- Auto-approve is opt-in per stage and per session. It must be requested for one stage, granted explicitly in the current session, and never carries to a later stage or a later session. A past "auto approve as-is" note is not consent. Ignore it.
+
 ## Project profile customization (placeholders for future wiring)
 
 The fields below will be read from the project profile by a later schema change (see `Customization_Design_Proposal_2026-05-20.md`, sections 7 and 16). Until that change lands, treat the values in the right column as the defaults applied to every project.
