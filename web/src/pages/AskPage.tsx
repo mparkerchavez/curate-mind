@@ -16,9 +16,10 @@ import { ExamplePromptChips } from "@/components/ExamplePromptChips";
 import { HeroAskInput } from "@/components/HeroAskInput";
 import { OpenSourceSection } from "@/components/OpenSourceSection";
 import { SiteFooter } from "@/components/SiteFooter";
+import { CORPUS_FRESHNESS_LABEL } from "@/config/homepage";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useScrollHighlightedClaim } from "@/hooks/use-linked-evidence-scroll";
-import { renderAnswerBlocks, USER_TURN_LIMIT } from "@/lib/workspace-utils";
+import { buildCorpusSentence, renderAnswerBlocks, USER_TURN_LIMIT } from "@/lib/workspace-utils";
 
 export default function AskPage() {
   const {
@@ -38,6 +39,9 @@ export default function AskPage() {
     focusAnswerEvidence,
     assistantRoleName,
     suggestedPrompts,
+    corpusStats,
+    allPositions,
+    themes,
   } = useWorkspace();
 
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -56,6 +60,12 @@ export default function AskPage() {
     : userTurnsCount === 0
       ? "Ask up to 3 questions in this demo thread."
       : `${questionsRemaining} question${questionsRemaining === 1 ? "" : "s"} remaining in this demo thread.`;
+  const corpusSentence = buildCorpusSentence({
+    freshnessLabel: CORPUS_FRESHNESS_LABEL,
+    corpusStats,
+    positionCount: allPositions?.length,
+    themeCount: themes?.length ?? 0,
+  });
 
   // Cycle the pending status message while the query is in flight.
   const [pendingIdx, setPendingIdx] = useState(0);
@@ -96,15 +106,14 @@ export default function AskPage() {
       <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col px-6 py-8">
         {turns.length === 0 ? (
           <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center py-8 text-center">
+            <AskLandingIntro corpusSentence={corpusSentence} />
             <HeroAskInput
               value={input}
               onChange={setInput}
               onSubmit={() => void handleAskQuestion()}
               disabled={pending || reachedTurnLimit}
-              placeholder="Ask a grounded research question..."
               inputRef={askInputRef}
             />
-            <DemoLimitStatus title={statusTitle} description={statusDescription} />
             {suggestedPrompts.length > 0 && (
               <ExamplePromptChips
                 prompts={suggestedPrompts}
@@ -184,7 +193,7 @@ export default function AskPage() {
                   onChange={setInput}
                   onSubmit={() => void handleAskQuestion()}
                   disabled={pending}
-                  placeholder="Ask a grounded research question..."
+                  placeholder={`${questionsRemaining} question${questionsRemaining === 1 ? "" : "s"} remaining in this demo thread...`}
                   inputRef={askInputRef}
                 />
               )}
@@ -209,6 +218,19 @@ export default function AskPage() {
       <OpenSourceSection />
       <SiteFooter />
     </div>
+  );
+}
+
+function AskLandingIntro({ corpusSentence }: { corpusSentence: string }) {
+  return (
+    <header className="mx-auto mb-6 max-w-2xl text-center">
+      <h1 className="text-display-xs font-semibold tracking-[-0.01em] text-primary">
+        Explore the intelligence layer.
+      </h1>
+      <p className="mt-3 text-sm leading-6 text-tertiary">
+        {corpusSentence}
+      </p>
+    </header>
   );
 }
 

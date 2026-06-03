@@ -10,15 +10,17 @@ import { OpenSourceSection } from "@/components/OpenSourceSection";
 import { SiteFooter } from "@/components/SiteFooter";
 import { ThemeCard } from "@/components/ThemeCard";
 import {
+  CORPUS_FRESHNESS_LABEL,
   FLAGSHIP_POSITION_ID,
   GITHUB_URL,
   SETUP_GUIDE_URL,
 } from "@/config/homepage";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { buildCorpusLine } from "@/lib/workspace-utils";
 import { navigateWithTransition } from "@/utils/navigateWithTransition";
 
 export default function LandingPage() {
-  const { themes, allPositions, navigate, handleAskQuestion, pending, suggestedPrompts } = useWorkspace();
+  const { themes, allPositions, corpusStats, navigate, handleAskQuestion, pending, suggestedPrompts } = useWorkspace();
 
   const [heroInput, setHeroInput] = useState("");
   const heroInputRef = useRef<HTMLTextAreaElement>(null);
@@ -58,7 +60,7 @@ export default function LandingPage() {
   // Derive "most recently updated position date" per theme so theme cards
   // can show a freshness line without any backend changes.
   const lastUpdatedByTheme = useMemo(() => {
-    const map: Record<string, string> = {};
+    const map: Record<string, string> = { ...(corpusStats?.lastUpdatedByTheme ?? {}) };
     for (const p of allPositions ?? []) {
       const themeId = String(p.themeId ?? "");
       const date: string | undefined = p.currentVersion?.versionDate ?? p.versionDate;
@@ -69,10 +71,16 @@ export default function LandingPage() {
       }
     }
     return map;
-  }, [allPositions]);
+  }, [allPositions, corpusStats]);
 
   // Flagship position for the live demo (hand-picked, see config/homepage).
   const flagshipId = FLAGSHIP_POSITION_ID;
+  const corpusLine = buildCorpusLine({
+    freshnessLabel: CORPUS_FRESHNESS_LABEL,
+    corpusStats,
+    positionCount: allPositions?.length,
+    themeCount: sortedThemes.length,
+  });
 
   return (
     <div className="bg-primary">
@@ -83,15 +91,15 @@ export default function LandingPage() {
         <div className="cm-hero-vignette absolute inset-0" aria-hidden="true" />
         <div className="relative mx-auto max-w-4xl px-6 pt-12 pb-16 text-center lg:pt-16 lg:pb-24">
           <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">
-            Live research corpus &middot; Open source
+            {CORPUS_FRESHNESS_LABEL} &middot; Open source
           </p>
           <h1 className="mx-auto mt-4 max-w-3xl text-display-lg font-semibold tracking-[-0.025em] text-primary">
             An open-source MCP server for research you can&nbsp;trust.
           </h1>
           <p className="mx-auto mt-5 max-w-xl text-base leading-8 text-tertiary">
-            Demoed on a curated research corpus, with every claim linked
-            back to a verbatim quote and the original source. Read the
-            positions, trace the evidence, or run the system yourself.
+            Demoed on a curated AI strategy and adoption corpus, with every
+            claim linked back to a verbatim quote and the original source.
+            Read the positions, trace the evidence, or run the system yourself.
           </p>
 
           {/* Two CTAs: anchor-scroll to the themes grid, and link to the
@@ -185,9 +193,7 @@ export default function LandingPage() {
                 Browse the themes
               </h2>
               <p className="mt-2 text-sm text-tertiary">
-                Drawing from 178 sources &middot; 1,561 data points &middot;{" "}
-                {allPositions?.length ?? 28} positions across{" "}
-                {sortedThemes.length || 11} themes.
+                {corpusLine}
               </p>
             </div>
             <Badge type="color" size="sm" color="gray">

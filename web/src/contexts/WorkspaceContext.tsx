@@ -25,6 +25,11 @@ type WorkspaceState = {
   projectName: string | null;
   assistantRoleName: string;
   suggestedPrompts: string[];
+  corpusStats: {
+    sourceCount: number;
+    dataPointCount: number;
+    lastUpdatedByTheme: Record<string, string>;
+  } | null;
   loading: boolean;
   /* routing */
   routeKind: RouteKind;
@@ -70,7 +75,7 @@ export function useWorkspace() {
 
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const nav = useNavigate();
-  const { projectId, projectName, assistantRoleName, suggestedPrompts, loading } = useProject();
+  const { projectId, projectName, assistantRoleName, suggestedPrompts, corpusStats, loading } = useProject();
   const location = useLocation();
 
   // Parse route params from pathname so WorkspaceProvider can live above <Routes>.
@@ -264,6 +269,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       projectName,
       assistantRoleName,
       suggestedPrompts,
+      corpusStats,
       loading,
       routeKind,
       scopeLabel,
@@ -294,7 +300,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       setMobilePane,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [projectId, projectName, assistantRoleName, suggestedPrompts, loading, routeKind, scopeLabel, themes, allPositions, themePositions, positionDetail, sourceDetail, activeTheme, turns, activeAnswer, input, pending, error, userTurnsCount, reachedTurnLimit, highlightedEvidenceId, highlightedEvidenceOrigin, highlightedEvidenceNonce, evidenceSections, mobilePane],
+    [projectId, projectName, assistantRoleName, suggestedPrompts, corpusStats, loading, routeKind, scopeLabel, themes, allPositions, themePositions, positionDetail, sourceDetail, activeTheme, turns, activeAnswer, input, pending, error, userTurnsCount, reachedTurnLimit, highlightedEvidenceId, highlightedEvidenceOrigin, highlightedEvidenceNonce, evidenceSections, mobilePane],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

@@ -3,10 +3,12 @@ import { Badge } from "@/components/base/badges/badges";
 import { OpenSourceSection } from "@/components/OpenSourceSection";
 import { SiteFooter } from "@/components/SiteFooter";
 import { ThemeCard } from "@/components/ThemeCard";
+import { CORPUS_FRESHNESS_LABEL } from "@/config/homepage";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { buildCorpusLine } from "@/lib/workspace-utils";
 
 export default function ThemesIndexPage() {
-  const { themes, allPositions, navigate } = useWorkspace();
+  const { themes, allPositions, corpusStats, navigate } = useWorkspace();
 
   const sortedThemes = useMemo(
     () =>
@@ -20,7 +22,7 @@ export default function ThemesIndexPage() {
   );
 
   const lastUpdatedByTheme = useMemo(() => {
-    const map: Record<string, string> = {};
+    const map: Record<string, string> = { ...(corpusStats?.lastUpdatedByTheme ?? {}) };
     for (const p of allPositions ?? []) {
       const themeId = String(p.themeId ?? "");
       const date: string | undefined =
@@ -32,7 +34,14 @@ export default function ThemesIndexPage() {
       }
     }
     return map;
-  }, [allPositions]);
+  }, [allPositions, corpusStats]);
+
+  const corpusLine = buildCorpusLine({
+    freshnessLabel: CORPUS_FRESHNESS_LABEL,
+    corpusStats,
+    positionCount: allPositions?.length,
+    themeCount: sortedThemes.length,
+  });
 
   return (
     <div className="bg-primary">
@@ -46,9 +55,7 @@ export default function ThemesIndexPage() {
               Browse the corpus by thread
             </h1>
             <p className="mt-3 text-sm leading-6 text-tertiary">
-              Drawing from 178 sources &middot; 1,561 data points &middot;{" "}
-              {allPositions?.length ?? 28} positions across{" "}
-              {sortedThemes.length || 11} themes.
+              {corpusLine}
             </p>
           </div>
           <Badge type="color" size="sm" color="gray">

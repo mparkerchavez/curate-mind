@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { ChevronDown } from "@untitledui/icons";
 import { Link, useLocation } from "react-router-dom";
 import { Badge } from "@/components/base/badges/badges";
+import { CORPUS_FRESHNESS_LABEL } from "@/config/homepage";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { cn } from "@/lib/cn";
 import { summarizeText } from "@/lib/workspace-utils";
@@ -27,7 +28,7 @@ export default function ResearchSidebar() {
       {/* Stats header */}
       <div className="border-b border-slate-200 px-4 py-4">
         <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
-          Feb 2026 Research
+          {CORPUS_FRESHNESS_LABEL}
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           <Badge type="color" size="sm" color="gray">

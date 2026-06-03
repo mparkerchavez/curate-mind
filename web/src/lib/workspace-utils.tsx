@@ -179,6 +179,91 @@ function summarizeCounts(counts: Map<string, number>, priorityOrder: string[]) {
   return entries.map(([label, count]) => `${count} ${label}`).join(" \u00b7 ");
 }
 
+export function formatNumber(value: number) {
+  return new Intl.NumberFormat("en-US").format(value);
+}
+
+export function buildCorpusLine({
+  freshnessLabel,
+  corpusStats,
+  positionCount,
+  themeCount,
+}: {
+  freshnessLabel: string;
+  corpusStats: { sourceCount: number; dataPointCount: number } | null;
+  positionCount: number | undefined;
+  themeCount: number;
+}) {
+  const parts = [freshnessLabel];
+  if (corpusStats) {
+    parts.push(approximateSourceCount(corpusStats.sourceCount));
+    parts.push(approximateDataPointCount(corpusStats.dataPointCount));
+  }
+  if (positionCount !== undefined) {
+    parts.push(`and ${formatNumber(positionCount)} positions`);
+  }
+  if (themeCount > 0) {
+    parts.push(`across ${formatNumber(themeCount)} themes`);
+  }
+  return parts.join(" \u00b7 ");
+}
+
+export function buildCorpusSentence({
+  freshnessLabel,
+  corpusStats,
+  positionCount,
+  themeCount,
+}: {
+  freshnessLabel: string;
+  corpusStats: { sourceCount: number; dataPointCount: number } | null;
+  positionCount: number | undefined;
+  themeCount: number;
+}) {
+  const scaleParts: string[] = [];
+  if (corpusStats) {
+    scaleParts.push(approximateSourceCount(corpusStats.sourceCount));
+    scaleParts.push(approximateDataPointCount(corpusStats.dataPointCount));
+  }
+  if (positionCount !== undefined) {
+    const positionText = `${formatNumber(positionCount)} positions`;
+    scaleParts.push(
+      themeCount > 0
+        ? `${positionText} across ${formatNumber(themeCount)} themes`
+        : positionText,
+    );
+  } else if (themeCount > 0) {
+    scaleParts.push(`${formatNumber(themeCount)} themes`);
+  }
+
+  const scaleText = scaleParts.length > 0 ? ` with ${formatReadableList(scaleParts)}` : "";
+  return `Search the full AI strategy and adoption research base, ${lowerFirst(freshnessLabel)}${scaleText}.`;
+}
+
+function formatReadableList(items: string[]) {
+  if (items.length <= 1) return items[0] ?? "";
+  if (items.length === 2) return `${items[0]} and ${items[1]}`;
+  return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
+}
+
+function lowerFirst(value: string) {
+  if (!value) return value;
+  return `${value[0].toLowerCase()}${value.slice(1)}`;
+}
+
+function approximateSourceCount(count: number) {
+  if (count >= 275 && count < 325) return "nearly 300 sources";
+  const rounded = Math.round(count / 50) * 50;
+  return `about ${formatNumber(rounded)} sources`;
+}
+
+function approximateDataPointCount(count: number) {
+  if (count >= 4800 && count < 4900) return "over 4,800 data points";
+  if (count >= 4500 && count < 5000) return "nearly 5,000 data points";
+  if (count >= 5000 && count < 5500) return "over 5,000 data points";
+  const rounded = Math.round(count / 500) * 500;
+  return `about ${formatNumber(rounded)} data points`;
+}
+
 export function formatDateLabel(dateString: string) {
   const parsed = Date.parse(dateString);
   if (Number.isNaN(parsed)) return dateString;

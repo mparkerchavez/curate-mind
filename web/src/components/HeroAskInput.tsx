@@ -66,7 +66,7 @@ export function HeroAskInput({
         }}
         rows={2}
         disabled={disabled}
-        placeholder={placeholder ?? "Ask a grounded research question..."}
+        placeholder={placeholder ?? "Ask up to 3 questions in this demo thread..."}
         className="cm-ask-input block w-full resize-none overflow-y-auto rounded-2xl border px-5 py-4 pr-16 text-lg leading-8 text-primary outline-none transition placeholder:text-placeholder focus:border-brand focus:ring-2 focus:ring-brand disabled:opacity-50"
       />
       <button

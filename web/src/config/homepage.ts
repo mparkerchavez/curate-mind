@@ -15,6 +15,10 @@ export const GITHUB_URL = "https://github.com/mparkerchavez/curate-mind";
  *  "how do I run this myself" docs without bouncing through the repo root. */
 export const SETUP_GUIDE_URL = `${GITHUB_URL}/blob/main/docs/setup-guide.md`;
 
+/** Public corpus freshness statement. Keep this broad unless the public
+ *  dataset becomes a continuously updated feed. */
+export const CORPUS_FRESHNESS_LABEL = "Updated through May 2026";
+
 /** The Research Position rendered in the live Position demo on both
  *  the home page and the methodology page. Chosen for its balance of
  *  supporting and counter evidence, concrete numbers, and active

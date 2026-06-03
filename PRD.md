@@ -16,7 +16,7 @@
 
 Curate Mind is a personal research curation system built as an MCP (Model Context Protocol) server. It gives you a persistent, queryable knowledge base for tracking a domain of research over time. The workflow is: ingest sources, extract structured data points through a four-stage source processing loop (Extract, Secondary Capture, Enrich, Review), build research positions from the evidence, and query the foundation whenever you need analysis, talking points, or synthesis.
 
-The primary interface is the MCP server. You use it directly inside any chat app or coding agent that supports MCP tools. The web app at curatemind.io is a live demo showing what the system produces after a full extraction cycle on February 2026 AI research. It demonstrates the methodology, not a continuously updating feed.
+The primary interface is the MCP server. You use it directly inside any chat app or coding agent that supports MCP tools. The web app at curatemind.io is a live demo showing what the system produces on an AI strategy and adoption research corpus updated through May 2026. It demonstrates the methodology, not a continuously updating feed.
 
 The system is built on one principle: **build a robust foundation, generate everything else on demand.** The foundation is append-only, versioned, and queryable. There are no maintained deliverables. Reports, talking points, and summaries are generated when you need them, from the current state of the foundation.
 

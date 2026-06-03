@@ -705,6 +705,7 @@ export const listAllPositions = query({
         return {
           _id: pos._id,
           title: pos.title,
+          themeId: pos.themeId,
           themeTitle: theme?.title,
           currentStance: currentVersion?.currentStance,
           confidenceLevel: currentVersion?.confidenceLevel,
