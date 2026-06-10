@@ -9,6 +9,7 @@
  */
 
 import type * as backend from "../backend.js";
+import type * as betaAccess from "../betaAccess.js";
 import type * as chat from "../chat.js";
 import type * as corrections from "../corrections.js";
 import type * as dataPoints from "../dataPoints.js";
@@ -17,6 +18,7 @@ import type * as migrations from "../migrations.js";
 import type * as observations from "../observations.js";
 import type * as positions from "../positions.js";
 import type * as projects from "../projects.js";
+import type * as publicResearch from "../publicResearch.js";
 import type * as researchLens from "../researchLens.js";
 import type * as search from "../search.js";
 import type * as sources from "../sources.js";
@@ -31,6 +33,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   backend: typeof backend;
+  betaAccess: typeof betaAccess;
   chat: typeof chat;
   corrections: typeof corrections;
   dataPoints: typeof dataPoints;
@@ -39,6 +42,7 @@ declare const fullApi: ApiFromModules<{
   observations: typeof observations;
   positions: typeof positions;
   projects: typeof projects;
+  publicResearch: typeof publicResearch;
   researchLens: typeof researchLens;
   search: typeof search;
   sources: typeof sources;

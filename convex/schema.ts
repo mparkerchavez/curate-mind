@@ -75,6 +75,52 @@ export default defineSchema({
   }).index("by_updatedAt", ["updatedAt"]),
 
   // ============================================================
+  // 0aa. BETA ACCOUNTS — Invite-only hosted MCP access
+  // ============================================================
+  betaAccounts: defineTable({
+    email: v.string(),
+    displayName: v.string(),
+    tokenHash: v.string(),
+    tokenPrefix: v.string(),
+    status: v.union(v.literal("active"), v.literal("disabled")),
+    projectId: v.optional(v.id("projects")),
+    dailyLimit: v.number(),
+    hourlyLimit: v.number(),
+    activeLimit: v.number(),
+    createdAt: v.number(),
+    createdBy: v.optional(v.string()),
+    lastUsedAt: v.optional(v.number()),
+    notes: v.optional(v.string()),
+  })
+    .index("by_tokenHash", ["tokenHash"])
+    .index("by_email", ["email"])
+    .index("by_status", ["status"]),
+
+  betaUsageEvents: defineTable({
+    accountId: v.optional(v.id("betaAccounts")),
+    projectId: v.optional(v.id("projects")),
+    toolName: v.string(),
+    requestId: v.string(),
+    tokenPrefix: v.optional(v.string()),
+    questionPreview: v.optional(v.string()),
+    status: v.union(
+      v.literal("active"),
+      v.literal("completed"),
+      v.literal("failed"),
+      v.literal("rejected")
+    ),
+    rejectionReason: v.optional(v.string()),
+    startedAt: v.number(),
+    completedAt: v.optional(v.number()),
+    responseChars: v.optional(v.number()),
+    errorMessage: v.optional(v.string()),
+  })
+    .index("by_account_startedAt", ["accountId", "startedAt"])
+    .index("by_startedAt", ["startedAt"])
+    .index("by_account_status", ["accountId", "status"])
+    .index("by_status_startedAt", ["status", "startedAt"]),
+
+  // ============================================================
   // 0b. SECONDARY ITEMS — Non-default Secondary Capture results
   // ============================================================
   // Mental models continue to live in their own table when the project's
