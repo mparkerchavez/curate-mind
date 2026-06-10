@@ -2,6 +2,18 @@
 
 Purpose: this document explains the invite-only hosted MCP beta for Curate Mind, including tester setup, rate limits, visible lineage, and the owner's testing loop for the public research-pack tool.
 
+Live endpoint:
+
+```text
+https://mcp.curatemind.io/mcp
+```
+
+Health check:
+
+```text
+https://mcp.curatemind.io/health
+```
+
 ## What Beta Testers Get
 
 Beta testers connect their own Claude or Codex client to Curate Mind's hosted MCP server:

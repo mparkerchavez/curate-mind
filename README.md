@@ -43,7 +43,7 @@ Curate Mind is designed to be operated through an MCP-connected AI assistant. Yo
 
 Read the full [assistant workflow guide](docs/assistant-guides/README.md), including [Using Claude](docs/assistant-guides/using-claude.md), [Using Codex](docs/assistant-guides/using-codex.md), and [Common workflows](docs/assistant-guides/common-workflows.md).
 
-For the planned invite-only hosted MCP beta, see [Hosted MCP Beta](docs/hosted-mcp-beta.md). That guide explains the read-only public research-pack tool, tester setup for Claude and Codex, rate limits, and the owner's testing loop.
+For the invite-only hosted MCP beta, see [Hosted MCP Beta](docs/hosted-mcp-beta.md). That guide explains the read-only public research-pack tool, tester setup for Claude and Codex, rate limits, and the owner's testing loop.
 
 ## MCP toolsets
 
