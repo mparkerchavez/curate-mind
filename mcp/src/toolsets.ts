@@ -104,6 +104,7 @@ const PIPELINE_EXTRA_TOOLS = [
   "cm_get_position_arrays",
   "cm_link_evidence_to_position",
   "cm_update_positions_batch",
+  "cm_correct_anchor",
   "cm_generate_embeddings",
 ] as const;
 
@@ -114,7 +115,6 @@ const ADMIN_EXTRA_TOOLS = [
   "cm_get_data_point_corrections",
   "cm_get_position_history",
   "cm_retire_tag",
-  "cm_correct_anchor",
   "cm_correct_attribution",
 ] as const;
 
