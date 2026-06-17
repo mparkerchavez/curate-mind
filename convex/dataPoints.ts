@@ -18,55 +18,54 @@ async function resolveProjectTag(ctx: any, projectId: any, slug: string) {
   return tag;
 }
 
+// Data-point correction types in the canonical `corrections` table.
+const ANCHOR_CORRECTION_TYPES = new Set([
+  "anchor_text",
+  "anchor_passage",
+  "anchor_missing",
+  "anchor_swap",
+]);
+
+// Resolve the effective content for a data point.
+//
+// The canonical `corrections` table is the single source of truth (Decision
+// 32). Anchor, claim, and speaker-attribution corrections are applied in place
+// on the data point record by the correction mutations, so the effective values
+// already live on `dp`. This resolver reads the corrections log only to report
+// correctionStatus, so any correction made through cm_correct_anchor /
+// cm_correct_attribution / cm_correct_claim is reflected in both the effective
+// values and the status flags.
 export async function resolveEffectiveContent(ctx: any, dp: any) {
-  let anchorQuote = dp.anchorQuote;
-  let claimText = dp.claimText;
-  let anchorCorrected = false;
-  let attributionCorrected = false;
-  let latestCorrectionAt: number | null = null;
-  let latestReason: string | null = null;
-  let currentCorrectionId = dp.currentCorrectionId;
+  const corrections = await ctx.db
+    .query("corrections")
+    .withIndex("by_target", (q: any) =>
+      q.eq("targetType", "dataPoint").eq("targetId", dp._id)
+    )
+    .collect();
 
-  while (currentCorrectionId) {
-    const correction = await ctx.db.get(currentCorrectionId);
-    if (!correction) break;
+  // by_target orders ascending by correctedAt, so the last row is the newest.
+  const latest = corrections.length > 0 ? corrections[corrections.length - 1] : null;
 
-    if (latestCorrectionAt === null) {
-      latestCorrectionAt = correction.correctedAt;
-      latestReason = correction.reason;
-    }
-
-    if (
-      correction.correctionType === "anchor" &&
-      !anchorCorrected &&
-      correction.correctedAnchorQuote
-    ) {
-      anchorQuote = correction.correctedAnchorQuote;
-      anchorCorrected = true;
-    }
-
-    if (
-      correction.correctionType === "attribution" &&
-      !attributionCorrected &&
-      correction.correctedClaimText
-    ) {
-      claimText = correction.correctedClaimText;
-      attributionCorrected = true;
-    }
-
-    if (anchorCorrected && attributionCorrected) break;
-    currentCorrectionId = correction.previousCorrectionId;
-  }
+  const anchorCorrected = corrections.some((c: any) =>
+    ANCHOR_CORRECTION_TYPES.has(c.correctionType)
+  );
+  const claimCorrected = corrections.some(
+    (c: any) => c.correctionType === "dp_claim_text"
+  );
+  const attributionCorrected = corrections.some(
+    (c: any) => c.correctionType === "dp_speaker_attribution"
+  );
 
   return {
-    anchorQuote,
-    claimText,
+    anchorQuote: dp.anchorQuote,
+    claimText: dp.claimText,
     correctionStatus: {
-      hasCorrection: Boolean(dp.currentCorrectionId),
+      hasCorrection: corrections.length > 0,
       anchorCorrected,
+      claimCorrected,
       attributionCorrected,
-      latestCorrectionAt,
-      latestReason,
+      latestCorrectionAt: latest ? latest.correctedAt : null,
+      latestReason: latest ? latest.reason : null,
     },
   };
 }
@@ -549,138 +548,11 @@ export const getDataPointsBatch = query({
 });
 
 // ============================================================
-// Append-only correction for mechanically broken anchor quotes
+// Data point corrections (anchor, claim text, speaker attribution) live in the
+// canonical `corrections` table and are written by convex/corrections.ts:
+// correctAnchor, correctClaim, and correctAttribution. The audit trail is read
+// via api.corrections.getForDataPoint. The previous orphaned write path here
+// (which wrote the retired dataPointCorrections table and was never called by
+// the MCP tools) was removed when the system converged on a single corrections
+// table; see Design Decision 32.
 // ============================================================
-export const correctAnchor = mutation({
-  args: {
-    dataPointId: v.id("dataPoints"),
-    correctedAnchorQuote: v.string(),
-    reason: v.string(),
-  },
-  handler: async (ctx, args) => {
-    const reason = args.reason.trim();
-    if (!reason) {
-      throw new Error("Reason is required");
-    }
-
-    const correctedAnchorQuote = args.correctedAnchorQuote.trim();
-    if (!correctedAnchorQuote) {
-      throw new Error("Corrected anchor quote is required");
-    }
-
-    const dp = await ctx.db.get(args.dataPointId);
-    if (!dp) {
-      throw new Error(`Data point not found: ${args.dataPointId}`);
-    }
-
-    const effectiveContent = await resolveEffectiveContent(ctx, dp);
-    if (correctedAnchorQuote === effectiveContent.anchorQuote) {
-      throw new Error("No-op: corrected anchor matches current anchor");
-    }
-
-    const source = await ctx.db.get(dp.sourceId);
-    if (!source || !source.fullText.includes(correctedAnchorQuote)) {
-      throw new Error(
-        "Corrected anchor not found in source text. Anchor must be a verbatim substring."
-      );
-    }
-
-    const correctionId = await ctx.db.insert("dataPointCorrections", {
-      dataPointId: args.dataPointId,
-      correctionType: "anchor",
-      priorAnchorQuote: effectiveContent.anchorQuote,
-      correctedAnchorQuote,
-      reason,
-      correctedAt: Date.now(),
-      previousCorrectionId: dp.currentCorrectionId,
-    });
-
-    await ctx.db.patch(args.dataPointId, {
-      currentCorrectionId: correctionId,
-    });
-
-    return {
-      correctionId,
-      priorAnchorQuote: effectiveContent.anchorQuote,
-      correctedAnchorQuote,
-      currentCorrectionId: correctionId,
-    };
-  },
-});
-
-// ============================================================
-// Append-only correction for wrong or unverifiable claim attribution
-// ============================================================
-export const correctAttribution = mutation({
-  args: {
-    dataPointId: v.id("dataPoints"),
-    correctedClaimText: v.string(),
-    reason: v.string(),
-  },
-  handler: async (ctx, args) => {
-    const reason = args.reason.trim();
-    if (!reason) {
-      throw new Error("Reason is required");
-    }
-
-    const correctedClaimText = args.correctedClaimText.trim();
-    if (!correctedClaimText) {
-      throw new Error("Corrected claim text is required");
-    }
-
-    const dp = await ctx.db.get(args.dataPointId);
-    if (!dp) {
-      throw new Error(`Data point not found: ${args.dataPointId}`);
-    }
-
-    const effectiveContent = await resolveEffectiveContent(ctx, dp);
-    if (correctedClaimText === effectiveContent.claimText) {
-      throw new Error("No-op: corrected claim text matches current claim text");
-    }
-
-    const currentLength = Math.max(effectiveContent.claimText.length, 1);
-    const ratio = correctedClaimText.length / currentLength;
-    if (ratio < 0.5 || ratio > 2) {
-      throw new Error(
-        "Corrected claim text length is outside the allowed 0.5x to 2x attribution-fix range. Substantive claim revisions are not supported by this tool."
-      );
-    }
-
-    const correctionId = await ctx.db.insert("dataPointCorrections", {
-      dataPointId: args.dataPointId,
-      correctionType: "attribution",
-      priorClaimText: effectiveContent.claimText,
-      correctedClaimText,
-      reason,
-      correctedAt: Date.now(),
-      previousCorrectionId: dp.currentCorrectionId,
-    });
-
-    await ctx.db.patch(args.dataPointId, {
-      currentCorrectionId: correctionId,
-      embeddingStatus: "pending",
-    });
-
-    return {
-      correctionId,
-      priorClaimText: effectiveContent.claimText,
-      correctedClaimText,
-      currentCorrectionId: correctionId,
-      embeddingStatus: "pending",
-      note: "embeddingStatus is now pending so cm_generate_embeddings can regenerate from the corrected claim text.",
-    };
-  },
-});
-
-// ============================================================
-// Audit trail for all corrections applied to one data point
-// ============================================================
-export const getDataPointCorrections = query({
-  args: { dataPointId: v.id("dataPoints") },
-  handler: async (ctx, args) => {
-    return await ctx.db
-      .query("dataPointCorrections")
-      .withIndex("by_dataPoint", (q) => q.eq("dataPointId", args.dataPointId))
-      .collect();
-  },
-});

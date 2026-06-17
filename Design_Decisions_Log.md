@@ -472,4 +472,20 @@ Allowed mutation types (with justification required):
 
 ---
 
+## Decision 37: One Corrections Table, and Claim Text Becomes Correctable
+
+**What:** Two parallel correction subsystems existed. The live MCP tools (`cm_correct_anchor`, `cm_correct_attribution`) wrote the `corrections` table and patched the target field in place, while a separate, orphaned write path wrote a `dataPointCorrections` table and set a `dataPoints.currentCorrectionId` pointer. The read layer (`resolveEffectiveContent`) only consulted the orphaned table, so corrections succeeded but `correctionStatus` never reflected them. The `corrections` table is now the single source of truth. `resolveEffectiveContent` returns the in-place effective values (`anchorQuote`, `claimText`) and computes `correctionStatus` by reading the `corrections` table via a new `by_target` index. The orphaned `dataPointCorrections` write path and the `currentCorrectionId` pointer were retired.
+
+This decision also reopens claim text to logged correction. Decision 32 (amended) had locked claim text entirely; `cm_correct_claim` now allows a logged, append-only claim correction with a 0.5x-2x length guard that keeps it a correction rather than a substantive rewrite. The corrected claim is patched in place, the prior value is preserved in the `corrections` row, and `embeddingStatus` is reset so semantic search reindexes.
+
+**Why:** A correction that does not show up in `correctionStatus` is worse than no correction, because it looks unverified. Converging on one append-only table removes the split-brain and matches the pattern Decision 32 already described ("insert the `corrections` row, then patch the target field"). Claim text corrections were a real curator need (mis-transcribed claims) that the orphaned path served accidentally; making them a first-class, guarded, logged tool keeps the audit trail honest.
+
+**Append-only guarantees:** No row in either table is deleted. A backfill migration (`migrations.backfillCorrections`, with a `dryRun` mode) carries every retired `dataPointCorrections` row into `corrections` and materializes the latest effective value onto each data point, so historical corrections still resolve. The retired `dataPointCorrections` table is kept and its rows remain findable by `dataPointId`. The vestigial `dataPoints.currentCorrectionId` pointer was confirmed unset on every data point (a consequence of the append-only invariant and an empty retired table) and removed from the schema; see the note in `convex/migrations.ts` for the recovery path if a deployment is ever found to still carry it.
+
+**Relationship to Decision 5 and 32:** Still a deliberate carve-out, not a repeal. Claims, evidence, observations, and position history are not silently rewritten. Claim text joins anchors, speaker attribution, and source metadata as a narrow set of fields correctable only through a logged, append-only write.
+
+**Date:** June 17, 2026
+
+---
+
 *When making implementation decisions not covered here, apply this test: does this decision serve the foundation (persistent, queryable, append-only knowledge structure) or does it serve a specific output? If the latter, it probably doesn't belong in the core system. Generate it on demand instead.*

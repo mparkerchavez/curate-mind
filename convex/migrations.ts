@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 
 // ============================================================
 // Tag Reassignment Migration (Design Decision 30)
@@ -138,3 +139,176 @@ export const reassignTag = mutation({
     };
   },
 });
+
+// ============================================================
+// Backfill corrections from the retired dataPointCorrections table
+// (correction-system unification, Design Decision 32)
+//
+// The system converged on a single `corrections` table as the source of truth.
+// This migration carries every row from the retired `dataPointCorrections`
+// table into `corrections` and materializes the effective value onto the data
+// point, so historical corrections still resolve under the new read layer.
+//
+// Append-only and idempotent:
+//   - No row in either table is deleted.
+//   - A `corrections` row is inserted only if an equivalent one is not already
+//     present (matched by target, correctedAt, type, and value).
+//   - The data point's anchorQuote / claimText is set from the LATEST legacy
+//     correction of each type (the effective value the old resolver showed).
+//
+// Type mapping (legacy -> canonical):
+//   "anchor"      -> "anchor_text"      (patches anchorQuote)
+//   "attribution" -> "dp_claim_text"    (patches claimText, resets embedding)
+//
+// Pass { dryRun: true } to report counts without writing anything.
+// ============================================================
+const CORRECTED_BY_VALUES = new Set(["curator", "agent", "pipeline"]);
+
+function normalizeCorrectedBy(value: unknown): "curator" | "agent" | "pipeline" {
+  return typeof value === "string" && CORRECTED_BY_VALUES.has(value)
+    ? (value as "curator" | "agent" | "pipeline")
+    : "curator";
+}
+
+export const backfillCorrections = mutation({
+  args: {
+    dryRun: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const dryRun = args.dryRun ?? false;
+
+    const legacyRows = await ctx.db.query("dataPointCorrections").collect();
+
+    const stats = {
+      legacyRowsTotal: legacyRows.length,
+      anchorRows: 0,
+      claimRows: 0,
+      correctionsInserted: 0,
+      correctionsSkippedExisting: 0,
+      dataPointsAnchorMaterialized: 0,
+      dataPointsClaimMaterialized: 0,
+      missingDataPoints: 0,
+    };
+
+    // Group legacy rows by data point so we can materialize from the latest of
+    // each type.
+    const byDataPoint = new Map<string, typeof legacyRows>();
+    for (const row of legacyRows) {
+      if (row.correctionType === "anchor") stats.anchorRows++;
+      if (row.correctionType === "attribution") stats.claimRows++;
+      const key = row.dataPointId as unknown as string;
+      const list = byDataPoint.get(key) ?? [];
+      list.push(row);
+      byDataPoint.set(key, list);
+    }
+
+    // Surface which data points carry legacy claim (attribution) rewrites so a
+    // dry run can flag them before any claim text is touched.
+    const claimDataPointIds = Array.from(byDataPoint.entries())
+      .filter(([, rows]) => rows.some((r) => r.correctionType === "attribution"))
+      .map(([id]) => id);
+
+    if (dryRun) {
+      return { dryRun: true, stats, claimDataPointIds };
+    }
+
+    for (const [dataPointKey, rows] of byDataPoint.entries()) {
+      const dataPointId = dataPointKey as unknown as Id<"dataPoints">;
+      const dp = await ctx.db.get(dataPointId);
+      if (!dp) {
+        stats.missingDataPoints++;
+        continue;
+      }
+      const source = await ctx.db.get(dp.sourceId);
+      if (!source) {
+        stats.missingDataPoints++;
+        continue;
+      }
+
+      const sorted = [...rows].sort((a, b) => a.correctedAt - b.correctedAt);
+
+      // Existing canonical corrections for this data point (idempotency check).
+      const existing = await ctx.db
+        .query("corrections")
+        .withIndex("by_target", (q) =>
+          q.eq("targetType", "dataPoint").eq("targetId", dataPointId)
+        )
+        .collect();
+
+      let latestAnchorValue: string | null = null;
+      let latestClaimValue: string | null = null;
+
+      for (const row of sorted) {
+        const isAnchor = row.correctionType === "anchor";
+        const canonicalType = isAnchor ? "anchor_text" : "dp_claim_text";
+        const previousValue = isAnchor
+          ? row.priorAnchorQuote ?? null
+          : row.priorClaimText ?? null;
+        const newValue = isAnchor
+          ? row.correctedAnchorQuote
+          : row.correctedClaimText;
+
+        if (!newValue) continue; // malformed legacy row, nothing to carry over
+
+        if (isAnchor) latestAnchorValue = newValue;
+        else latestClaimValue = newValue;
+
+        const alreadyPresent = existing.some(
+          (c) =>
+            c.correctionType === canonicalType &&
+            c.correctedAt === row.correctedAt &&
+            c.newValue === newValue
+        );
+
+        if (alreadyPresent) {
+          stats.correctionsSkippedExisting++;
+          continue;
+        }
+
+        await ctx.db.insert("corrections", {
+          projectId: source.projectId,
+          targetType: "dataPoint",
+          targetId: dataPointId,
+          correctionType: canonicalType,
+          previousValue,
+          newValue,
+          reason: row.reason,
+          correctedAt: row.correctedAt,
+          correctedBy: normalizeCorrectedBy(row.correctedBy),
+        });
+        stats.correctionsInserted++;
+      }
+
+      // Materialize the effective value onto the data point (the value the old
+      // resolver overlaid). Only patch when it actually differs.
+      const patch: Record<string, unknown> = {};
+      if (latestAnchorValue !== null && dp.anchorQuote !== latestAnchorValue) {
+        patch.anchorQuote = latestAnchorValue;
+        stats.dataPointsAnchorMaterialized++;
+      }
+      if (latestClaimValue !== null && dp.claimText !== latestClaimValue) {
+        patch.claimText = latestClaimValue;
+        patch.embeddingStatus = "pending";
+        stats.dataPointsClaimMaterialized++;
+      }
+      if (Object.keys(patch).length > 0) {
+        await ctx.db.patch(dataPointId, patch);
+      }
+    }
+
+    return { dryRun: false, stats, claimDataPointIds };
+  },
+});
+
+// ============================================================
+// Note on the retired currentCorrectionId pointer (Design Decision 37)
+//
+// dataPoints.currentCorrectionId pointed into the retired dataPointCorrections
+// table. Because the system is append-only and that table had no rows, no data
+// point ever carried a pointer (verified by scanning every data point), so the
+// field was removed from the schema directly with no clearing pass required.
+// If a future deployment is ever found to still carry the pointer, re-add it to
+// the schema as optional, unset it on the affected data points with a paginated
+// mutation (one paginated query per call; ~256 docs per page to stay under the
+// 16MB read limit), then remove the field again.
+// ============================================================

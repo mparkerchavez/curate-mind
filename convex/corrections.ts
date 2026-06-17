@@ -347,6 +347,76 @@ export const correctAttribution = mutation({
   },
 });
 
+// ============================================================
+// Correct a data point claim text (logged, append-only audit).
+//
+// Decision 32 (amended): claims are immutable EXCEPT through a logged
+// correction. The previous claim is preserved in the corrections row, the
+// claim is patched in place, and embeddingStatus is reset so semantic search
+// reindexes from the corrected wording. A 0.5x-2x length guard keeps this a
+// correction rather than a substantive rewrite.
+// ============================================================
+export const correctClaim = mutation({
+  args: {
+    dataPointId: v.id("dataPoints"),
+    correctedClaimText: v.string(),
+    reason: v.string(),
+    correctedBy: v.optional(correctedBy),
+  },
+  handler: async (ctx, args) => {
+    const reason = validateReason(args.reason);
+    const correctedByValue = args.correctedBy ?? "curator";
+
+    const correctedClaimText = args.correctedClaimText.trim().replace(/\s+/g, " ");
+    if (!correctedClaimText) {
+      throw new Error("correctedClaimText is required");
+    }
+
+    const { dp, source } = await getDataPointWithSource(ctx, args.dataPointId);
+
+    const currentClaimText = dp.claimText;
+    if (correctedClaimText === currentClaimText) {
+      throw new Error("No-op: corrected claim text matches current claim text");
+    }
+
+    const currentLength = Math.max(currentClaimText.length, 1);
+    const ratio = correctedClaimText.length / currentLength;
+    if (ratio < 0.5 || ratio > 2) {
+      throw new Error(
+        "Corrected claim text length is outside the allowed 0.5x to 2x correction range. " +
+          "This guard keeps claim corrections from becoming substantive rewrites; loosen it " +
+          "only deliberately."
+      );
+    }
+
+    const correctionId = await insertCorrection(ctx, {
+      projectId: source.projectId,
+      targetType: "dataPoint",
+      targetId: args.dataPointId,
+      correctionType: "dp_claim_text",
+      previousValue: currentClaimText,
+      newValue: correctedClaimText,
+      reason,
+      correctedBy: correctedByValue,
+    });
+
+    await ctx.db.patch(args.dataPointId, {
+      claimText: correctedClaimText,
+      embeddingStatus: "pending",
+    });
+
+    return {
+      dataPointId: args.dataPointId,
+      correctionId,
+      previousValue: currentClaimText,
+      newValue: correctedClaimText,
+      fieldUpdated: "claimText",
+      embeddingStatus: "pending",
+      note: "embeddingStatus is now pending so cm_generate_embeddings can regenerate from the corrected claim text.",
+    };
+  },
+});
+
 export const getForTarget = query({
   args: {
     projectId: v.id("projects"),

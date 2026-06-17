@@ -1068,6 +1068,67 @@ export function registerSynthesisTools(server: McpServer): void {
   );
 
   // ============================================================
+  // cm_correct_claim - Logged correction of a data point claim text
+  // ============================================================
+  server.registerTool(
+    "cm_correct_claim",
+    {
+      title: "Correct Data Point Claim Text",
+      description:
+        "Correct the claim text of a data point while writing an immutable corrections row. " +
+        "Claims are otherwise immutable; this is a logged carve-out for fixing a mis-transcribed " +
+        "or mis-stated claim, not for rewriting analysis (Decision 32, amended). The claim is " +
+        "updated in place, the previous value is preserved in the append-only correction log, and " +
+        "the data point's embedding is marked pending so semantic search reindexes from the " +
+        "corrected wording. A 0.5x-2x length guard keeps this a correction rather than a rewrite.\n\n" +
+        "Args:\n" +
+        "  - dataPointId (string): Data point to correct\n" +
+        "  - correctedClaimText (string): The corrected claim text\n" +
+        "  - reason (string): Required curator explanation, at least 10 characters\n\n" +
+        "Returns: dataPointId, correctionId, previousValue, newValue, fieldUpdated, and embeddingStatus.",
+      inputSchema: {
+        dataPointId: z.string().describe("Data point ID to correct"),
+        correctedClaimText: z.string().min(1).describe("The corrected claim text"),
+        reason: z.string().min(10)
+          .describe("Required curator explanation for this claim correction"),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ dataPointId, correctedClaimText, reason }) => {
+      try {
+        const result = await convexMutation(api.corrections.correctClaim, {
+          dataPointId: asId<"dataPoints">(dataPointId),
+          correctedClaimText,
+          reason,
+        });
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+            },
+          ],
+        };
+      }
+    }
+  );
+
+  // ============================================================
   // cm_generate_embeddings - Batch generate embeddings
   // ============================================================
   server.registerTool(

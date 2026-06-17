@@ -250,7 +250,10 @@ export default defineSchema({
         v.literal("failed")
       )
     ),
-    currentCorrectionId: v.optional(v.id("dataPointCorrections")),
+    // currentCorrectionId was the pointer into the retired dataPointCorrections
+    // table. The system converged on the `corrections` table as the single
+    // source of truth (Decision 37). The pointer was confirmed unset on every
+    // data point and removed here; see the note in convex/migrations.ts.
   })
     .index("by_sourceId", ["sourceId"])
     .index("by_extractionDate", ["extractionDate"])
@@ -292,6 +295,7 @@ export default defineSchema({
       v.literal("anchor_passage"),
       v.literal("anchor_missing"),
       v.literal("anchor_swap"),
+      v.literal("dp_claim_text"),
       v.literal("source_publisher"),
       v.literal("source_author"),
       v.literal("source_url"),
@@ -308,7 +312,9 @@ export default defineSchema({
       v.literal("agent"),
       v.literal("pipeline")
     ),
-  }).index("by_project_target", ["projectId", "targetType", "targetId"]),
+  })
+    .index("by_project_target", ["projectId", "targetType", "targetId"])
+    .index("by_target", ["targetType", "targetId", "correctedAt"]),
 
   // ============================================================
   // 5. CURATOR OBSERVATIONS - The curator's connective insights
