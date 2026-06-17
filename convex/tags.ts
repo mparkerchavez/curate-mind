@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { resolveEffectiveContent } from "./dataPoints";
+import { isLiveDataPoint, supersedeStateView } from "./lib/supersede";
 
 async function resolveRetiredTag(ctx: any, tag: any) {
   if (!tag?.retired || !tag.redirectedToTagId) return tag;
@@ -239,10 +240,19 @@ export const retireTag = mutation({
 
 // ============================================================
 // Get all data points for a specific tag
+//
+// This is the evidence-linking retrieval pool, so superseded/retired data
+// points are excluded by default (Decision 38). Pass includeSuperseded: true to
+// see them. Either way, each returned item carries its supersedeState so the
+// curator can tell live evidence from retired evidence.
 // ============================================================
 export const getDataPointsByTag = query({
-  args: { tagId: v.id("tags") },
+  args: {
+    tagId: v.id("tags"),
+    includeSuperseded: v.optional(v.boolean()),
+  },
   handler: async (ctx, args) => {
+    const includeSuperseded = args.includeSuperseded ?? false;
     const links = await ctx.db
       .query("dataPointTags")
       .withIndex("by_tagId", (q) => q.eq("tagId", args.tagId))
@@ -252,6 +262,7 @@ export const getDataPointsByTag = query({
       links.map(async (link) => {
         const dp = await ctx.db.get(link.dataPointId);
         if (!dp) return null;
+        if (!includeSuperseded && !isLiveDataPoint(dp)) return null;
 
         const source = await ctx.db.get(dp.sourceId);
         const effectiveContent = await resolveEffectiveContent(ctx, dp);
@@ -263,6 +274,7 @@ export const getDataPointsByTag = query({
           confidence: dp.confidence,
           extractionDate: dp.extractionDate,
           correctionStatus: effectiveContent.correctionStatus,
+          supersedeState: supersedeStateView(dp),
           sourceTitle: source?.title,
           sourceTier: source?.tier,
         };

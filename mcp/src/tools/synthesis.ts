@@ -1129,6 +1129,133 @@ export function registerSynthesisTools(server: McpServer): void {
   );
 
   // ============================================================
+  // cm_supersede_data_point - Append-only retire/replace a data point
+  // ============================================================
+  server.registerTool(
+    "cm_supersede_data_point",
+    {
+      title: "Supersede or Retire Data Point",
+      description:
+        "Retire a data point, or replace it with another, without failing its whole source " +
+        "(Decision 38, append-only). The original claim and anchor are never altered; only the " +
+        "lifecycle fields are set, once. Provide a replacement to mark it 'superseded'; omit the " +
+        "replacement to mark it 'retired' (removed with no replacement). A data point that is " +
+        "already superseded or retired cannot be changed again.\n\n" +
+        "Superseded and retired data points are excluded from live evidence by default " +
+        "(cm_ask, cm_search, public routes, and cm_get_data_points_by_tag) but stay fetchable by " +
+        "id, and their status is surfaced wherever the data point is returned.\n\n" +
+        "Args:\n" +
+        "  - dataPointId (string): Data point to retire or replace\n" +
+        "  - replacementDataPointId (string, optional): Replacement data point; presence makes " +
+        "this 'superseded', absence makes it 'retired'\n" +
+        "  - reason (string): Required curator explanation, at least 10 characters\n\n" +
+        "Returns: dataPointId, previousStatus, status, supersededBy, supersededAt, reason, warnings.",
+      inputSchema: {
+        dataPointId: z.string().describe("Data point ID to retire or replace"),
+        replacementDataPointId: z.string().optional()
+          .describe("Replacement data point ID; omit to retire with no replacement"),
+        reason: z.string().min(10)
+          .describe("Required curator explanation for this supersede/retire"),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ dataPointId, replacementDataPointId, reason }) => {
+      try {
+        const result = await convexMutation(api.dataPoints.supersedeDataPoint, {
+          dataPointId: asId<"dataPoints">(dataPointId),
+          replacementDataPointId: replacementDataPointId
+            ? asId<"dataPoints">(replacementDataPointId)
+            : undefined,
+          reason,
+        });
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+            },
+          ],
+        };
+      }
+    }
+  );
+
+  // ============================================================
+  // cm_supersede_source - Append-only source replacement lineage
+  // ============================================================
+  server.registerTool(
+    "cm_supersede_source",
+    {
+      title: "Supersede Source",
+      description:
+        "Record that a source was replaced by a re-ingested version (Decision 38, append-only). " +
+        "Add the replacement source first with cm_add_source, then call this to link them. It sets " +
+        "the old source's supersededBy pointer plus status='failed', and the new source's replaces " +
+        "pointer. Original content of both sources is untouched, and the pointers cannot be " +
+        "re-pointed once set. cm_get_source and cm_get_source_usage surface the lineage.\n\n" +
+        "Args:\n" +
+        "  - oldSourceId (string): The retired source\n" +
+        "  - newSourceId (string): The replacement source\n" +
+        "  - reason (string): Required curator explanation, at least 10 characters\n\n" +
+        "Returns: oldSourceId, newSourceId, previousStatus, status, supersededAt, reason.",
+      inputSchema: {
+        oldSourceId: z.string().describe("The retired source ID"),
+        newSourceId: z.string().describe("The replacement source ID"),
+        reason: z.string().min(10)
+          .describe("Required curator explanation for this replacement"),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ oldSourceId, newSourceId, reason }) => {
+      try {
+        const result = await convexMutation(api.sources.supersedeSource, {
+          oldSourceId: asId<"sources">(oldSourceId),
+          newSourceId: asId<"sources">(newSourceId),
+          reason,
+        });
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+            },
+          ],
+        };
+      }
+    }
+  );
+
+  // ============================================================
   // cm_generate_embeddings - Batch generate embeddings
   // ============================================================
   server.registerTool(

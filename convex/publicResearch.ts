@@ -4,6 +4,7 @@ import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { resolveEffectiveContent } from "./dataPoints";
 import { resolveSourceMeta } from "./sources";
+import { isLiveDataPoint } from "./lib/supersede";
 
 declare const process: {
   env: Record<string, string | undefined>;
@@ -285,6 +286,9 @@ export const hydratePublicDataPoints = query({
     for (const dataPointId of args.dataPointIds) {
       const dp = await ctx.db.get(dataPointId);
       if (!dp) continue;
+      // Superseded/retired data points are not surfaced to public visitors
+      // (Decision 38); they remain fetchable by id through curator MCP tools.
+      if (!isLiveDataPoint(dp)) continue;
 
       const source = await ctx.db.get(dp.sourceId);
       if (!source || String(source.projectId) !== String(args.projectId)) continue;

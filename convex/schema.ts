@@ -199,6 +199,18 @@ export default defineSchema({
       v.literal("extracted"),
       v.literal("failed")
     ),
+
+    // ── Replacement lineage (Decision 38, append-only) ──
+    // Records that a source was replaced by a re-ingested version. Today this
+    // link only lives in handoff docs. Optional so existing rows stay valid;
+    // set once via supersedeSource, never re-pointed. Superseding sets the old
+    // source's status to "failed".
+    //   - supersededBy: forward pointer on the retired source -> the new source
+    //   - replaces:     back pointer on the new source -> the old source
+    supersededBy: v.optional(v.id("sources")),
+    replaces: v.optional(v.id("sources")),
+    supersededAt: v.optional(v.number()),
+    supersedeReason: v.optional(v.string()),
   })
     .index("by_projectId", ["projectId"])
     .index("by_projectId_status", ["projectId", "status"])
@@ -254,6 +266,25 @@ export default defineSchema({
     // table. The system converged on the `corrections` table as the single
     // source of truth (Decision 37). The pointer was confirmed unset on every
     // data point and removed here; see the note in convex/migrations.ts.
+
+    // ── Lifecycle / supersede state (Decision 38, append-only) ──
+    // A data point can be retired or replaced without failing its whole source.
+    // The original claimText / anchorQuote stay immutable; only these lifecycle
+    // fields are set in place (set once, never re-pointed). All optional so
+    // existing rows stay valid — a missing status is treated as "active".
+    //   - status="superseded" requires supersededBy (the replacement DP).
+    //   - status="retired" means removed with no replacement (supersededBy unset).
+    // See convex/lib/supersede.ts for the live/normalize logic.
+    status: v.optional(
+      v.union(
+        v.literal("active"),
+        v.literal("superseded"),
+        v.literal("retired")
+      )
+    ),
+    supersededBy: v.optional(v.id("dataPoints")),
+    supersededAt: v.optional(v.number()),
+    supersedeReason: v.optional(v.string()),
   })
     .index("by_sourceId", ["sourceId"])
     .index("by_extractionDate", ["extractionDate"])

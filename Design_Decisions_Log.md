@@ -488,4 +488,26 @@ This decision also reopens claim text to logged correction. Decision 32 (amended
 
 ---
 
+## Decision 38: Append-Only Supersede and Source Lineage
+
+**What:** A single data point can now be retired or replaced without failing its whole source, and a re-ingested source can be explicitly linked to the one it replaced. Two new lifecycle states, both append-only:
+
+- **Data point supersede/retire.** `dataPoints` gains `status` (active | superseded | retired), `supersededBy` (a pointer to the replacement data point), `supersededAt`, and `supersedeReason`. `cm_supersede_data_point` (mutation `supersedeDataPoint`) sets these in place. A replacement id makes the data point `superseded`; omitting it makes the data point `retired` (removed, no replacement). A reason of at least 10 characters is required, matching the correction tools. A data point that is already superseded or retired cannot be changed again. The original `claimText` and `anchorQuote` are never altered.
+- **Source replacement lineage.** `sources` gains `supersededBy` (forward pointer on the retired source), `replaces` (back pointer on the new source), `supersededAt`, and `supersedeReason`. `cm_supersede_source` (mutation `supersedeSource`) sets both pointers and marks the old source `status: "failed"`. The replacement source is added normally with `cm_add_source` first; this is a separate, focused mutation rather than an overload of `cm_add_source`/`cm_update_source_status`, because the curator decides a source is a replacement only after the new one already exists, and a generic status setter should not carry lineage semantics.
+
+**Read behavior (the high-risk part):** superseded and retired data points are excluded from *live evidence* by default but remain *fetchable by id*, and their lifecycle status is surfaced wherever a data point is returned.
+
+- Excluded by default: `cm_ask` (filtered at the single `hydrateDataPoints` chokepoint, covering carried and fresh evidence for both grounded and analyst modes), `cm_search`, the public web routes (`hydratePublicDataPoints`, and `getSourceDetail`, which backs the public source page and the source-scoped ask context), and `cm_get_data_points_by_tag` (the evidence-linking pool; pass `includeSuperseded: true` to override).
+- Kept (with status surfaced): `cm_get_data_point`, `cm_get_data_points_batch`, `cm_list_data_points_by_source`, and the curator source views. A superseded data point that is filtered out is simply dropped; its replacement surfaces on its own if relevant (no automatic substitution).
+- `cm_link_evidence_to_position` returns a non-blocking warning if any added evidence data point is superseded or retired.
+- Chunk-1 usage tools (`cm_get_data_point_usage`, `cm_get_source_usage`) report the data point's supersede status and `supersededBy`, and the source's `replaces` / `supersededBy` lineage.
+
+**Why:** Before this, retiring a single bad claim meant failing or re-extracting its whole source, and replacement lineage lived only in handoff docs. Excluding retired evidence from cited answers and the public site keeps the corpus honest, while keeping it fetchable by id preserves the audit trail.
+
+**Append-only guarantees:** Nothing is deleted and no original content is overwritten. Only the lifecycle/lineage fields are set, once, and cannot be re-pointed. This extends the existing in-place-update whitelist (previously `currentVersionId` on positions, `status` on sources, `embeddingStatus` on data points) to the data point lifecycle fields and source lineage fields. A migration (`migrations.backfillDataPointStatus`, paginated; `migrations.backfillSourceLineage`, with a `dryRun` mode) initializes existing data points to `active` and backfills the known OpenAI re-ingestion lineage; reads treat a missing status as `active`, so they stay correct even before the backfill runs.
+
+**Date:** June 17, 2026
+
+---
+
 *When making implementation decisions not covered here, apply this test: does this decision serve the foundation (persistent, queryable, append-only knowledge structure) or does it serve a specific output? If the latter, it probably doesn't belong in the core system. Generate it on demand instead.*

@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { action, query } from "./_generated/server";
 import { api } from "./_generated/api";
+import { isLiveDataPoint } from "./lib/supersede";
 
 declare const process: {
   env: Record<string, string | undefined>;
@@ -60,12 +61,15 @@ export const searchDataPoints = action({
           : undefined,
     });
 
-    // Hydrate results with full data
+    // Hydrate results with full data. Superseded/retired data points are
+    // excluded from exploration results (Decision 38); the vector search
+    // over-fetches, so dropping them post-hydration is safe.
     const hydrated: Array<SearchEntityResult | null> = await Promise.all(
       results.map(async (result) => {
         const dp = (await ctx.runQuery(api.dataPoints.getDataPoint, {
           dataPointId: result._id,
         })) as Record<string, unknown> | null;
+        if (!dp || !isLiveDataPoint(dp)) return null;
         return {
           ...dp,
           _score: result._score,

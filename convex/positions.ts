@@ -1,6 +1,31 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { resolveSourceMeta } from "./sources";
+import { normalizeStatus } from "./lib/supersede";
+
+// Collect a warning for each added evidence data point that is superseded or
+// retired (Decision 38). Non-blocking: linking still succeeds, but the curator
+// is told so they can swap in the replacement. The by-tag retrieval pool
+// already excludes these, so this mainly catches hand-supplied ids.
+async function supersededEvidenceWarnings(
+  ctx: any,
+  dataPointIds: readonly any[]
+): Promise<string[]> {
+  const warnings: string[] = [];
+  for (const id of dataPointIds) {
+    const dp = await ctx.db.get(id);
+    if (!dp) continue;
+    const status = normalizeStatus(dp.status);
+    if (status !== "active") {
+      warnings.push(
+        dp.supersededBy
+          ? `Data point ${String(id)} is ${status} (replaced by ${String(dp.supersededBy)})`
+          : `Data point ${String(id)} is ${status}`
+      );
+    }
+  }
+  return warnings;
+}
 
 // ============================================================
 // RESEARCH THEMES
@@ -559,6 +584,11 @@ export const linkEvidenceToPosition = mutation({
 
     await ctx.db.patch(args.positionId, { currentVersionId: newVersionId });
 
+    const warnings = await supersededEvidenceWarnings(ctx, [
+      ...(args.addSupportingEvidence ?? []),
+      ...(args.addCounterEvidence ?? []),
+    ]);
+
     return {
       versionId: newVersionId,
       versionNumber: nextVersionNumber,
@@ -568,6 +598,7 @@ export const linkEvidenceToPosition = mutation({
         curatorObservations: (args.addCuratorObservations ?? []).length,
         mentalModels: (args.addMentalModels ?? []).length,
       },
+      warnings,
     };
   },
 });

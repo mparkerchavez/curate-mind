@@ -301,6 +301,127 @@ export const backfillCorrections = mutation({
 });
 
 // ============================================================
+// Initialize data point lifecycle status (Design Decision 38)
+//
+// Sets status="active" on every data point that predates the supersede fields.
+// Append-only and idempotent: only rows with an unset status are touched, and
+// nothing is ever deleted.
+//
+// Data point rows carry a 1536-dimension embedding, so the table cannot be
+// collected whole under Convex's 16 MB per-execution read budget. This mutation
+// processes one page (~256 rows) and returns a cursor; run it repeatedly until
+// isDone is true:
+//   npx convex run migrations:backfillDataPointStatus '{}'
+//   npx convex run migrations:backfillDataPointStatus '{"cursor":"<continueCursor>"}'
+// ============================================================
+const DATA_POINT_STATUS_PAGE_SIZE = 256;
+
+export const backfillDataPointStatus = mutation({
+  args: {
+    cursor: v.optional(v.union(v.string(), v.null())),
+  },
+  handler: async (ctx, args) => {
+    const page = await ctx.db.query("dataPoints").paginate({
+      numItems: DATA_POINT_STATUS_PAGE_SIZE,
+      cursor: args.cursor ?? null,
+    });
+
+    let initialized = 0;
+    let alreadySet = 0;
+    for (const dp of page.page) {
+      if (dp.status === undefined) {
+        await ctx.db.patch(dp._id, { status: "active" });
+        initialized++;
+      } else {
+        alreadySet++;
+      }
+    }
+
+    return {
+      pageSize: page.page.length,
+      initialized,
+      alreadySet,
+      isDone: page.isDone,
+      continueCursor: page.continueCursor,
+    };
+  },
+});
+
+// ============================================================
+// Backfill known source replacement lineage (Design Decision 38)
+//
+// Records the OpenAI re-ingestion that previously only lived in handoff docs:
+//   old kd7014cf47f5rcxrw4rpftzqh588p3q6  superseded by
+//   new kd74gc0sek7tj6kmchgbw5gndh88vtgw
+// Sets old.supersededBy + status="failed" and new.replaces. Append-only and
+// idempotent: pointers are set only when currently unset. Other historical
+// failed-source lineage is not recoverable and is left null.
+//
+// Pass { dryRun: true } to report what would change without writing.
+// ============================================================
+const OPENAI_OLD_SOURCE_ID = "kd7014cf47f5rcxrw4rpftzqh588p3q6";
+const OPENAI_NEW_SOURCE_ID = "kd74gc0sek7tj6kmchgbw5gndh88vtgw";
+
+export const backfillSourceLineage = mutation({
+  args: {
+    dryRun: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const dryRun = args.dryRun ?? false;
+    const oldId = OPENAI_OLD_SOURCE_ID as unknown as Id<"sources">;
+    const newId = OPENAI_NEW_SOURCE_ID as unknown as Id<"sources">;
+
+    const oldSource = await ctx.db.get(oldId);
+    const newSource = await ctx.db.get(newId);
+
+    const result = {
+      dryRun,
+      oldSourceFound: Boolean(oldSource),
+      newSourceFound: Boolean(newSource),
+      setSupersededBy: false,
+      setOldStatusFailed: false,
+      setReplaces: false,
+      alreadyLinked: false,
+    };
+
+    if (!oldSource || !newSource) {
+      return result;
+    }
+
+    if (oldSource.supersededBy && newSource.replaces) {
+      result.alreadyLinked = true;
+      return result;
+    }
+
+    const now = Date.now();
+    const reason =
+      "OpenAI source re-ingested as a corrected version; lineage backfilled (Decision 38).";
+
+    if (!oldSource.supersededBy) {
+      result.setSupersededBy = true;
+      if (oldSource.status !== "failed") result.setOldStatusFailed = true;
+      if (!dryRun) {
+        await ctx.db.patch(oldId, {
+          supersededBy: newId,
+          supersededAt: now,
+          supersedeReason: reason,
+          status: "failed",
+        });
+      }
+    }
+
+    if (!newSource.replaces) {
+      result.setReplaces = true;
+      if (!dryRun) {
+        await ctx.db.patch(newId, { replaces: oldId });
+      }
+    }
+
+    return result;
+  },
+});
+
+// ============================================================
 // Note on the retired currentCorrectionId pointer (Design Decision 37)
 //
 // dataPoints.currentCorrectionId pointed into the retired dataPointCorrections

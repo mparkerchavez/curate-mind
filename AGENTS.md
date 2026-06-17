@@ -121,7 +121,8 @@ After extraction waves, data points need to be connected to Research Positions. 
 **CRITICAL: Never delete. Never overwrite. Always append.**
 - Position updates create new version rows
 - Data points are immutable once created
-- The only fields that update in place: `currentVersionId` on researchPositions, `status` on sources, `embeddingStatus` on data points
+- The only fields that update in place: `currentVersionId` on researchPositions; `status` plus lineage pointers (`supersededBy`, `replaces`, `supersededAt`, `supersedeReason`) on sources; `embeddingStatus` and lifecycle fields (`status`, `supersededBy`, `supersededAt`, `supersedeReason`) on data points. Lifecycle and lineage pointers are set once and never re-pointed (Decision 38); the original data point claim/anchor and source content are never altered.
+- Retiring or replacing a single data point uses `cm_supersede_data_point`; linking a re-ingested source to the one it replaced uses `cm_supersede_source`. Both are append-only. Superseded/retired data points are excluded from live evidence (cm_ask, cm_search, public routes, tag retrieval) but stay fetchable by id.
 - If an agent makes an error, recovery = revert pointer, never delete records
 
 ---

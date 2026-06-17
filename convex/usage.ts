@@ -27,6 +27,7 @@
 import { v } from "convex/values";
 import { query, type QueryCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
+import { supersedeStateView } from "./lib/supersede";
 import {
   computeLivePositions,
   filterBlastRadiusPositions,
@@ -113,6 +114,8 @@ export const getDataPointUsage = query({
     const { livePositions, supportingCount, counterCount } =
       computeLivePositions(dataPointId, positions);
 
+    const supersedeState = supersedeStateView(dp);
+
     return {
       dataPoint: {
         _id: dataPointId,
@@ -120,6 +123,7 @@ export const getDataPointUsage = query({
         sourceId: String(dp.sourceId),
         sourceTitle: source?.title ?? null,
         sourceStatus: source?.status ?? null,
+        supersedeState,
       },
       livePositions,
       summaryCore: {
@@ -127,6 +131,8 @@ export const getDataPointUsage = query({
         supportingCount,
         counterCount,
         sourceStatus: source?.status ?? null,
+        dataPointStatus: supersedeState.status,
+        supersededBy: supersedeState.supersededBy,
       },
     };
   },
@@ -234,7 +240,11 @@ export const getSourceUsage = query({
       _id: String(dp._id),
       dpSequenceNumber: dp.dpSequenceNumber,
       status: source.status,
+      supersedeState: supersedeStateView(dp),
     }));
+    const supersededDataPointCount = dps.filter(
+      (dp) => supersedeStateView(dp).status !== "active"
+    ).length;
 
     const positions = await collectProjectCurrentVersions(
       ctx,
@@ -246,15 +256,26 @@ export const getSourceUsage = query({
     );
 
     return {
-      source: { _id: sourceId, title: source.title, status: source.status },
+      source: {
+        _id: sourceId,
+        title: source.title,
+        status: source.status,
+        supersededBy: source.supersededBy ? String(source.supersededBy) : null,
+        replaces: source.replaces ? String(source.replaces) : null,
+        supersededAt: source.supersededAt ?? null,
+        supersedeReason: source.supersedeReason ?? null,
+      },
       projectId: String(source.projectId),
       dataPoints,
       dataPointIds,
       positions: blastRadiusPositions,
       summaryCore: {
         dataPointCount: dataPoints.length,
+        supersededDataPointCount,
         positionCount: blastRadiusPositions.length,
         sourceStatus: source.status,
+        supersededBy: source.supersededBy ? String(source.supersededBy) : null,
+        replaces: source.replaces ? String(source.replaces) : null,
       },
     };
   },

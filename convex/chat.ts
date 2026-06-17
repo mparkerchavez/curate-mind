@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { action, type ActionCtx } from "./_generated/server";
 import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import { isLiveDataPoint } from "./lib/supersede";
 
 declare const process: {
   env: Record<string, string | undefined>;
@@ -1139,7 +1140,10 @@ async function hydrateDataPoints(
       dataPointId: dataPointId as Id<"dataPoints">,
     })) as any;
 
-    if (!dp) continue;
+    // Superseded/retired data points never ground a cited answer (Decision 38).
+    // This single chokepoint covers both carried and freshly retrieved evidence
+    // for askGrounded and askAnalyst.
+    if (!dp || !isLiveDataPoint(dp)) continue;
 
     retrieved.push({
       _id: String(dp._id),

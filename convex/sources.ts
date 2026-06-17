@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query, type QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
+import { isLiveDataPoint, supersedeStateView } from "./lib/supersede";
 
 export type ResolvedLinkKind = "storage" | "canonical" | "internal";
 
@@ -16,6 +17,9 @@ export type ResolvedSourceMeta = {
   tier: Doc<"sources">["tier"];
   derivedFrom: Id<"sources"> | null;
   derivedFromKind: Doc<"sources">["derivedFromKind"] | null;
+  status: Doc<"sources">["status"];
+  supersededBy: Id<"sources"> | null;
+  replaces: Id<"sources"> | null;
   storageUrl: string | null;
   resolvedUrl: string;
   resolvedLinkKind: ResolvedLinkKind;
@@ -76,6 +80,9 @@ export async function resolveSourceMeta(
     tier: source.tier,
     derivedFrom: source.derivedFrom ?? null,
     derivedFromKind: source.derivedFromKind ?? null,
+    status: source.status,
+    supersededBy: source.supersededBy ?? null,
+    replaces: source.replaces ?? null,
     storageUrl,
     resolvedUrl,
     resolvedLinkKind,
@@ -205,6 +212,75 @@ export const updateStatus = mutation({
   },
   handler: async (ctx, args) => {
     await ctx.db.patch(args.sourceId, { status: args.status });
+  },
+});
+
+// ============================================================
+// Record replacement lineage between two sources (Decision 38, append-only)
+//
+// Used when a source is re-ingested as a corrected/updated version. Sets the
+// forward pointer on the old (retired) source and the back pointer on the new
+// source, and marks the old source "failed". The original content of both
+// sources is untouched; only the lineage fields and the old status are set.
+// Pointers are set once and cannot be re-pointed.
+// ============================================================
+export const supersedeSource = mutation({
+  args: {
+    oldSourceId: v.id("sources"),
+    newSourceId: v.id("sources"),
+    reason: v.string(),
+  },
+  handler: async (ctx, args) => {
+    if (args.oldSourceId === args.newSourceId) {
+      throw new Error("oldSourceId and newSourceId must be different");
+    }
+
+    const reason = args.reason.trim();
+    if (reason.length < 10) {
+      throw new Error("reason is required and must be at least 10 characters");
+    }
+
+    const oldSource = await ctx.db.get(args.oldSourceId);
+    if (!oldSource) {
+      throw new Error(`Source not found: ${args.oldSourceId}`);
+    }
+    const newSource = await ctx.db.get(args.newSourceId);
+    if (!newSource) {
+      throw new Error(`Source not found: ${args.newSourceId}`);
+    }
+    if (oldSource.projectId !== newSource.projectId) {
+      throw new Error("Both sources must be in the same project");
+    }
+    if (oldSource.supersededBy) {
+      throw new Error(
+        `Source ${args.oldSourceId} is already superseded by ${oldSource.supersededBy}; lineage is append-only`
+      );
+    }
+    if (newSource.replaces && String(newSource.replaces) !== String(args.oldSourceId)) {
+      throw new Error(
+        `Source ${args.newSourceId} already replaces ${newSource.replaces}; lineage is append-only`
+      );
+    }
+
+    const supersededAt = Date.now();
+    await ctx.db.patch(args.oldSourceId, {
+      supersededBy: args.newSourceId,
+      supersededAt,
+      supersedeReason: reason,
+      status: "failed",
+    });
+    await ctx.db.patch(args.newSourceId, {
+      replaces: args.oldSourceId,
+    });
+
+    return {
+      oldSourceId: String(args.oldSourceId),
+      newSourceId: String(args.newSourceId),
+      previousStatus: oldSource.status,
+      status: "failed" as const,
+      supersededAt,
+      reason,
+    };
   },
 });
 
@@ -455,7 +531,7 @@ export const getSourceWithDataPoints = query({
         const tags = await Promise.all(
           tagLinks.map(async (link) => await ctx.db.get(link.tagId))
         );
-        return { ...dp, tags: tags.filter(Boolean) };
+        return { ...dp, supersedeState: supersedeStateView(dp), tags: tags.filter(Boolean) };
       })
     );
 
@@ -474,21 +550,31 @@ export const getSourceDetail = query({
     if (!source) return null;
 
     const sourceMetadata = await resolveSourceMeta(ctx, source);
-    const dataPoints = await ctx.db
+    const allDataPoints = await ctx.db
       .query("dataPoints")
       .withIndex("by_sourceId", (q) => q.eq("sourceId", args.sourceId))
       .collect();
 
-    dataPoints.sort((a, b) => a.dpSequenceNumber - b.dpSequenceNumber);
+    allDataPoints.sort((a, b) => a.dpSequenceNumber - b.dpSequenceNumber);
+
+    // getSourceDetail backs the public source page and the source-scoped ask
+    // context, so superseded/retired data points are excluded here (Decision
+    // 38). The curator sees the full set, with status, via
+    // cm_list_data_points_by_source.
+    const dataPoints = allDataPoints.filter((dp) => isLiveDataPoint(dp));
+    const supersededDataPointCount = allDataPoints.length - dataPoints.length;
 
     return {
       source: sourceMetadata,
       dataPoints,
       dataPointCount: dataPoints.length,
+      supersededDataPointCount,
       sourceSynthesis: source.sourceSynthesis ?? null,
       urlAccessibility: source.urlAccessibility,
       ingestedDate: source.ingestedDate,
       status: source.status,
+      supersededBy: source.supersededBy ? String(source.supersededBy) : null,
+      replaces: source.replaces ? String(source.replaces) : null,
       storageId: source.storageId ?? null,
     };
   },

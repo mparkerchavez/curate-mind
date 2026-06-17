@@ -1,6 +1,11 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { resolveSourceMeta } from "./sources";
+import {
+  normalizeStatus,
+  resolveSupersedePatch,
+  supersedeStateView,
+} from "./lib/supersede";
 
 async function resolveProjectTag(ctx: any, projectId: any, slug: string) {
   const tag = await ctx.db
@@ -304,6 +309,7 @@ export const getDataPoint = query({
     return {
       ...dp,
       ...effectiveContent,
+      supersedeState: supersedeStateView(dp),
       source: sourceMetadata,
       tags: tags.filter(Boolean),
     };
@@ -477,6 +483,7 @@ export const getBySource = query({
       dps.map(async (dp) => ({
         ...dp,
         ...(await resolveEffectiveContent(ctx, dp)),
+        supersedeState: supersedeStateView(dp),
       }))
     );
   },
@@ -499,6 +506,7 @@ export const listDataPointsBySource = query({
       dps.map(async ({ embedding, ...rest }) => ({
         ...rest,
         ...(await resolveEffectiveContent(ctx, rest)),
+        supersedeState: supersedeStateView(rest),
       }))
     );
   },
@@ -538,12 +546,89 @@ export const getDataPointsBatch = query({
       results.push({
         ...dp,
         ...effectiveContent,
+        supersedeState: supersedeStateView(dp),
         source: sourceMetadata,
         tags: tags.filter(Boolean),
       });
     }
 
     return results;
+  },
+});
+
+// ============================================================
+// Supersede or retire a data point (Decision 38, append-only)
+//
+// Sets the lifecycle fields in place without touching the immutable claim or
+// anchor. A replacement id makes this a "superseded" (replaced) record; no
+// replacement makes it "retired" (removed). A data point that is already
+// superseded or retired cannot be re-superseded — that would overwrite a prior
+// pointer. Requires a reason of at least 10 characters, like the correction
+// tools.
+// ============================================================
+export const supersedeDataPoint = mutation({
+  args: {
+    dataPointId: v.id("dataPoints"),
+    replacementDataPointId: v.optional(v.id("dataPoints")),
+    reason: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const dp = await ctx.db.get(args.dataPointId);
+    if (!dp) {
+      throw new Error(`Data point not found: ${args.dataPointId}`);
+    }
+    const source = await ctx.db.get(dp.sourceId);
+    if (!source) {
+      throw new Error(`Source not found for data point: ${args.dataPointId}`);
+    }
+
+    const warnings: string[] = [];
+
+    // Validate the replacement (if any) before resolving the patch.
+    if (args.replacementDataPointId !== undefined) {
+      if (args.replacementDataPointId === args.dataPointId) {
+        throw new Error("replacementDataPointId must be different from dataPointId");
+      }
+      const replacement = await ctx.db.get(args.replacementDataPointId);
+      if (!replacement) {
+        throw new Error(`Replacement data point not found: ${args.replacementDataPointId}`);
+      }
+      const replacementSource = await ctx.db.get(replacement.sourceId);
+      if (!replacementSource || replacementSource.projectId !== source.projectId) {
+        throw new Error("Replacement data point must be in the same project");
+      }
+      if (normalizeStatus(replacement.status) !== "active") {
+        warnings.push(
+          `Replacement data point ${args.replacementDataPointId} is itself ${normalizeStatus(replacement.status)}`
+        );
+      }
+    }
+
+    const patch = resolveSupersedePatch({
+      currentStatus: normalizeStatus(dp.status),
+      replacementId: args.replacementDataPointId
+        ? String(args.replacementDataPointId)
+        : null,
+      reason: args.reason,
+    });
+
+    const supersededAt = Date.now();
+    await ctx.db.patch(args.dataPointId, {
+      status: patch.status,
+      supersededBy: args.replacementDataPointId,
+      supersededAt,
+      supersedeReason: patch.supersedeReason,
+    });
+
+    return {
+      dataPointId: String(args.dataPointId),
+      previousStatus: normalizeStatus(dp.status),
+      status: patch.status,
+      supersededBy: patch.supersededBy,
+      supersededAt,
+      reason: patch.supersedeReason,
+      warnings,
+    };
   },
 });
 

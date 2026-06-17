@@ -56,6 +56,8 @@ const ALL_TOOLS = [
   "cm_update_positions_batch",
   "cm_correct_anchor",
   "cm_correct_attribution",
+  "cm_supersede_data_point",
+  "cm_supersede_source",
   "cm_generate_embeddings",
 ] as const;
 
@@ -109,6 +111,8 @@ const PIPELINE_EXTRA_TOOLS = [
   "cm_link_evidence_to_position",
   "cm_update_positions_batch",
   "cm_correct_anchor",
+  "cm_supersede_data_point",
+  "cm_supersede_source",
   "cm_generate_embeddings",
 ] as const;
 

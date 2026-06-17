@@ -1132,18 +1132,24 @@ export function registerQueryTools(server: McpServer): void {
       description:
         "Retrieve a paginated page of data points linked to a specific tag. Returns clean data " +
         "(ID, effective claim text, effective anchor quote, correctionStatus, evidence type, " +
-        "confidence, source title, source tier) without embeddings. Effective means corrected " +
-        "where an append-only correction exists, otherwise original extraction values. Useful " +
-        "for building evidence pools for position linking.\n\n" +
+        "confidence, supersedeState, source title, source tier) without embeddings. Effective means " +
+        "corrected where an append-only correction exists, otherwise original extraction values. " +
+        "Useful for building evidence pools for position linking.\n\n" +
+        "Superseded and retired data points are excluded by default (this is the evidence-linking " +
+        "pool). Pass includeSuperseded: true to include them; each item's supersedeState shows its " +
+        "lifecycle status either way.\n\n" +
         "Args:\n" +
         "  - projectId (string): The project ID\n" +
         "  - tagSlug (string): The tag slug to filter by (e.g., 'specification-bottleneck')\n" +
+        "  - includeSuperseded (boolean, optional): Include superseded/retired data points, default false\n" +
         "  - limit (number, optional): Page size, default 100, max 200\n" +
         "  - offset (number, optional): Zero-based page offset, default 0\n\n" +
         "Returns: Page object with items, total, offset, limit, and hasMore.",
       inputSchema: {
         projectId: z.string().describe("Project ID"),
         tagSlug: z.string().describe("Tag slug to filter by (e.g., 'governance', 'specification-bottleneck')"),
+        includeSuperseded: z.boolean().optional()
+          .describe("Include superseded/retired data points (default false)"),
         limit: z.number().int().min(1).max(200).optional()
           .describe("Page size (default 100, max 200)"),
         offset: z.number().int().min(0).optional()
@@ -1159,11 +1165,13 @@ export function registerQueryTools(server: McpServer): void {
     async ({
       projectId,
       tagSlug,
+      includeSuperseded,
       limit,
       offset,
     }: {
       projectId: string;
       tagSlug: string;
+      includeSuperseded?: boolean;
       limit?: number;
       offset?: number;
     }) => {
@@ -1186,6 +1194,7 @@ export function registerQueryTools(server: McpServer): void {
           api.tags.getDataPointsByTag,
           {
             tagId: tag._id,
+            includeSuperseded,
           }
         );
 
