@@ -683,6 +683,59 @@ export function registerQueryTools(server: McpServer): void {
   );
 
   // ============================================================
+  // cm_get_source_corrections - Audit correction history for a source
+  // ============================================================
+  server.registerTool(
+    "cm_get_source_corrections",
+    {
+      title: "Get Source Corrections",
+      description:
+        "Return the append-only correction history for a source. Use this when " +
+        "a curator needs to audit original metadata and every correction applied " +
+        "over time, including publisher, author, URL, published date, and tier " +
+        "(source_tier) changes.\n\n" +
+        "Args:\n" +
+        "  - sourceId (string): The source ID\n\n" +
+        "Returns: Array of corrections rows with _id, projectId, targetType, targetId, " +
+        "correctionType, previousValue, newValue, reason, correctedAt, and correctedBy.",
+      inputSchema: {
+        sourceId: z.string().describe("The source ID"),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ sourceId }) => {
+      try {
+        const corrections = await convexQuery(api.corrections.getForSource, {
+          sourceId: asId<"sources">(sourceId),
+        });
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(corrections, null, 2),
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+            },
+          ],
+        };
+      }
+    }
+  );
+
+  // ============================================================
   // cm_get_source - Source metadata without full text
   // ============================================================
   server.registerTool(

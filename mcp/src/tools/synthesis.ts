@@ -1142,15 +1142,18 @@ export function registerSynthesisTools(server: McpServer): void {
       title: "Correct Attribution or Source Metadata",
       description:
         "Correct source metadata or structured data point speaker attribution while writing " +
-        "an immutable corrections row. Source corrections update publisher, author, URL, or " +
-        "published date in place. Data point corrections update speakerAttribution only; this " +
-        "is separate from extractionNotes and should stay short, e.g. 'Name (Role)'.\n\n" +
+        "an immutable corrections row. Source corrections update publisher, author, URL, " +
+        "published date, or tier in place. Data point corrections update speakerAttribution " +
+        "only; this is separate from extractionNotes and should stay short, e.g. 'Name (Role)'.\n\n" +
+        "Use source_tier to re-rate a source after ingest (1 = primary research, 2 = informed " +
+        "analysis, 3 = commentary). The new tier must be 1, 2, or 3 and must differ from the " +
+        "current tier; the change is logged append-only before the tier is patched.\n\n" +
         "Args:\n" +
         "  - targetType: source | dataPoint\n" +
         "  - targetId (string): Source or data point ID\n" +
         "  - correctionType: source_publisher | source_author | source_url | " +
-        "source_published_date | dp_speaker_attribution\n" +
-        "  - newValue (string): Corrected value\n" +
+        "source_published_date | source_tier | dp_speaker_attribution\n" +
+        "  - newValue (string): Corrected value (for source_tier, pass \"1\", \"2\", or \"3\")\n" +
         "  - reason (string): Required curator explanation, at least 10 characters\n\n" +
         "Returns: target, correctionId, previousValue, newValue, and fieldUpdated.",
       inputSchema: {
@@ -1161,6 +1164,7 @@ export function registerSynthesisTools(server: McpServer): void {
           "source_author",
           "source_url",
           "source_published_date",
+          "source_tier",
           "dp_speaker_attribution",
         ]),
         newValue: z.string().min(1).describe("Corrected metadata or speaker attribution value"),

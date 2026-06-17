@@ -331,6 +331,7 @@ export default defineSchema({
       v.literal("source_author"),
       v.literal("source_url"),
       v.literal("source_published_date"),
+      v.literal("source_tier"),
       v.literal("dp_speaker_attribution")
     ),
     previousValue: v.union(v.string(), v.null()),

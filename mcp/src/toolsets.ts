@@ -30,6 +30,7 @@ const ALL_TOOLS = [
   "cm_get_position_detail",
   "cm_get_data_point",
   "cm_get_data_point_corrections",
+  "cm_get_source_corrections",
   "cm_get_source",
   "cm_get_source_text",
   "cm_search",
@@ -98,6 +99,7 @@ const PIPELINE_EXTRA_TOOLS = [
   "cm_save_data_points",
   "cm_enrich_data_points_batch",
   "cm_update_data_points_tags_batch",
+  "cm_remove_data_point_tag_batch",
   "cm_save_source_synthesis",
   "cm_update_source_status",
   "cm_add_curator_observation",
@@ -115,6 +117,8 @@ const PIPELINE_EXTRA_TOOLS = [
   "cm_unlink_evidence_from_position",
   "cm_replace_evidence_on_position",
   "cm_correct_anchor",
+  "cm_correct_attribution",
+  "cm_get_source_corrections",
   "cm_supersede_data_point",
   "cm_supersede_source",
   "cm_generate_embeddings",
@@ -122,12 +126,10 @@ const PIPELINE_EXTRA_TOOLS = [
 
 const ADMIN_EXTRA_TOOLS = [
   "cm_update_source_metadata",
-  "cm_remove_data_point_tag_batch",
   "cm_reset_profile_to_defaults",
   "cm_get_data_point_corrections",
   "cm_get_position_history",
   "cm_retire_tag",
-  "cm_correct_attribution",
 ] as const;
 
 const TOOLSETS: Record<ToolsetName, ReadonlySet<string>> = {
@@ -136,6 +138,11 @@ const TOOLSETS: Record<ToolsetName, ReadonlySet<string>> = {
   admin: new Set([...DAILY_TOOLS, ...PIPELINE_EXTRA_TOOLS, ...ADMIN_EXTRA_TOOLS]),
   all: new Set(ALL_TOOLS),
 };
+
+/** The resolved set of tool names exposed by a given toolset. */
+export function getToolsetTools(name: ToolsetName): ReadonlySet<string> {
+  return TOOLSETS[name];
+}
 
 export function getToolsetName(): ToolsetName {
   const raw = process.env.CURATE_MIND_TOOLSET?.trim().toLowerCase();

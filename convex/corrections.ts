@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
+import { buildTierCorrection, shouldResetEmbedding } from "./lib/corrections";
 
 const anchorCorrectionType = v.union(
   v.literal("anchor_text"),
@@ -14,6 +15,7 @@ const attributionCorrectionType = v.union(
   v.literal("source_author"),
   v.literal("source_url"),
   v.literal("source_published_date"),
+  v.literal("source_tier"),
   v.literal("dp_speaker_attribution")
 );
 
@@ -303,6 +305,38 @@ export const correctAttribution = mutation({
       throw new Error(`Source not found: ${args.targetId}`);
     }
 
+    // Re-tier is an append-only correction: write the audit row, then patch the
+    // numeric tier (1/2/3). The tier is stored as its string form in the log to
+    // match the corrections table's string previousValue/newValue typing.
+    if (args.correctionType === "source_tier") {
+      const { patchTier, previousValue, newValue } = buildTierCorrection({
+        previousTier: source.tier,
+        rawNewValue: rawValue,
+      });
+
+      const correctionId = await insertCorrection(ctx, {
+        projectId: source.projectId,
+        targetType: "source",
+        targetId: args.targetId,
+        correctionType: "source_tier",
+        previousValue,
+        newValue,
+        reason,
+        correctedBy,
+      });
+
+      await ctx.db.patch(args.targetId as Id<"sources">, { tier: patchTier });
+
+      return {
+        targetType: args.targetType,
+        targetId: args.targetId,
+        correctionId,
+        previousValue,
+        newValue,
+        fieldUpdated: "tier",
+      };
+    }
+
     const fieldMap = {
       source_publisher: "publisherName",
       source_author: "authorName",
@@ -400,10 +434,15 @@ export const correctClaim = mutation({
       correctedBy: correctedByValue,
     });
 
-    await ctx.db.patch(args.dataPointId, {
-      claimText: correctedClaimText,
-      embeddingStatus: "pending",
-    });
+    // A claim correction changes the effective claim text, and embeddings are
+    // generated from claim text, so the embedding must be regenerated.
+    // shouldResetEmbedding is the single source of truth for this rule
+    // (anchor-only and attribution corrections do NOT reset it).
+    const patch: Record<string, unknown> = { claimText: correctedClaimText };
+    if (shouldResetEmbedding("dp_claim_text")) {
+      patch.embeddingStatus = "pending";
+    }
+    await ctx.db.patch(args.dataPointId, patch);
 
     return {
       dataPointId: args.dataPointId,
@@ -447,6 +486,25 @@ export const getForDataPoint = query({
           .eq("projectId", source.projectId)
           .eq("targetType", "dataPoint")
           .eq("targetId", args.dataPointId)
+      )
+      .collect();
+  },
+});
+
+export const getForSource = query({
+  args: { sourceId: v.id("sources") },
+  handler: async (ctx, args) => {
+    const source = await ctx.db.get(args.sourceId);
+    if (!source) {
+      throw new Error(`Source not found: ${args.sourceId}`);
+    }
+    return await ctx.db
+      .query("corrections")
+      .withIndex("by_project_target", (q) =>
+        q
+          .eq("projectId", source.projectId)
+          .eq("targetType", "source")
+          .eq("targetId", args.sourceId)
       )
       .collect();
   },

@@ -13,6 +13,7 @@ import type * as betaAccess from "../betaAccess.js";
 import type * as chat from "../chat.js";
 import type * as corrections from "../corrections.js";
 import type * as dataPoints from "../dataPoints.js";
+import type * as lib_corrections from "../lib/corrections.js";
 import type * as lib_evidenceEdit from "../lib/evidenceEdit.js";
 import type * as lib_supersede from "../lib/supersede.js";
 import type * as lib_usage from "../lib/usage.js";
@@ -41,6 +42,7 @@ declare const fullApi: ApiFromModules<{
   chat: typeof chat;
   corrections: typeof corrections;
   dataPoints: typeof dataPoints;
+  "lib/corrections": typeof lib_corrections;
   "lib/evidenceEdit": typeof lib_evidenceEdit;
   "lib/supersede": typeof lib_supersede;
   "lib/usage": typeof lib_usage;

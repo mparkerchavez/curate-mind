@@ -374,7 +374,7 @@ The `cm-workflow-router` skill is the front door for these requests. It reads th
 | Intake | `cm_fetch_url`, `cm_fetch_youtube`, `cm_extract_pdf`, `cm_review_queue`, `cm_add_source` |
 | Extraction | `cm_extract_source`, `cm_save_data_points`, `cm_save_source_synthesis`, `cm_update_data_points_tags_batch`, `cm_enrich_data_points_batch`, `cm_update_source_status`, `cm_generate_embeddings` |
 | Secondary Capture | `cm_add_mental_model` by default; future custom capture types route through their dedicated storage |
-| Review and repair | Normal Review uses `cm_update_source_status` and batch enrichment tools. Repair-only tools such as `cm_correct_anchor`, `cm_correct_attribution`, and `cm_update_source_metadata` live in `admin`. |
+| Review and repair | Normal Review uses `cm_update_source_status` and batch enrichment tools. Logged correction tools are available during normal curation in `pipeline`: `cm_correct_anchor`, `cm_correct_attribution` (publisher, author, URL, published date, and source tier), and the `cm_get_source_corrections` audit-log reader. Lower-level repair tools such as `cm_update_source_metadata` and `cm_get_data_point_corrections` stay in `admin`. |
 | Evidence linking | `cm_get_data_points_by_tag`, `cm_get_position_arrays`, `cm_link_evidence_to_position`, `cm_update_positions_batch`, `cm_update_research_lens` |
 | Customization | `cm_get_project_profile`, `cm_update_project_profile`, `cm_get_user_preferences`, `cm_update_user_preferences`, `cm_preview_prompt_profile`, `cm_validate_profile` |
 
