@@ -2,6 +2,11 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { resolveSourceMeta } from "./sources";
 import { normalizeStatus } from "./lib/supersede";
+import {
+  computeReplace,
+  computeUnlink,
+  sanitizeChangeSummary,
+} from "./lib/evidenceEdit";
 
 // Collect a warning for each added evidence data point that is superseded or
 // retired (Decision 38). Non-blocking: linking still succeeds, but the curator
@@ -715,6 +720,201 @@ export const linkEvidenceBatch = mutation({
     }
 
     return results;
+  },
+});
+
+// ============================================================
+// Unlink data-point evidence from a position (append-only correction)
+// Removes the given DP ids from the supporting and/or counter arrays and
+// appends a new version. Stance, observations, mental models, and open
+// questions are copied verbatim. Allowed on any status (this is repair
+// tooling, unlike linkEvidenceToPosition which blocks retired positions).
+// ============================================================
+export const unlinkEvidenceFromPosition = mutation({
+  args: {
+    positionId: v.id("researchPositions"),
+    dataPointIds: v.array(v.id("dataPoints")),
+    reason: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const reason = args.reason.trim();
+    if (reason.length < 10) {
+      throw new Error("reason is required and must be at least 10 characters");
+    }
+    if (args.dataPointIds.length === 0) {
+      throw new Error("dataPointIds must contain at least one id to unlink");
+    }
+
+    const position = await ctx.db.get(args.positionId);
+    if (!position) throw new Error("Position not found");
+
+    const currentVersion = position.currentVersionId
+      ? await ctx.db.get(position.currentVersionId)
+      : null;
+    if (!currentVersion) throw new Error("Position has no current version");
+
+    const result = computeUnlink(
+      currentVersion.supportingEvidence,
+      currentVersion.counterEvidence ?? [],
+      args.dataPointIds
+    );
+
+    const nextVersionNumber = currentVersion.versionNumber + 1;
+    const now = new Date().toISOString();
+
+    const removedDesc =
+      `${result.removed.length} data point(s)` +
+      ` (${result.supporting.length} supporting, ${result.counter.length} counter remain)`;
+    const changeSummary = sanitizeChangeSummary(
+      `Unlinked ${removedDesc}. Reason: ${reason}`
+    );
+
+    const newVersionId = await ctx.db.insert("positionVersions", {
+      positionId: args.positionId,
+      versionNumber: nextVersionNumber,
+      previousVersionId: position.currentVersionId,
+      // Copied verbatim from previous version
+      currentStance: currentVersion.currentStance,
+      confidenceLevel: currentVersion.confidenceLevel,
+      status: currentVersion.status,
+      openQuestions: currentVersion.openQuestions,
+      curatorObservations: currentVersion.curatorObservations,
+      mentalModels: currentVersion.mentalModels,
+      // Edited arrays
+      supportingEvidence: result.supporting,
+      counterEvidence: result.counter.length > 0 ? result.counter : undefined,
+      changeSummary,
+      versionDate: now,
+      embeddingStatus: "pending",
+    });
+
+    await ctx.db.patch(args.positionId, { currentVersionId: newVersionId });
+
+    const leftWithoutEvidence =
+      result.supporting.length === 0 && result.counter.length === 0;
+
+    const warnings: string[] = [];
+    if (result.notFound.length > 0) {
+      warnings.push(
+        `Not linked to this position (no-op): ${result.notFound.join(", ")}`
+      );
+    }
+    if (leftWithoutEvidence) {
+      warnings.push(
+        "Position now has zero data-point evidence on its current version."
+      );
+    }
+
+    return {
+      versionId: newVersionId,
+      versionNumber: nextVersionNumber,
+      removed: result.removed,
+      notFound: result.notFound,
+      supportingCount: result.supporting.length,
+      counterCount: result.counter.length,
+      leftWithoutEvidence,
+      warnings,
+    };
+  },
+});
+
+// ============================================================
+// Replace one data-point evidence id with another (append-only correction)
+// Removes oldDataPointId and adds newDataPointId in the same array the old one
+// was in. Refuses a non-existent replacement (would write a dangling pointer);
+// warns but proceeds when the replacement is superseded/retired.
+// ============================================================
+export const replaceEvidenceOnPosition = mutation({
+  args: {
+    positionId: v.id("researchPositions"),
+    oldDataPointId: v.id("dataPoints"),
+    newDataPointId: v.id("dataPoints"),
+    reason: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const reason = args.reason.trim();
+    if (reason.length < 10) {
+      throw new Error("reason is required and must be at least 10 characters");
+    }
+    if (String(args.oldDataPointId) === String(args.newDataPointId)) {
+      throw new Error("newDataPointId must be different from oldDataPointId");
+    }
+
+    const position = await ctx.db.get(args.positionId);
+    if (!position) throw new Error("Position not found");
+
+    const currentVersion = position.currentVersionId
+      ? await ctx.db.get(position.currentVersionId)
+      : null;
+    if (!currentVersion) throw new Error("Position has no current version");
+
+    // Refuse to link a phantom id; a dangling pointer is worse than dead
+    // evidence. A superseded/retired replacement is allowed but warned.
+    const replacement = await ctx.db.get(args.newDataPointId);
+    if (!replacement) {
+      throw new Error(
+        `Replacement data point not found: ${args.newDataPointId}. ` +
+          `Refusing to link a non-existent data point.`
+      );
+    }
+
+    const result = computeReplace(
+      currentVersion.supportingEvidence,
+      currentVersion.counterEvidence ?? [],
+      args.oldDataPointId,
+      args.newDataPointId
+    );
+
+    if (!result.oldFound || result.array === null) {
+      throw new Error(
+        `Data point ${args.oldDataPointId} is not linked to this position; nothing to replace.`
+      );
+    }
+
+    const nextVersionNumber = currentVersion.versionNumber + 1;
+    const now = new Date().toISOString();
+
+    const changeSummary = sanitizeChangeSummary(
+      `Replaced data point ${args.oldDataPointId} with ${args.newDataPointId} ` +
+        `in ${result.array} evidence. Reason: ${reason}`
+    );
+
+    const newVersionId = await ctx.db.insert("positionVersions", {
+      positionId: args.positionId,
+      versionNumber: nextVersionNumber,
+      previousVersionId: position.currentVersionId,
+      currentStance: currentVersion.currentStance,
+      confidenceLevel: currentVersion.confidenceLevel,
+      status: currentVersion.status,
+      openQuestions: currentVersion.openQuestions,
+      curatorObservations: currentVersion.curatorObservations,
+      mentalModels: currentVersion.mentalModels,
+      supportingEvidence: result.supporting,
+      counterEvidence: result.counter.length > 0 ? result.counter : undefined,
+      changeSummary,
+      versionDate: now,
+      embeddingStatus: "pending",
+    });
+
+    await ctx.db.patch(args.positionId, { currentVersionId: newVersionId });
+
+    const warnings = await supersededEvidenceWarnings(ctx, [args.newDataPointId]);
+    if (result.newAlreadyPresent) {
+      warnings.push(
+        `New data point ${args.newDataPointId} was already in ${result.array} evidence; ` +
+          `old id removed without adding a duplicate.`
+      );
+    }
+
+    return {
+      versionId: newVersionId,
+      versionNumber: nextVersionNumber,
+      array: result.array,
+      oldDataPointId: String(args.oldDataPointId),
+      newDataPointId: String(args.newDataPointId),
+      newAlreadyPresent: result.newAlreadyPresent,
+      warnings,
+    };
   },
 });
 

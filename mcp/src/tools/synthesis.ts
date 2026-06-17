@@ -907,6 +907,147 @@ export function registerSynthesisTools(server: McpServer): void {
   );
 
   // ============================================================
+  // cm_unlink_evidence_from_position — Remove DP evidence (append-only)
+  // ============================================================
+  server.registerTool(
+    "cm_unlink_evidence_from_position",
+    {
+      title: "Unlink Evidence from Position",
+      description:
+        "Remove one or more data points from a position's supporting and/or " +
+        "counter evidence. Creates a new version (append-only) that copies the " +
+        "stance, confidence, status, open questions, observations, and mental " +
+        "models verbatim and omits the given data point ids from whichever " +
+        "evidence array(s) they appear in. Prior versions keep their evidence.\n\n" +
+        "Ids that are not linked to the position are a no-op and reported in " +
+        "notFound. Unlinking is allowed even if it leaves the position with zero " +
+        "evidence; that case is flagged in the result.\n\n" +
+        "Scope: data-point evidence only (supporting + counter). Use " +
+        "cm_update_position to change observations, mental models, or stance.\n\n" +
+        "Args:\n" +
+        "  - positionId (string): The position to update\n" +
+        "  - dataPointIds (string[]): Data Point IDs to remove\n" +
+        "  - reason (string): Curator explanation, at least 10 characters\n\n" +
+        "Returns: New version ID and number, removed vs notFound ids, remaining " +
+        "counts, a leftWithoutEvidence flag, and warnings.",
+      inputSchema: {
+        positionId: z.string().describe("The position to update"),
+        dataPointIds: z.array(z.string()).min(1)
+          .describe("Data Point IDs to remove from evidence"),
+        reason: z.string().min(10)
+          .describe("Required curator explanation for the unlink"),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ positionId, dataPointIds, reason }) => {
+      try {
+        const result = await convexMutation(
+          api.positions.unlinkEvidenceFromPosition,
+          {
+            positionId: asId<"researchPositions">(positionId),
+            dataPointIds: dataPointIds.map((id) => asId<"dataPoints">(id)),
+            reason,
+          }
+        );
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+            },
+          ],
+        };
+      }
+    }
+  );
+
+  // ============================================================
+  // cm_replace_evidence_on_position — Swap one DP for another (append-only)
+  // ============================================================
+  server.registerTool(
+    "cm_replace_evidence_on_position",
+    {
+      title: "Replace Evidence on Position",
+      description:
+        "Replace one data point with another in a position's evidence, " +
+        "preserving which array (supporting or counter) the old one was in. " +
+        "Creates a new version (append-only) that removes oldDataPointId and " +
+        "adds newDataPointId; everything else is copied verbatim and prior " +
+        "versions are preserved.\n\n" +
+        "Refuses if newDataPointId does not exist (will not write a dangling " +
+        "pointer). Proceeds but warns if newDataPointId is superseded or " +
+        "retired. Errors if oldDataPointId is not linked to the position. If " +
+        "newDataPointId is already present, the old id is removed without adding " +
+        "a duplicate.\n\n" +
+        "Args:\n" +
+        "  - positionId (string): The position to update\n" +
+        "  - oldDataPointId (string): Data Point ID to remove\n" +
+        "  - newDataPointId (string): Data Point ID to add in its place\n" +
+        "  - reason (string): Curator explanation, at least 10 characters\n\n" +
+        "Returns: New version ID and number, the array edited, and warnings.",
+      inputSchema: {
+        positionId: z.string().describe("The position to update"),
+        oldDataPointId: z.string().describe("Data Point ID to remove"),
+        newDataPointId: z.string().describe("Data Point ID to add in its place"),
+        reason: z.string().min(10)
+          .describe("Required curator explanation for the replacement"),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ positionId, oldDataPointId, newDataPointId, reason }) => {
+      try {
+        const result = await convexMutation(
+          api.positions.replaceEvidenceOnPosition,
+          {
+            positionId: asId<"researchPositions">(positionId),
+            oldDataPointId: asId<"dataPoints">(oldDataPointId),
+            newDataPointId: asId<"dataPoints">(newDataPointId),
+            reason,
+          }
+        );
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+            },
+          ],
+        };
+      }
+    }
+  );
+
+  // ============================================================
   // cm_correct_anchor - Logged in-place anchor quote correction
   // ============================================================
   server.registerTool(
