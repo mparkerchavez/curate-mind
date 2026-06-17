@@ -15,6 +15,8 @@
  * - cm_get_position_history: Version history
  * - cm_list_sources: List sources by status
  * - cm_list_data_points_by_source: Lean DP list for a single source
+ * - cm_get_data_point_usage: Reverse lookup — live references to a data point
+ * - cm_get_source_usage: Reverse lookup — a source's data points and blast radius
  *
  * Embedding vectors are stripped from all responses at the MCP boundary; the
  * underlying Convex queries still return them (vector indexes require it) but
@@ -32,6 +34,63 @@ import {
 } from "../lib/response-shaping.js";
 
 const CHARACTER_LIMIT = 25000;
+
+// Guard against a runaway cursor loop. At the Convex page sizes used by the
+// usage scans this covers tens of thousands of rows.
+const MAX_USAGE_SCAN_PAGES = 200;
+
+interface UsagePage<T> {
+  matches: T[];
+  isDone: boolean;
+  continueCursor: string | null;
+}
+
+interface DrainedPages<T> {
+  items: T[];
+  pages: number;
+  complete: boolean;
+}
+
+/**
+ * Drain a cursor-paginated Convex usage scan into a single list. Each page is a
+ * separate query execution (separate read budget); we loop until the scan
+ * reports done or we hit the page cap.
+ */
+async function drainUsagePages<T>(
+  fetchPage: (cursor: string | null) => Promise<UsagePage<T>>
+): Promise<DrainedPages<T>> {
+  const items: T[] = [];
+  let cursor: string | null = null;
+  let pages = 0;
+  let complete = false;
+
+  while (pages < MAX_USAGE_SCAN_PAGES) {
+    const page = await fetchPage(cursor);
+    items.push(...page.matches);
+    pages += 1;
+    if (page.isDone) {
+      complete = true;
+      break;
+    }
+    cursor = page.continueCursor;
+  }
+
+  return { items, pages, complete };
+}
+
+function scanStatus<T>(drained: DrainedPages<T>): {
+  pagesScanned: number;
+  complete: boolean;
+  note?: string;
+} {
+  return {
+    pagesScanned: drained.pages,
+    complete: drained.complete,
+    note: drained.complete
+      ? undefined
+      : "Scan hit the page cap before finishing; results may be incomplete.",
+  };
+}
 
 type SourceListItem = typeof api.sources.listAll["_returnType"][number];
 type TagLookupResult = typeof api.tags.getTagBySlug["_returnType"];
@@ -1385,6 +1444,236 @@ export function registerQueryTools(server: McpServer): void {
               text: JSON.stringify(payload, null, 2),
             },
           ],
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+            },
+          ],
+        };
+      }
+    }
+  );
+
+  // ============================================================
+  // cm_get_data_point_usage — Reverse lookup for a data point
+  // ============================================================
+  server.registerTool(
+    "cm_get_data_point_usage",
+    {
+      title: "Get Data Point Usage",
+      description:
+        "Show every LIVE reference to a data point before you correct, retire, or " +
+        "replace it. Read-only. Live means the CURRENT version of each position only.\n\n" +
+        "Returns:\n" +
+        "  - livePositions: current position versions citing it, each with title, theme, " +
+        "currentVersionId, and evidenceRole (supporting | counter | both)\n" +
+        "  - observations: curator observations that reference it (id + short label)\n" +
+        "  - relatedFrom: other data points that list it in relatedDataPoints (id + source)\n" +
+        "  - summary: counts per category and the data point's own source status\n\n" +
+        "Only live references are reported; references that exist only in older " +
+        "(superseded) position versions are not scanned.\n\n" +
+        "Args:\n" +
+        "  - dataPointId (string): The data point ID",
+      inputSchema: {
+        dataPointId: z.string().describe("The data point ID"),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ dataPointId }) => {
+      try {
+        const usage = await convexQuery(api.usage.getDataPointUsage, {
+          dataPointId: asId<"dataPoints">(dataPointId),
+        });
+
+        if (!usage) {
+          return {
+            content: [
+              { type: "text" as const, text: `Data point ${dataPointId} not found.` },
+            ],
+          };
+        }
+
+        // Observations and related data points are scanned page-by-page (no
+        // reverse index) so each query execution stays within the read budget.
+        const relatedFrom = await drainUsagePages((cursor) =>
+          convexQuery(api.usage.getDataPointRelatedFromPage, {
+            dataPointId: asId<"dataPoints">(dataPointId),
+            cursor,
+          })
+        );
+        const observations = await drainUsagePages((cursor) =>
+          convexQuery(api.usage.getObservationsPage, {
+            dataPointIds: [asId<"dataPoints">(dataPointId)],
+            cursor,
+          })
+        );
+
+        const payload = {
+          dataPoint: usage.dataPoint,
+          livePositions: usage.livePositions,
+          observations: observations.items,
+          relatedFrom: relatedFrom.items,
+          summary: {
+            ...usage.summaryCore,
+            observationCount: observations.items.length,
+            relatedFromCount: relatedFrom.items.length,
+          },
+          scans: {
+            observations: scanStatus(observations),
+            relatedFrom: scanStatus(relatedFrom),
+          },
+        };
+
+        const text = truncateIfNeeded(
+          JSON.stringify(stripEmbeddingsDeep(payload), null, 2)
+        );
+        return {
+          content: [{ type: "text" as const, text }],
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+            },
+          ],
+        };
+      }
+    }
+  );
+
+  // ============================================================
+  // cm_get_source_usage — Reverse lookup and blast radius for a source
+  // ============================================================
+  server.registerTool(
+    "cm_get_source_usage",
+    {
+      title: "Get Source Usage",
+      description:
+        "Show the blast radius of a source before you retire or replace it. Read-only. " +
+        "Live references mean the CURRENT version of each position only.\n\n" +
+        "Returns:\n" +
+        "  - dataPoints: a paginated page of the source's data points (id, sequence, status)\n" +
+        "  - derivativeSources: sources whose derivedFrom points at this source\n" +
+        "  - positions: deduped current position versions referencing ANY of this source's " +
+        "data points (positionId, title, theme, currentVersionId)\n" +
+        "  - observations: deduped curator observations referencing ANY of this source's " +
+        "data points (id + short label)\n" +
+        "  - summary: counts per category and source status\n\n" +
+        "Only live references are reported; references that exist only in older " +
+        "(superseded) position versions are not scanned. The positions, observations, and " +
+        "summary cover the full data point set regardless of the dataPoints page window.\n\n" +
+        "Args:\n" +
+        "  - sourceId (string): The source ID\n" +
+        "  - limit (number, optional): data point page size, default 100, max 200\n" +
+        "  - offset (number, optional): zero-based data point page offset, default 0",
+      inputSchema: {
+        sourceId: z.string().describe("The source ID"),
+        limit: z.number().int().min(1).max(200).optional()
+          .describe("Data point page size (default 100, max 200)"),
+        offset: z.number().int().min(0).optional()
+          .describe("Zero-based data point page offset (default 0)"),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ sourceId, limit, offset }) => {
+      try {
+        const usage = await convexQuery(api.usage.getSourceUsage, {
+          sourceId: asId<"sources">(sourceId),
+        });
+
+        if (!usage) {
+          return {
+            content: [
+              { type: "text" as const, text: `Source ${sourceId} not found.` },
+            ],
+          };
+        }
+
+        // Derivative sources and observations are scanned page-by-page (no
+        // reverse index) so each query execution stays within the read budget.
+        const derivativeSources = await drainUsagePages((cursor) =>
+          convexQuery(api.usage.getSourceDerivativesPage, {
+            projectId: asId<"projects">(usage.projectId),
+            sourceId: asId<"sources">(sourceId),
+            cursor,
+          })
+        );
+        const dataPointIds: string[] = Array.isArray(usage.dataPointIds)
+          ? usage.dataPointIds
+          : [];
+        const observations = await drainUsagePages((cursor) =>
+          convexQuery(api.usage.getObservationsPage, {
+            dataPointIds: dataPointIds.map((id) => asId<"dataPoints">(id)),
+            cursor,
+          })
+        );
+
+        const allDataPoints = Array.isArray(usage.dataPoints)
+          ? usage.dataPoints
+          : [];
+        const pagination = clampPagination(limit, offset, 100, 200);
+        const requestedPage = paginate(
+          allDataPoints,
+          pagination.limit,
+          pagination.offset
+        );
+        const bounded = takeItemsWithinJsonLimit(
+          requestedPage.items,
+          (items) => ({ items })
+        );
+        const returnedLimit = bounded.truncatedBySize
+          ? bounded.items.length
+          : requestedPage.limit;
+
+        const payload = {
+          source: usage.source,
+          summary: {
+            ...usage.summaryCore,
+            derivativeSourceCount: derivativeSources.items.length,
+            observationCount: observations.items.length,
+          },
+          derivativeSources: derivativeSources.items,
+          positions: usage.positions,
+          observations: observations.items,
+          dataPoints: {
+            items: bounded.items,
+            total: requestedPage.total,
+            offset: requestedPage.offset,
+            limit: returnedLimit,
+            requestedLimit: requestedPage.limit,
+            hasMore: requestedPage.offset + returnedLimit < requestedPage.total,
+            nextOffset: requestedPage.offset + returnedLimit,
+            note: bounded.truncatedBySize
+              ? "Returned fewer records than requested to stay under the safe response size. Continue with nextOffset."
+              : undefined,
+          },
+          scans: {
+            derivativeSources: scanStatus(derivativeSources),
+            observations: scanStatus(observations),
+          },
+        };
+
+        const text = truncateIfNeeded(
+          JSON.stringify(stripEmbeddingsDeep(payload), null, 2)
+        );
+        return {
+          content: [{ type: "text" as const, text }],
         };
       } catch (error) {
         return {

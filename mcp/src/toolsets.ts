@@ -40,6 +40,8 @@ const ALL_TOOLS = [
   "cm_get_data_points_by_tag",
   "cm_get_data_points_batch",
   "cm_list_data_points_by_source",
+  "cm_get_data_point_usage",
+  "cm_get_source_usage",
   "cm_review_queue",
   "cm_list_projects",
   "cm_create_project",
@@ -83,6 +85,8 @@ const DAILY_TOOLS = [
   "cm_list_sources",
   "cm_get_data_points_by_tag",
   "cm_list_data_points_by_source",
+  "cm_get_data_point_usage",
+  "cm_get_source_usage",
 ] as const;
 
 const PIPELINE_EXTRA_TOOLS = [

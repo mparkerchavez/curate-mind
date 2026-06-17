@@ -13,6 +13,7 @@ import type * as betaAccess from "../betaAccess.js";
 import type * as chat from "../chat.js";
 import type * as corrections from "../corrections.js";
 import type * as dataPoints from "../dataPoints.js";
+import type * as lib_usage from "../lib/usage.js";
 import type * as mentalModels from "../mentalModels.js";
 import type * as migrations from "../migrations.js";
 import type * as observations from "../observations.js";
@@ -23,6 +24,7 @@ import type * as researchLens from "../researchLens.js";
 import type * as search from "../search.js";
 import type * as sources from "../sources.js";
 import type * as tags from "../tags.js";
+import type * as usage from "../usage.js";
 import type * as userPreferences from "../userPreferences.js";
 
 import type {
@@ -37,6 +39,7 @@ declare const fullApi: ApiFromModules<{
   chat: typeof chat;
   corrections: typeof corrections;
   dataPoints: typeof dataPoints;
+  "lib/usage": typeof lib_usage;
   mentalModels: typeof mentalModels;
   migrations: typeof migrations;
   observations: typeof observations;
@@ -47,6 +50,7 @@ declare const fullApi: ApiFromModules<{
   search: typeof search;
   sources: typeof sources;
   tags: typeof tags;
+  usage: typeof usage;
   userPreferences: typeof userPreferences;
 }>;
 
