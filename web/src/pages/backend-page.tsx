@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { Component, type ReactNode, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowRight,
@@ -237,7 +237,7 @@ const VISIBLE_ENTITY_KEYS: EntityKey[] = [
   "tags",
 ];
 
-export default function BackendPage() {
+function BackendPageInner() {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeEntity, setActiveEntity] = useState<EntityKey>("researchThemes");
@@ -1015,18 +1015,46 @@ function BackendLoading() {
   );
 }
 
-function BackendError({ message }: { message: string }) {
+function BackendError({ message, title = "Snapshot unavailable" }: { message: string; title?: string }) {
   return (
     <div className="min-h-screen bg-primary">
       <BackendHeader />
       <div className="mx-auto max-w-3xl px-6 py-10 lg:py-14">
         <section className="cm-content-panel rounded-2xl border p-6">
           <p className="text-xs font-medium uppercase tracking-[0.14em] text-quaternary">Backend transparency</p>
-          <h1 className="mt-2 text-display-xs font-semibold tracking-[-0.01em] text-primary">Snapshot unavailable</h1>
+          <h1 className="mt-2 text-display-xs font-semibold tracking-[-0.01em] text-primary">{title}</h1>
           <p className="mt-3 text-sm leading-6 text-tertiary">{message}</p>
         </section>
       </div>
     </div>
+  );
+}
+
+// Catches render-time exceptions (e.g. a malformed snapshot) so the explorer
+// shows the styled error panel instead of a blank page. Load/fetch failures are
+// handled separately by the snapshot fetch's own error state above.
+class BackendErrorBoundary extends Component<{ children: ReactNode }, { error: string | null }> {
+  state: { error: string | null } = { error: null };
+
+  static getDerivedStateFromError(err: unknown) {
+    return {
+      error: err instanceof Error ? err.message : "An unexpected error occurred.",
+    };
+  }
+
+  render() {
+    if (this.state.error) {
+      return <BackendError title="Backend explorer hit an error" message={this.state.error} />;
+    }
+    return this.props.children;
+  }
+}
+
+export default function BackendPage() {
+  return (
+    <BackendErrorBoundary>
+      <BackendPageInner />
+    </BackendErrorBoundary>
   );
 }
 
