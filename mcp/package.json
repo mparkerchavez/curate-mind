@@ -7,7 +7,9 @@
   "scripts": {
     "build": "tsc",
     "test": "node --import tsx --test src/lib/sourceMetadata.test.ts src/toolsets.test.ts ../convex/lib/usage.test.ts ../convex/lib/supersede.test.ts ../convex/lib/evidenceEdit.test.ts ../convex/lib/corrections.test.ts",
+    "test:pdf-scoring": "../.venv/bin/python scripts/test_pdf_scoring.py",
     "typecheck": "tsc --noEmit",
+    "eval:pdf-golden": "../.venv/bin/python scripts/evaluate_pdf_parsers.py --golden-config scripts/pdf_parser_golden_set.json --methods liteparse,pypdf,docling,auto --check-expectations --timeout 240",
     "source-links:audit": "node --import tsx src/scripts/sourceLinkBackfill.ts audit",
     "source-links:apply": "node --import tsx src/scripts/sourceLinkBackfill.ts apply",
     "beta:create": "node --import tsx src/scripts/createBetaAccount.ts",

@@ -56,6 +56,7 @@ type PdfExtractionMetadata = {
   reviewFocus?: string;
   cleanupApplied?: string;
   candidateScores?: string;
+  parserDecisionNote?: string;
   visualHeaviness?: number | string;
   extractionFailed?: boolean | "yes" | "no";
   recommendation?: string;
@@ -425,7 +426,7 @@ export function registerIntakeTools(server: McpServer): void {
   );
 
   // ============================================================
-  // cm_extract_pdf — Convert a local PDF via Docling, save locally
+  // cm_extract_pdf — Convert a local PDF via local parsers, save locally
   // Per Design Decision 16: does NOT push to Convex
   // ============================================================
   server.registerTool(
@@ -438,21 +439,22 @@ export function registerIntakeTools(server: McpServer): void {
         "source to Convex. After reviewing the saved file, use cm_add_source " +
         "with reviewed=true to push it to the database.\n\n" +
         "Method guidance:\n" +
-        "  - auto: Adaptive chain — tries pypdf first (fast), advances to docling for mixed/visual PDFs, then docling_ocr as a last resort for image-heavy files. Stops early when quality is sufficient. OCR is skipped for files over 60 pages or 30 MB in auto mode.\n" +
-        "  - docling: Structured extraction for visual reports and mixed-content PDFs. Use when auto is too slow or you want docling specifically.\n" +
+        "  - auto: Adaptive chain — tries LiteParse first for layout-preserving local extraction, advances to docling for mixed/visual PDFs or medium-quality academic/table-heavy PDFs, then docling_ocr as a last resort for image-heavy files. pypdf remains a low-priority fallback. Stops early when quality is sufficient. OCR is skipped for files over 60 pages or 30 MB in auto mode.\n" +
+        "  - liteparse: Fast local layout-preserving extraction for born-digital PDFs. Uses no OCR by default to avoid wasting time on selectable-text PDFs.\n" +
+        "  - docling: Structured extraction for visual reports, mixed-content PDFs, and academic/table-heavy papers. Use when auto is too slow or you want docling specifically.\n" +
         "  - docling_ocr: Full OCR for image-heavy or scanned PDFs. Slow — expect 2-5 minutes for large files.\n" +
-        "  - pypdf: Fastest for purely text-heavy PDFs. Skips all images and charts.\n\n" +
+        "  - pypdf: Lightweight fallback for purely text-heavy PDFs. Skips images/charts and may garble layout.\n\n" +
         "Args:\n" +
         "  - filePath (string): Absolute path to the local PDF file\n" +
         "  - title (string, optional): Override title (uses PDF metadata or filename if omitted)\n" +
-        "  - method (string, optional): auto, pypdf, docling, or docling_ocr\n\n" +
+        "  - method (string, optional): auto, liteparse, pypdf, docling, or docling_ocr\n\n" +
         "Returns: The local markdown file path plus next-step guidance.",
       inputSchema: {
         filePath: z.string().min(1).describe("Absolute path to the local PDF file"),
         title: z.string().optional().describe("Override title for the saved markdown header"),
-        method: z.enum(["auto", "pypdf", "docling", "docling_ocr"]).optional()
+        method: z.enum(["auto", "liteparse", "pypdf", "docling", "docling_ocr"]).optional()
           .describe(
-            "Extraction mode. Use auto for best effort, docling for large visual reports, docling_ocr for scanned PDFs, or pypdf for a fast text-heavy pass."
+            "Extraction mode. Use auto for best effort, liteparse for fast layout-preserving extraction, docling for visual or academic/table-heavy PDFs, docling_ocr for scanned PDFs, or pypdf as a lightweight fallback."
           ),
       },
       annotations: {
@@ -557,7 +559,7 @@ export function registerIntakeTools(server: McpServer): void {
             content: [
               {
                 type: "text" as const,
-                text: "Error: Docling returned empty markdown for this PDF.",
+                text: "Error: PDF extraction returned empty markdown for this PDF.",
               },
             ],
           };
@@ -585,6 +587,7 @@ export function registerIntakeTools(server: McpServer): void {
         const reviewSummary = pdfMetadata.reviewSummary?.trim();
         const reviewFocus = pdfMetadata.reviewFocus?.trim();
         const candidateScores = pdfMetadata.candidateScores?.trim();
+        const parserDecisionNote = pdfMetadata.parserDecisionNote?.trim();
         const extractionFailed = pdfMetadata.extractionFailed === true;
         const visualHeaviness = pdfMetadata.visualHeaviness;
         const recommendation = pdfMetadata.recommendation?.trim();
@@ -633,6 +636,7 @@ export function registerIntakeTools(server: McpServer): void {
                   `Extraction method: ${extractionMethod}\n` +
                   `Quality: ${quality}${formatQualityScoreSuffix(qualityScore)}\n` +
                   (visualHeaviness !== undefined ? `Visual heaviness: ${visualHeaviness} (MB per word)\n` : "") +
+                  (parserDecisionNote ? `Parser decision: ${parserDecisionNote}\n` : "") +
                   (recommendation ? `\nRecommendation: ${recommendation}\n` : "") +
                   `\nThe PDF content is likely in images, charts, or visual elements that text extraction cannot read.\n\n` +
                   `Options:\n` +
@@ -658,6 +662,7 @@ export function registerIntakeTools(server: McpServer): void {
                 `Quality: ${quality}${formatQualityScoreSuffix(qualityScore)}\n` +
                 (visualHeaviness !== undefined ? `Visual heaviness: ${visualHeaviness} (MB per word)\n` : "") +
                 `${formatCandidateScores(candidateScores)}\n` +
+                (parserDecisionNote ? `Parser decision: ${parserDecisionNote}\n` : "") +
                 (recommendation ? `Recommendation: ${recommendation}\n` : "") +
                 `${formatReviewGuidance(reviewRecommended, reviewSummary, reviewFocus, pdfMetadata.cleanupApplied)}\n\n` +
                 `Next step: ${getPdfNextStep(reviewRecommended, reviewFocus)}\n` +
@@ -1675,6 +1680,7 @@ function parsePdfExtractionMetadata(stderr: string): PdfExtractionMetadata {
         reviewFocus: parsed.reviewFocus?.trim() || undefined,
         cleanupApplied: parsed.cleanupApplied?.trim() || undefined,
         candidateScores: parsed.candidateScores?.trim() || undefined,
+        parserDecisionNote: parsed.parserDecisionNote?.trim() || undefined,
         visualHeaviness:
           typeof visualHeaviness === "number" && Number.isFinite(visualHeaviness)
             ? visualHeaviness
@@ -1759,7 +1765,7 @@ function formatPdfExtractionError(error: unknown): string {
     return (
       "PDF extraction timed out after 270 seconds. " +
       "The file may be too large or complex for automated extraction. " +
-      "Try method=docling or method=pypdf, or paste the content manually with cm_add_source."
+      "Try method=liteparse, method=docling, or method=pypdf, or paste the content manually with cm_add_source."
     );
   }
 

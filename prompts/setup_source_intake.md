@@ -78,14 +78,16 @@ Confirm that the tool returns a markdown file path in `sources/`.
 If I want PDF intake:
 
 1. Explain that PDF extraction runs locally on my machine.
-2. Explain the three extraction paths:
-   - `pypdf`: fast, local, best for simple text PDFs.
-   - `docling`: IBM's local library for visual or mixed-layout PDFs.
+2. Explain the four extraction paths:
+   - `liteparse`: fast, local, layout-preserving, best first pass for born-digital PDFs.
+   - `docling`: IBM's local library for visual, mixed-layout, academic, or table-heavy PDFs.
    - `docling_ocr`: Docling OCR for scanned files, slower.
+   - `pypdf`: lightweight local fallback for simple text PDFs, but more likely to garble layout.
 3. Install the Python dependencies from the repo root:
 
 ```bash
-python3 -m pip install -r mcp/requirements.txt
+python3 -m venv .venv
+.venv/bin/python -m pip install -r mcp/requirements.txt
 ```
 
 4. If the command fails, show me the full error and explain it in plain language. Try the most likely fix first.
@@ -97,6 +99,14 @@ Use cm_extract_pdf on this local PDF for review: <absolute path to PDF>
 ```
 
 Confirm that the tool returns a markdown file path in `sources/` and preserves the original PDF path for later `cm_add_source`.
+7. If we are changing parser behavior, run the parser checks:
+
+```bash
+npm --prefix mcp run test:pdf-scoring
+npm --prefix mcp run eval:pdf-golden
+```
+
+Explain that the first command is fast and synthetic, while the second command is slower because it runs representative PDFs through the local parser stack.
 
 ## Step 5: Manual markdown intake
 

@@ -24,7 +24,7 @@ The review step matters because extracted data points are designed to be durable
 | Already-clean markdown or pasted text | `cm_add_source` | Convex, OpenAI, and a reviewed source | A source record in Convex |
 | Article or web page | `cm_fetch_url` | Supadata API key | A markdown file in `sources/` |
 | YouTube video | `cm_fetch_youtube` | Supadata API key | A transcript markdown file in `sources/` |
-| Local PDF | `cm_extract_pdf` | Python plus `pypdf` and optionally `docling` | A markdown wrapper in `sources/`, with the original PDF path preserved for ingestion |
+| Local PDF | `cm_extract_pdf` | Python plus `liteparse`, `pypdf`, and optionally `docling` | A markdown wrapper in `sources/`, with the original PDF path preserved for ingestion |
 | Mobile or quick capture | Claude Dispatch or Codex through ChatGPT mobile, depending on your assistant provider | Same MCP setup as the running assistant workspace | A markdown file in `sources/` for later review |
 
 ## Vendor and Local Dependencies
@@ -40,19 +40,21 @@ Set `SUPADATA_API_KEY` in `.env.local` and in the MCP server environment for you
 
 **PDF extraction** runs locally on your machine.
 
-`cm_extract_pdf` chooses among three extraction paths:
+`cm_extract_pdf` chooses among four extraction paths:
 
-- `pypdf`: fast, local, text-only extraction. Best for simple PDFs with selectable text.
-- `docling`: local IBM Docling library. Better for visual or mixed-layout reports.
+- `liteparse`: fast, local, layout-preserving extraction. Best first pass for born-digital PDFs with selectable text.
+- `docling`: local IBM Docling library. Better for visual, mixed-layout, academic, or table-heavy PDFs.
 - `docling_ocr`: Docling with OCR. Slowest, but useful for scanned or image-heavy PDFs.
+- `pypdf`: lightweight fallback for simple text PDFs. Useful when other local parsers fail, but more likely to garble layout.
 
 Install the Python dependencies from the repo root:
 
 ```bash
-python3 -m pip install -r mcp/requirements.txt
+python3 -m venv .venv
+.venv/bin/python -m pip install -r mcp/requirements.txt
 ```
 
-If `docling` installation fails, you can still use manual markdown intake and may be able to use the faster `pypdf` path if `pypdf` installed successfully.
+The MCP uses `.venv/bin/python3` automatically when that file exists. In `auto` mode, medium-quality academic or table-heavy LiteParse output is compared against Docling before choosing a final parser. If `docling` installation fails, you can still use manual markdown intake and may be able to use the faster `liteparse` or `pypdf` paths if those installed successfully.
 
 ## Daily Use
 
@@ -103,6 +105,38 @@ For hard PDFs, you can ask for a specific extraction method:
 ```text
 Use cm_extract_pdf with method=docling_ocr on this local PDF: <absolute path to PDF>
 ```
+
+For side-by-side testing, ask for a specific parser:
+
+```text
+Use cm_extract_pdf with method=liteparse on this local PDF: <absolute path to PDF>
+Use cm_extract_pdf with method=pypdf on this local PDF: <absolute path to PDF>
+Use cm_extract_pdf with method=docling on this local PDF: <absolute path to PDF>
+```
+
+For a repeatable local comparison that does not ingest anything, run:
+
+```bash
+python3 mcp/scripts/evaluate_pdf_parsers.py \
+  "/absolute/path/to/report.pdf" \
+  --methods liteparse,pypdf,docling
+```
+
+The eval writes side-by-side markdown outputs and a summary under `tmp/pdf-parser-eval/`.
+
+For parser maintenance, there are two repeatable checks:
+
+```bash
+npm --prefix mcp run test:pdf-scoring
+```
+
+This is a fast smoke test for the scoring heuristics. It uses synthetic markdown examples and does not run PDF parsers.
+
+```bash
+npm --prefix mcp run eval:pdf-golden
+```
+
+This is the slower golden PDF comparison. It runs representative PDFs through `liteparse`, `pypdf`, `docling`, and `auto`, then checks expected parser outcomes from `mcp/scripts/pdf_parser_golden_set.json`.
 
 ### Already-Clean Markdown
 

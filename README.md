@@ -65,7 +65,9 @@ Curate Mind supports several ways to turn research into reviewed markdown before
 - **Already-clean markdown or pasted text:** use `cm_add_source` with `reviewed=true`.
 - **Articles and web pages:** use `cm_fetch_url`. Requires Supadata.
 - **YouTube videos:** use `cm_fetch_youtube`. Requires Supadata.
-- **Local PDFs:** use `cm_extract_pdf`. Uses local Python extraction with `pypdf`, `docling`, or `docling_ocr`.
+- **Local PDFs:** use `cm_extract_pdf`. Uses local Python extraction with `liteparse`, `docling`, `docling_ocr`, or `pypdf` fallback. In `auto`, academic/table-heavy PDFs can be compared against Docling before a parser is chosen.
+- **PDF parser evals:** run `python3 mcp/scripts/evaluate_pdf_parsers.py "/absolute/path/to/report.pdf" --methods liteparse,pypdf,docling` to compare local parser outputs without ingesting anything.
+- **PDF parser regression checks:** run `npm --prefix mcp run test:pdf-scoring` for fast scoring checks, or `npm --prefix mcp run eval:pdf-golden` for the slower golden PDF comparison.
 - **Mobile or quick capture:** use your provider's mobile capture path, such as Claude Dispatch with Claude Mobile or Codex through the ChatGPT mobile app, to call the same MCP fetch tools and save markdown for later review.
 
 Read the [source intake guide](docs/source-intake-guide.md) for setup requirements, vendor dependencies, and copy-paste prompts for each intake path. If you want an AI assistant to configure and test intake with you, use the [source intake setup prompt](prompts/setup_source_intake.md).
@@ -111,7 +113,8 @@ Set these environment variables in `.env.local`:
 For PDF intake, install the local Python dependencies:
 
 ```bash
-python3 -m pip install -r mcp/requirements.txt
+python3 -m venv .venv
+.venv/bin/python -m pip install -r mcp/requirements.txt
 ```
 
 ## Future work

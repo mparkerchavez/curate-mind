@@ -1,0 +1,170 @@
+{
+  "version": 1,
+  "description": "Representative PDFs used to regression-test Curate Mind PDF parser selection and quality scoring.",
+  "documents": [
+    {
+      "id": "microsoft-work-trend-index-2026",
+      "category": "visual annual report",
+      "path": "../../sources/2026-05/2026-05-03_to_09/2026_Work_Trend_Index_Annual_Report_050526-7_69fc5b1c4e265.pdf",
+      "expectations": {
+        "auto": {
+          "extractionMethod": "liteparse",
+          "minQuality": "medium",
+          "minWordsPerPage": 200
+        },
+        "methods": {
+          "pypdf": { "maxQuality": "low" },
+          "docling": { "maxQuality": "low" }
+        },
+        "scoreAtLeast": [
+          { "left": "liteparse", "right": "pypdf", "margin": 20 },
+          { "left": "liteparse", "right": "docling", "margin": 20 }
+        ]
+      }
+    },
+    {
+      "id": "mckinsey-ai-transformation-manifesto",
+      "category": "consulting report",
+      "path": "../../sources/2026-05/2026-05-10_to_16/mckinsey_the-ai-transformation-manifesto.pdf",
+      "expectations": {
+        "auto": {
+          "extractionMethod": "liteparse",
+          "minQuality": "medium",
+          "minWordsPerPage": 250
+        },
+        "methods": {
+          "pypdf": { "maxQuality": "low" },
+          "docling": { "minQuality": "medium" }
+        },
+        "scoreAtLeast": [
+          { "left": "docling", "right": "pypdf", "margin": 10 }
+        ]
+      }
+    },
+    {
+      "id": "llm-human-simulations-paper",
+      "category": "academic paper",
+      "path": "../../sources/2026-05/2026-05-24_to_30/llm-based-human-simulations-have-not-yet-been-reliable.pdf",
+      "expectations": {
+        "auto": {
+          "extractionMethod": "docling",
+          "minQuality": "medium",
+          "minWordsPerPage": 500
+        },
+        "methods": {
+          "pypdf": { "maxQuality": "low" },
+          "docling": { "minQuality": "medium" }
+        },
+        "scoreAtLeast": [
+          { "left": "docling", "right": "pypdf", "margin": 20 }
+        ]
+      }
+    },
+    {
+      "id": "ai-layoff-trap-arxiv",
+      "category": "math-heavy arXiv paper",
+      "path": "../../sources/2026-06/2026-06-07_to_13/arxiv_the-ai-layoff-trap_2026-06-09.pdf",
+      "expectations": {
+        "auto": {
+          "extractionMethod": "docling",
+          "minQuality": "low",
+          "minWordsPerPage": 300
+        },
+        "methods": {
+          "pypdf": { "maxQuality": "low" }
+        },
+        "scoreAtLeast": [
+          { "left": "docling", "right": "liteparse", "margin": 10 },
+          { "left": "docling", "right": "pypdf", "margin": 20 }
+        ]
+      }
+    },
+    {
+      "id": "figma-design-demand-2026",
+      "category": "design-heavy report",
+      "path": "../../sources/2026-02/2026-02-22_to_28/Figma_The-demand-for-design-in-2026.pdf",
+      "expectations": {
+        "auto": {
+          "extractionMethod": "liteparse",
+          "minQuality": "medium",
+          "minWordsPerPage": 100
+        },
+        "methods": {
+          "pypdf": { "maxQuality": "low" },
+          "docling": { "ok": false }
+        }
+      }
+    },
+    {
+      "id": "ramp-business-spending-spring-2026",
+      "category": "chart-heavy business report",
+      "path": "../../sources/2026-05/2026-05-31_to_06-06/ramp_spring-2026-business-spending-report.pdf",
+      "expectations": {
+        "auto": {
+          "extractionMethod": "liteparse",
+          "minQuality": "medium",
+          "minWordsPerPage": 100
+        },
+        "methods": {
+          "pypdf": { "maxQuality": "low" },
+          "docling": { "ok": false }
+        }
+      }
+    },
+    {
+      "id": "openai-next-era-knowledge-work",
+      "category": "clean report",
+      "path": "../../sources/2026-05/2026-05-31_to_06-06/openai_the-next-era-of-knowledge-work.pdf",
+      "expectations": {
+        "auto": {
+          "extractionMethod": "liteparse",
+          "minQuality": "high",
+          "minWordsPerPage": 180
+        },
+        "methods": {
+          "pypdf": { "maxQuality": "low" },
+          "docling": { "minQuality": "medium" }
+        },
+        "scoreAtLeast": [
+          { "left": "liteparse", "right": "docling", "margin": 5 }
+        ]
+      }
+    },
+    {
+      "id": "framer-state-of-sites-2026",
+      "category": "visual or OCR stress case",
+      "path": "../../sources/2026-05/2026-05-03_to_09/Framer - State of Sites 2026.pdf",
+      "expectations": {
+        "auto": {
+          "extractionMethod": "docling_ocr",
+          "minQuality": "medium",
+          "minWordsPerPage": 40
+        },
+        "methods": {
+          "liteparse": { "maxQuality": "low" },
+          "pypdf": { "maxQuality": "low" },
+          "docling": { "maxQuality": "low" }
+        },
+        "scoreAtLeast": [
+          { "left": "auto", "right": "liteparse", "margin": 40 },
+          { "left": "auto", "right": "docling", "margin": 40 }
+        ]
+      }
+    },
+    {
+      "id": "stanford-meta-harness",
+      "category": "table-heavy technical paper",
+      "path": "../../sources/2026-05/2026-05-31_to_06-06/stanford_meta-harness-end-to-end-optimization-of-model-harness-2026-06-01.pdf",
+      "expectations": {
+        "auto": {
+          "extractionMethod": "docling_ocr",
+          "minQuality": "low",
+          "minWordsPerPage": 400
+        },
+        "methods": {
+          "pypdf": { "maxQuality": "low" }
+        }
+      }
+    }
+  ]
+}
