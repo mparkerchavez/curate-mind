@@ -104,9 +104,25 @@ def _clean_metadata_value(value: Any) -> str | None:
 
 
 def _extract_docling_default(pdf_path: Path) -> str:
-    from docling.document_converter import DocumentConverter
+    from docling.datamodel.base_models import InputFormat
+    from docling.datamodel.pipeline_options import (
+        PdfPipelineOptions,
+        TableStructureOptions,
+    )
+    from docling.document_converter import DocumentConverter, PdfFormatOption
 
-    converter = DocumentConverter()
+    pipeline_options = PdfPipelineOptions()
+    pipeline_options.do_ocr = False
+    pipeline_options.do_table_structure = True
+    pipeline_options.table_structure_options = TableStructureOptions(
+        do_cell_matching=True
+    )
+
+    converter = DocumentConverter(
+        format_options={
+            InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)
+        }
+    )
     return _run_docling_conversion(converter, pdf_path)
 
 
@@ -170,8 +186,8 @@ def _find_lit_executable() -> Path | None:
 def _extract_docling_ocr(pdf_path: Path) -> str:
     from docling.datamodel.base_models import InputFormat
     from docling.datamodel.pipeline_options import (
-        OcrMacOptions,
         PdfPipelineOptions,
+        RapidOcrOptions,
         TableStructureOptions,
     )
     from docling.document_converter import DocumentConverter, PdfFormatOption
@@ -182,7 +198,9 @@ def _extract_docling_ocr(pdf_path: Path) -> str:
     pipeline_options.table_structure_options = TableStructureOptions(
         do_cell_matching=True
     )
-    pipeline_options.ocr_options = OcrMacOptions(force_full_page_ocr=True)
+    # RapidOCR keeps the OCR path explicit and portable; macOS Vision OCR can
+    # silently return only image placeholders in some dependency combinations.
+    pipeline_options.ocr_options = RapidOcrOptions(force_full_page_ocr=True)
 
     converter = DocumentConverter(
         format_options={

@@ -1,3 +1,9 @@
-pypdf
-docling
-liteparse
+pypdf==6.9.2
+liteparse==2.1.0
+
+# Pin the Docling stack because newer docling/docling-core combinations
+# regressed PDF extraction and broke the golden parser eval on 2026-06-18.
+docling==2.84.0
+docling-core==2.70.0
+typer==0.21.2
+onnxruntime==1.27.0
