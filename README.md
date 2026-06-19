@@ -65,9 +65,9 @@ Curate Mind supports several ways to turn research into reviewed markdown before
 - **Already-clean markdown or pasted text:** use `cm_add_source` with `reviewed=true`.
 - **Articles and web pages:** use `cm_fetch_url`. Requires Supadata.
 - **YouTube videos:** use `cm_fetch_youtube`. Requires Supadata.
-- **Local PDFs:** use `cm_extract_pdf`. Uses local Python extraction with `liteparse`, `docling`, `docling_ocr`, or `pypdf` fallback. In `auto`, academic/table-heavy PDFs can be compared against Docling before a parser is chosen.
-- **PDF parser evals:** run `python3 mcp/scripts/evaluate_pdf_parsers.py "/absolute/path/to/report.pdf" --methods liteparse,pypdf,docling` to compare local parser outputs without ingesting anything.
-- **PDF parser regression checks:** run `npm --prefix mcp run test:pdf-scoring` for fast scoring checks, or `npm --prefix mcp run eval:pdf-golden` for the slower golden PDF comparison.
+- **Local PDFs:** use `cm_extract_pdf`. In `auto`, Curate Mind tries LiteParse first for most clean, born-digital PDFs; compares against Docling for academic or table-heavy PDFs; uses Docling OCR for scanned/image-heavy PDFs; and keeps pypdf as an emergency fallback.
+- **PDF parser evals:** run `.venv/bin/python mcp/scripts/evaluate_pdf_parsers.py "/absolute/path/to/report.pdf" --methods liteparse,pypdf,docling,auto` to compare local parser outputs without ingesting anything.
+- **PDF parser regression checks:** run `npm --prefix mcp run test:pdf-scoring` for fast scoring checks. Maintainers with the local golden PDFs can also run `npm --prefix mcp run eval:pdf-golden` before changing parser versions or parser-routing behavior.
 - **Mobile or quick capture:** use your provider's mobile capture path, such as Claude Dispatch with Claude Mobile or Codex through the ChatGPT mobile app, to call the same MCP fetch tools and save markdown for later review.
 
 Read the [source intake guide](docs/source-intake-guide.md) for setup requirements, vendor dependencies, and copy-paste prompts for each intake path. If you want an AI assistant to configure and test intake with you, use the [source intake setup prompt](prompts/setup_source_intake.md).
@@ -116,6 +116,8 @@ For PDF intake, install the local Python dependencies:
 python3 -m venv .venv
 .venv/bin/python -m pip install -r mcp/requirements.txt
 ```
+
+These parser versions are pinned intentionally. Recent unpinned Docling/docling-core combinations broke imports, OCR behavior, and the golden PDF eval, so upgrade parser packages only after comparing real PDFs with the eval tools in the source intake guide.
 
 ## Future work
 

@@ -1,8 +1,10 @@
 pypdf==6.9.2
 liteparse==2.1.0
 
-# Pin the Docling stack because newer docling/docling-core combinations
-# regressed PDF extraction and broke the golden parser eval on 2026-06-18.
+# Pin the parser stack. Unpinned docling/docling-core combinations regressed
+# imports, OCR behavior, and the golden parser eval on 2026-06-18.
+# docling_ocr uses RapidOCR via onnxruntime; do not reintroduce ocrmac without
+# proving it returns text, not only image placeholders, in the golden eval.
 docling==2.84.0
 docling-core==2.70.0
 typer==0.21.2

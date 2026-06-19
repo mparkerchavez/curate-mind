@@ -98,6 +98,8 @@ PDFs go through a two-step intake. The extraction wraps the PDF in a markdown so
 
 Guard: `cm_add_source` rejects any filename starting with `verify_` and any file whose metadata header still contains `[verify]` placeholders. This is intentional. Fix the metadata first, then ingest.
 
+PDF parser maintenance note: `cm_extract_pdf` uses LiteParse first for most clean born-digital PDFs, normal Docling with OCR disabled for academic/table-heavy PDFs, Docling OCR with RapidOCR/onnxruntime for scanned or image-heavy PDFs, and pypdf only as an emergency fallback. Parser dependencies are pinned in `mcp/requirements.txt`; run `npm --prefix mcp run test:pdf-scoring` and, when the local golden PDFs are available, `npm --prefix mcp run eval:pdf-golden` before changing parser versions or routing behavior.
+
 ### Extraction Pipeline
 
 Four stages, one source at a time. Each machine-led stage runs in a focused context window. Sub-agents write directly to Convex.

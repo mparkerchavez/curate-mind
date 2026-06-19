@@ -44,10 +44,11 @@ The first command installs the dependencies for the repo root. The second instal
 If the user wants PDF intake, run this from the repo root:
 
 ```bash
-python3 -m pip install -r mcp/requirements.txt
+python3 -m venv .venv
+.venv/bin/python -m pip install -r mcp/requirements.txt
 ```
 
-Tell the user: "This installs the local PDF extraction libraries. `pypdf` handles fast text-only PDFs. IBM Docling handles more visual or mixed-layout PDFs, including OCR for scanned files." If installation fails, show the full error and fix it before continuing. If Docling cannot be installed right now, explain that they can still use manual markdown, web, and YouTube intake.
+Tell the user: "This installs the pinned local PDF extraction libraries. LiteParse handles most clean PDFs first, IBM Docling handles academic or table-heavy PDFs, Docling OCR handles scanned files, and pypdf is a fallback." If installation fails, show the full error and fix it before continuing. If Docling cannot be installed right now, explain that they can still use manual markdown, web, and YouTube intake.
 
 ### Step 2: Create a Convex project
 

@@ -10,7 +10,7 @@ Have these ready before you start:
 - **A Convex account.** Free tier is sufficient. Sign up at [convex.dev](https://convex.dev).
 - **An OpenAI API key.** Used to generate embeddings for semantic search. Create one at [platform.openai.com/api-keys](https://platform.openai.com/api-keys).
 - **A Supadata API key.** Used by the MCP fetch tools for URL scraping and YouTube transcripts. Optional if you only ingest markdown files directly, required if you want to test link-to-markdown intake. Sign up at [supadata.ai](https://supadata.ai) if you want it ready.
-- **Python 3.10 or higher for PDF intake.** Optional if you only ingest markdown, articles, or YouTube transcripts. Required if you want `cm_extract_pdf` to use `pypdf`, `docling`, or OCR.
+- **Python 3.10 or higher for PDF intake.** Optional if you only ingest markdown, articles, or YouTube transcripts. Required if you want `cm_extract_pdf` to use LiteParse, Docling, OCR, or pypdf.
 
 ## 2. Clone the repo and install dependencies
 
@@ -26,10 +26,11 @@ The repo root holds the Convex functions, skills, and frontend. The MCP server l
 If you want PDF intake, install the Python extraction dependencies from the repo root:
 
 ```bash
-python3 -m pip install -r mcp/requirements.txt
+python3 -m venv .venv
+.venv/bin/python -m pip install -r mcp/requirements.txt
 ```
 
-This installs `pypdf` for fast text extraction and IBM Docling for visual, mixed-layout, or OCR-heavy PDFs.
+This installs the pinned parser stack. LiteParse handles most clean PDFs first, normal Docling handles academic or table-heavy PDFs with OCR disabled, Docling OCR uses RapidOCR through `onnxruntime` for scanned/image-heavy PDFs, and pypdf remains an emergency fallback. The versions are pinned because unpinned Docling/docling-core combinations have broken imports and OCR behavior.
 
 ## 3. Create a Convex project and deploy the schema
 
@@ -179,7 +180,7 @@ The MCP server also includes intake tools for common source types:
 
 - `cm_fetch_url` fetches a public article/page through Supadata and saves markdown into `sources/`.
 - `cm_fetch_youtube` fetches a YouTube transcript and saves markdown into `sources/`.
-- `cm_extract_pdf` extracts a local PDF to markdown using `pypdf`, `docling`, or `docling_ocr`.
+- `cm_extract_pdf` extracts a local PDF to markdown using LiteParse first in `auto`, Docling for academic/table-heavy PDFs, Docling OCR for scanned/image-heavy PDFs, and pypdf as a fallback.
 - `cm_review_queue` shows local markdown files that are pending review or already ingested.
 
 These tools follow a two-step workflow: fetch or extract to local markdown first, then review the file before calling `cm_add_source` with `reviewed=true`.

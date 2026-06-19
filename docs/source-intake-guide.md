@@ -24,7 +24,7 @@ The review step matters because extracted data points are designed to be durable
 | Already-clean markdown or pasted text | `cm_add_source` | Convex, OpenAI, and a reviewed source | A source record in Convex |
 | Article or web page | `cm_fetch_url` | Supadata API key | A markdown file in `sources/` |
 | YouTube video | `cm_fetch_youtube` | Supadata API key | A transcript markdown file in `sources/` |
-| Local PDF | `cm_extract_pdf` | Python plus `liteparse`, `pypdf`, and optionally `docling` | A markdown wrapper in `sources/`, with the original PDF path preserved for ingestion |
+| Local PDF | `cm_extract_pdf` | Python plus the pinned parser stack in `mcp/requirements.txt` | A markdown wrapper in `sources/`, with the original PDF path preserved for ingestion |
 | Mobile or quick capture | Claude Dispatch or Codex through ChatGPT mobile, depending on your assistant provider | Same MCP setup as the running assistant workspace | A markdown file in `sources/` for later review |
 
 ## Vendor and Local Dependencies
@@ -42,10 +42,10 @@ Set `SUPADATA_API_KEY` in `.env.local` and in the MCP server environment for you
 
 `cm_extract_pdf` chooses among four extraction paths:
 
-- `liteparse`: fast, local, layout-preserving extraction. Best first pass for born-digital PDFs with selectable text.
-- `docling`: local IBM Docling library. Better for visual, mixed-layout, academic, or table-heavy PDFs.
-- `docling_ocr`: Docling with OCR. Slowest, but useful for scanned or image-heavy PDFs.
-- `pypdf`: lightweight fallback for simple text PDFs. Useful when other local parsers fail, but more likely to garble layout.
+- `liteparse`: fast, local, layout-preserving extraction. This is the first parser in `auto` for most clean, born-digital PDFs with selectable text.
+- `docling`: local IBM Docling extraction with OCR disabled. This is used when LiteParse looks weak, academic, math-heavy, or table-heavy.
+- `docling_ocr`: Docling with RapidOCR through `onnxruntime`. This is the slow OCR path for scanned or image-heavy PDFs.
+- `pypdf`: lightweight emergency fallback. It is useful when stronger local parsers fail, but it can flatten or garble layout.
 
 Install the Python dependencies from the repo root:
 
@@ -54,7 +54,38 @@ python3 -m venv .venv
 .venv/bin/python -m pip install -r mcp/requirements.txt
 ```
 
-The MCP uses `.venv/bin/python3` automatically when that file exists. In `auto` mode, medium-quality academic or table-heavy LiteParse output is compared against Docling before choosing a final parser. If `docling` installation fails, you can still use manual markdown intake and may be able to use the faster `liteparse` or `pypdf` paths if those installed successfully.
+The MCP uses `.venv/bin/python3` automatically when that file exists. The parser versions in `mcp/requirements.txt` are pinned on purpose: unpinned Docling/docling-core combinations have broken imports, OCR behavior, and the golden PDF eval. Curate Mind also avoids macOS Vision OCR through `ocrmac` because it became unreliable in this environment and returned image placeholders instead of text; the OCR path now uses RapidOCR.
+
+If `docling` installation fails, you can still use manual markdown intake and may be able to use the faster `liteparse` or `pypdf` paths if those installed successfully.
+
+## PDF Parser Behavior
+
+For normal PDF intake, start with `auto`:
+
+```text
+Use cm_extract_pdf on this local PDF for review: <absolute path to PDF>
+```
+
+`auto` is an adaptive chain:
+
+1. Try LiteParse first and stop early when quality is clearly sufficient.
+2. Run normal Docling when the PDF looks academic, math-heavy, table-heavy, mixed-layout, or when LiteParse quality is not strong enough.
+3. Run Docling OCR only when non-OCR extraction is weak and the file is not too large for automatic OCR.
+4. Try pypdf only as a low-priority fallback when stronger parsers fail or score poorly.
+
+The OCR path is intentionally conservative. OCR can be slow and can produce noisy text, so `auto` skips OCR for PDFs over 60 pages or 30 MB. If you know a large PDF is scanned and you are willing to wait, request OCR directly:
+
+```text
+Use cm_extract_pdf with method=docling_ocr on this local PDF: <absolute path to PDF>
+```
+
+Expect parser quality to vary by PDF type:
+
+- Clean reports with selectable text usually do best with LiteParse.
+- Academic papers, equations, references, and dense tables often need Docling.
+- Scanned or image-heavy files need OCR and may take several minutes.
+- Charts, diagrams, and visual evidence may still need curator notes because text extraction does not fully understand visuals.
+- pypdf is a recovery option, not the preferred parser for ingestion quality.
 
 ## Daily Use
 
@@ -117,9 +148,9 @@ Use cm_extract_pdf with method=docling on this local PDF: <absolute path to PDF>
 For a repeatable local comparison that does not ingest anything, run:
 
 ```bash
-python3 mcp/scripts/evaluate_pdf_parsers.py \
+.venv/bin/python mcp/scripts/evaluate_pdf_parsers.py \
   "/absolute/path/to/report.pdf" \
-  --methods liteparse,pypdf,docling
+  --methods liteparse,pypdf,docling,auto
 ```
 
 The eval writes side-by-side markdown outputs and a summary under `tmp/pdf-parser-eval/`.
@@ -137,6 +168,18 @@ npm --prefix mcp run eval:pdf-golden
 ```
 
 This is the slower golden PDF comparison. It runs representative PDFs through `liteparse`, `pypdf`, `docling`, and `auto`, then checks expected parser outcomes from `mcp/scripts/pdf_parser_golden_set.json`.
+
+The golden config is tracked, but the PDFs it references live under `sources/`, which is gitignored because those files are personal or licensed research material. Maintainers should keep a local copy of the golden PDFs at the configured paths. Open source contributors can still use the same eval script with their own PDFs, or create a local golden config with representative files they are allowed to store.
+
+Before changing parser versions or parser-routing behavior:
+
+1. Create a branch and update `mcp/requirements.txt` or `mcp/scripts/extract_pdf.py`.
+2. Run `npm --prefix mcp run test:pdf-scoring`.
+3. Run `npm --prefix mcp run eval:pdf-golden` if you have the maintainer golden PDFs.
+4. If you do not have the maintainer PDFs, run `evaluate_pdf_parsers.py` against several of your own PDFs: one clean report, one academic/table-heavy PDF, and one scanned or image-heavy PDF.
+5. Inspect `tmp/pdf-parser-eval/*/summary.md` and spot-check the generated markdown before accepting the change.
+
+Do not upgrade to the newest Docling release just because it is available. The current pins were kept because a newer Docling stack failed the golden eval. Treat the golden eval as the safety check for parser upgrades.
 
 ### Already-Clean Markdown
 
