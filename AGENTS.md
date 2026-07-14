@@ -87,7 +87,7 @@ The old four-layer language is deprecated. Use Stance, Evidence, and Source when
 
 PDFs go through a two-step intake. The extraction wraps the PDF in a markdown source file with a metadata header, and the curator fills in any fields the extractor could not read confidently before the source is ingested into Convex.
 
-1. Extract with `cm_extract_pdf`. This writes a `verify_*.md` wrapper into the current week's source folder and saves the original PDF alongside it. Fields the extractor could not resolve appear as `[verify]` placeholders in the metadata header.
+1. Extract with `cm_extract_pdf`. This writes a `verify_*.md` wrapper into the current week's source folder (the week active when extraction runs, which is not necessarily the week the PDF was captured) and saves the original PDF alongside it. Fields the extractor could not resolve appear as `[verify]` placeholders in the metadata header.
 2. Open the wrapper and fill in the bracketed `[verify]` placeholders in the metadata header:
    - Publisher
    - Author
@@ -95,6 +95,7 @@ PDFs go through a two-step intake. The extraction wraps the PDF in a markdown so
    - URL (canonical link to the original source)
 3. Rename the file to drop the `verify_` prefix.
 4. Ingest with `cm_add_source`, passing both `filePath` (the cleaned markdown) and `originalFilePath` (the PDF). The PDF gets uploaded to Convex file storage and the resulting storageId is stored on the source record.
+5. Week-folder rule: source folders represent the week the curator **captured** (downloaded) a source, not the week it happened to be processed. If a PDF sat around before extraction ran, so extraction landed in a later week folder than capture, move the wrapper markdown and the PDF back into the capture week's folder after ingestion, and update `review-status.json` in both folders (add the entry to the capture week, remove it from the extraction week). This same rule applies to `cm_fetch_url` and `cm_fetch_youtube` intake: all three tools currently file by "now," not by the source's original capture date, so the same reconciliation may be needed for web and YouTube captures too.
 
 Guard: `cm_add_source` rejects any filename starting with `verify_` and any file whose metadata header still contains `[verify]` placeholders. This is intentional. Fix the metadata first, then ingest.
 

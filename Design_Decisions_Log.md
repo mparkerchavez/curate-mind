@@ -157,6 +157,8 @@
 
 **Current implementation note (April 1, 2026):** The architectural direction is Supadata for web scraping and YouTube transcripts. Some legacy code and prompts may still mention Jina during the migration, but the intended steady state is Supadata plus the same two-step local review flow.
 
+**Correction (July 14, 2026):** "the current week" in step 3 above means the week active when the fetch/extract tool runs, not the week the curator is treating as the source's home. The curator's intended convention is week folder = capture week. If a source is fetched or extracted later than the week it was originally captured, the local markdown (and, for PDFs, the original file) should be moved back to the capture week's folder after ingestion, with `review-status.json` updated in both folders. This applies to `cm_fetch_url`, `cm_fetch_youtube`, and `cm_extract_pdf` alike, since all three compute the folder from "now" rather than from an explicit capture date. See CLAUDE.md → Phase 1 PDF Intake Flow, step 5.
+
 **For paywalled or non-public sources:** The curator saves the content manually (copy/paste or PDF download), cleans it up locally, and ingests from the file — skipping the automated web fetch step entirely.
 
 **Date:** March 21, 2026

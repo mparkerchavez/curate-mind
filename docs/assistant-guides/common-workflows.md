@@ -133,6 +133,7 @@ Done when:
 - The original PDF path is preserved for ingestion.
 - You fill required metadata fields such as publisher, author, published date, and canonical URL.
 - You rename the markdown file to remove the `verify_` prefix.
+- If the PDF was captured in an earlier week than the one active when you ran `cm_extract_pdf`, move the wrapper markdown and PDF back to the capture week's folder and update `review-status.json` in both folders.
 
 Next prompt:
 
