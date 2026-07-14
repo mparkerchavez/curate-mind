@@ -27,6 +27,14 @@ The review step matters because extracted data points are designed to be durable
 | Local PDF | `cm_extract_pdf` | Python plus the pinned parser stack in `mcp/requirements.txt` | A markdown wrapper in `sources/`, with the original PDF path preserved for ingestion |
 | Mobile or quick capture | Claude Dispatch or Codex through ChatGPT mobile, depending on your assistant provider | Same MCP setup as the running assistant workspace | A markdown file in `sources/` for later review |
 
+## Week Folders
+
+Source folders under `sources/{YYYY-MM}/{YYYY-MM-DD_to_DD}/` represent the week a source was **captured** (downloaded or fetched), not the week it was processed or ingested. By default `cm_extract_pdf`, `cm_fetch_url`, and `cm_fetch_youtube` file their output by whatever week is current when they run. For `cm_fetch_url` and `cm_fetch_youtube` that is correct: the fetch action is the capture. For `cm_extract_pdf` it is not, because the PDF was downloaded to disk earlier, when the curator saved it; if intake happens later than capture (a PDF sits around for a week or two before extraction, for example), the wrapper markdown and original PDF would otherwise land in the wrong week folder.
+
+**Preferred fix — pass `capturedAt`.** When you know a PDF was downloaded before the week you are extracting in, pass `capturedAt` (the download date in `YYYY-MM-DD`) to `cm_extract_pdf`. The markdown wrapper and the `Captured:` metadata line are then filed into that capture week's folder directly, creating it if needed, and today's week folder is left untouched. (The tool references the original PDF by path in place; it does not move or copy the PDF, so keep the PDF wherever the curator saved it.) Omit `capturedAt` for the common case where the PDF is extracted the same week it was downloaded.
+
+**Manual fallback — only if you already extracted without `capturedAt`.** If a source was extracted into the wrong week folder before you realized it was captured earlier, move the wrapper markdown and the original PDF back into the capture week's folder, and update `review-status.json` in both the capture week and the processing week so each tracker matches what's actually sitting in that folder. Otherwise an already-ingested source can look unprocessed the next time you scan its real capture week, or look like new work in the week it happened to be extracted.
+
 ## Vendor and Local Dependencies
 
 **Supadata** powers web and YouTube intake.

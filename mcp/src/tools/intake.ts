@@ -447,7 +447,12 @@ export function registerIntakeTools(server: McpServer): void {
         "Args:\n" +
         "  - filePath (string): Absolute path to the local PDF file\n" +
         "  - title (string, optional): Override title (uses PDF metadata or filename if omitted)\n" +
-        "  - method (string, optional): auto, liteparse, pypdf, docling, or docling_ocr\n\n" +
+        "  - method (string, optional): auto, liteparse, pypdf, docling, or docling_ocr\n" +
+        "  - capturedAt (string, optional): The date the curator captured (downloaded) the PDF, in YYYY-MM-DD format. " +
+        "Controls which week folder the markdown wrapper is written to, and the Captured metadata line. " +
+        "The original PDF is referenced by path in place; this tool does not move or copy it. " +
+        "Pass this when the PDF was downloaded in an earlier week than the one you are extracting in, so the wrapper " +
+        "lands in the capture week's folder instead of today's. Omit to use today (the common same-week case).\n\n" +
         "Returns: The local markdown file path plus next-step guidance.",
       inputSchema: {
         filePath: z.string().min(1).describe("Absolute path to the local PDF file"),
@@ -455,6 +460,10 @@ export function registerIntakeTools(server: McpServer): void {
         method: z.enum(["auto", "liteparse", "pypdf", "docling", "docling_ocr"]).optional()
           .describe(
             "Extraction mode. Use auto for best effort, liteparse for fast layout-preserving extraction, docling for visual or academic/table-heavy PDFs, docling_ocr for scanned PDFs, or pypdf as a lightweight fallback."
+          ),
+        capturedAt: z.string().optional()
+          .describe(
+            "Capture (download) date in YYYY-MM-DD format. Determines the week folder the markdown wrapper is written to, and the Captured metadata line. The original PDF is referenced in place, not copied. Pass when the PDF sat around before extraction so the wrapper lands in the capture week, not today's. Omit to default to today."
           ),
       },
       annotations: {
@@ -464,7 +473,7 @@ export function registerIntakeTools(server: McpServer): void {
         openWorldHint: false,
       },
     },
-    async ({ filePath, title, method }) => {
+    async ({ filePath, title, method, capturedAt: capturedAtInput }) => {
       try {
         const curateMindPath = process.env.CURATE_MIND_PATH;
         if (!curateMindPath) {
@@ -478,6 +487,19 @@ export function registerIntakeTools(server: McpServer): void {
             ],
           };
         }
+
+        const capturedAtResult = resolveCapturedAt(capturedAtInput);
+        if ("error" in capturedAtResult) {
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: `Error: ${capturedAtResult.error}`,
+              },
+            ],
+          };
+        }
+        const capturedAt = capturedAtResult.date;
 
         if (!path.isAbsolute(filePath)) {
           return {
@@ -540,7 +562,6 @@ export function registerIntakeTools(server: McpServer): void {
           };
         }
 
-        const capturedAt = new Date();
         const scriptPath = fileURLToPath(
           new URL("../../scripts/extract_pdf.py", import.meta.url)
         );
@@ -1280,6 +1301,63 @@ export function registerIntakeTools(server: McpServer): void {
       }
     }
   );
+}
+
+/**
+ * Resolve the capture date for an intake tool.
+ *
+ * When `capturedAt` is omitted, the capture moment is "now" — this preserves
+ * the original behavior for the common case of extracting a PDF the same week
+ * it was downloaded. When provided, it must be an ISO calendar date
+ * (YYYY-MM-DD) representing the day the curator actually captured (downloaded)
+ * the source. That day drives both the week folder the wrapper/PDF are filed
+ * under and the `**Captured:**` metadata line.
+ *
+ * The date is parsed as a LOCAL calendar day (new Date(year, month, day)), not
+ * via new Date("YYYY-MM-DD") which parses as UTC midnight and can shift to the
+ * previous day in timezones behind UTC. This matters because getWeekFolderPath
+ * and formatDateForMetadata both read the date with local getters.
+ *
+ * Do NOT derive capture date from file mtime/ctime — cloud sync and file copies
+ * rewrite those, which is part of what caused the original misfiling incident.
+ */
+function resolveCapturedAt(
+  capturedAt?: string
+): { date: Date } | { error: string } {
+  if (capturedAt === undefined) {
+    return { date: new Date() };
+  }
+
+  const trimmed = capturedAt.trim();
+  const isoDateMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!isoDateMatch) {
+    return {
+      error:
+        `Invalid capturedAt "${capturedAt}". ` +
+        "Use an ISO calendar date in YYYY-MM-DD format (e.g. 2026-06-15).",
+    };
+  }
+
+  const year = Number(isoDateMatch[1]);
+  const month = Number(isoDateMatch[2]);
+  const day = Number(isoDateMatch[3]);
+  const date = new Date(year, month - 1, day);
+
+  // Reject impossible dates (e.g. 2026-13-40 or 2026-02-30). JavaScript rolls
+  // these over into a different real day, so compare the components back.
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return {
+      error:
+        `Invalid capturedAt "${capturedAt}". ` +
+        "That is not a real calendar date. Use YYYY-MM-DD.",
+    };
+  }
+
+  return { date };
 }
 
 function formatDateForMetadata(date: Date): string {
