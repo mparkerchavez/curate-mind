@@ -31,7 +31,7 @@ The fields below will be read from the project profile by a later schema change 
 | High-value evidence types | statistic, framework, prediction, case-study, observation, recommendation | The evidence-type taxonomy the Extract sub-agent uses. |
 | Tag strategy notes | "Lowercase hyphenated noun phrases. 1 to 4 tags per data point. Prefer specific over generic." | Guides the Enrich sub-agent's tag assignment. |
 | Confidence rubric notes | "strong = well-supported and specific. moderate = plausible but lacks strong quantitative backing. suggestive = speculative or anecdotal." | Guides the Enrich sub-agent's confidence calls. |
-| Preferred output style | Analytical, concise, no em dashes. | Shapes extraction notes, source synthesis, and progress reports. |
+| Preferred output style | Analytical, concise, no em dashes. | Shapes claim text, extraction notes, source synthesis, and progress reports. Applies to every field the sub-agent writes in its own words. Never applies to anchor quotes, which stay verbatim. |
 
 Until the profile wiring lands, this skill uses the defaults above. When the wiring lands, the values come from a `cm_get_project_profile` call at the start of the orchestrator.
 
@@ -153,8 +153,8 @@ Do not invoke any skill file. Follow only the instructions below.
    - Skip generic filler, repetition, background context, and marketing language.
    - High-value evidence types: statistic, framework, prediction, case-study, observation, recommendation.
    - For each data point produce:
-     - claimText: 1 to 3 sentences in your own words. Stands alone without source context.
-     - anchorQuote: 10 to 40 words copied verbatim from the source (target 15 to 25). Capture the author's reasoning, not just the conclusion. Must appear word-for-word in the source.
+     - claimText: 1 to 3 sentences in your own words. Stands alone without source context. Do not use em dashes. Use a comma, colon, semicolon, or a second sentence instead. This is your own prose, so it follows the curator's banned punctuation preference even when the source uses em dashes.
+     - anchorQuote: 10 to 40 words copied verbatim from the source (target 15 to 25). Capture the author's reasoning, not just the conclusion. Must appear word-for-word in the source. Copy the source's punctuation exactly, em dashes included. Never normalize punctuation inside an anchor quote; the verbatim guarantee outranks style preferences.
      - evidenceType: one of the high-value types above.
      - locationType: paragraph, page, timestamp, or section.
      - locationStart: e.g., "paragraph 12", "section: Enterprise Adoption".

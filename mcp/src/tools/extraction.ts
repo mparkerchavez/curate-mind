@@ -180,8 +180,8 @@ export function registerExtractionTools(server: McpServer): void {
         "  - sourceId (string): The source these data points came from\n" +
         "  - dataPoints (array): Array of extracted data points, each with:\n" +
         "    - dpSequenceNumber (number): Order within the source\n" +
-        "    - claimText (string): The synthesized claim\n" +
-        "    - anchorQuote (string): Verbatim 5-15 words from source\n" +
+        "    - claimText (string): The synthesized claim. Do not use em dashes.\n" +
+        "    - anchorQuote (string): Verbatim 5-15 words from source, punctuation copied exactly\n" +
         "    - evidenceType (string): statistic, framework, prediction, case-study, observation, recommendation\n" +
         "    - locationType (string): paragraph, page, timestamp, section\n" +
         "    - locationStart (string): Location reference\n" +
@@ -192,8 +192,16 @@ export function registerExtractionTools(server: McpServer): void {
         dataPoints: z.array(
           z.object({
             dpSequenceNumber: z.number().int().describe("Order within the source"),
-            claimText: z.string().min(1).describe("The synthesized claim"),
-            anchorQuote: z.string().min(1).describe("Verbatim 5-15 words from source"),
+            claimText: z.string().min(1)
+              .describe(
+                "The synthesized claim, in the extractor's own words. Do not use em dashes; " +
+                "use a comma, colon, semicolon, or a second sentence instead."
+              ),
+            anchorQuote: z.string().min(1)
+              .describe(
+                "Verbatim 5-15 words from source. Copy the source's punctuation exactly, " +
+                "em dashes included; never normalize punctuation inside an anchor quote."
+              ),
             evidenceType: z.enum([
               "statistic", "framework", "prediction",
               "case-study", "observation", "recommendation",

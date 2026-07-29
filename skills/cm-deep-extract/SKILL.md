@@ -20,7 +20,7 @@ The fields below will be read from the project profile by a later schema change 
 | High-value evidence types | statistic, framework, prediction, case-study, observation, recommendation | The evidence-type taxonomy used in Extract. |
 | Tag strategy notes | "Lowercase hyphenated noun phrases. 1 to 4 tags per data point. Prefer specific over generic." | Guides tag assignment in Enrich. |
 | Confidence rubric notes | "strong = well-supported and specific. moderate = plausible but lacks strong quantitative backing. suggestive = speculative or anecdotal." | Guides confidence calls in Enrich. |
-| Preferred output style | Analytical, concise, no em dashes. | Shapes synthesis, extraction notes, and dialogue prompts. |
+| Preferred output style | Analytical, concise, no em dashes. | Shapes claim text, synthesis, extraction notes, and dialogue prompts. Applies to every field written in your own words. Never applies to anchor quotes, which stay verbatim. |
 
 When the profile wiring lands, these values come from a `cm_get_project_profile` call at the start of this skill.
 
@@ -81,7 +81,8 @@ Wait for confirmation. The curator may want to add context or adjust expectation
 #### 1.2 Extract data points
 
 Extract all data points with:
-- Verbatim anchor quotes copied word-for-word from the source, 10 to 40 words each (target 15 to 25).
+- Claim text of 1 to 3 sentences in your own words, standing alone without source context. Do not use em dashes. Use a comma, colon, semicolon, or a second sentence instead. This is your own prose, so it follows the curator's banned punctuation preference even when the source uses em dashes.
+- Verbatim anchor quotes copied word-for-word from the source, 10 to 40 words each (target 15 to 25). Copy the source's punctuation exactly, em dashes included. Never normalize punctuation inside an anchor quote; the verbatim guarantee outranks style preferences.
 - Evidence type and location.
 - No tags. Tags are assigned during the Enrich stage.
 
