@@ -76,10 +76,10 @@ Curate Mind exposes tools through named toolsets, controlled by `CURATE_MIND_TOO
 
 | Toolset | Count | Purpose |
 |---|---:|---|
-| `daily` | 25 | Project setup, source intake, review queue, profile edits, browsing, and questions |
-| `pipeline` | 44 | Default curator workflow: `daily` plus extraction, enrichment, evidence linking, and embeddings |
-| `admin` | 52 | `pipeline` plus repair, reset, correction, and retirement tools |
-| `all` | 52 | Debug mode; registers every tool without filtering |
+| `daily` | 27 | Project setup, source intake, review queue, profile edits, browsing, and questions |
+| `pipeline` | 55 | Default curator workflow: `daily` plus extraction, enrichment, evidence linking, corrections, and embeddings |
+| `admin` | 60 | `pipeline` plus repair, reset, correction history, and retirement tools |
+| `all` | 60 | Debug mode; registers every tool without filtering |
 
 The full inventory lives in `docs/mcp-tool-inventory.md`. Agents should treat skills and natural workflow prompts as the primary interface, not ask the user to name low-level tools.
 

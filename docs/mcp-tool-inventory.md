@@ -8,12 +8,16 @@ The MCP server filters the visible tools with `CURATE_MIND_TOOLSET`:
 
 | Toolset | Count | Intended use |
 |---|---:|---|
-| `daily` | 25 | Simple project setup, source intake, review, browsing, and questions |
-| `pipeline` | 44 | Default curator workflow: intake, extraction, enrichment, evidence linking, and questions |
-| `admin` | 52 | Repair, correction, reset, and retirement tools included |
-| `all` | 52 | Debug mode; registers every tool without filtering |
+| `daily` | 27 | Simple project setup, source intake, review, browsing, and questions |
+| `pipeline` | 55 | Default curator workflow: intake, extraction, enrichment, evidence linking, corrections, and questions |
+| `admin` | 60 | Repair, correction history, reset, and retirement tools included |
+| `all` | 60 | Debug mode; registers every tool without filtering |
 
 If `CURATE_MIND_TOOLSET` is unset, the MCP server uses `pipeline`.
+
+Toolset membership is defined in `mcp/src/toolsets.ts`. A tool must be listed in `ALL_TOOLS` there in addition to being registered in `mcp/src/tools/`, because `ALL_TOOLS` is the superset backing every toolset. A registered tool that is missing from `ALL_TOOLS` is hidden in all four toolsets, including `all`. `mcp/src/toolRegistry.test.ts` fails if the registered tools and `ALL_TOOLS` ever drift apart, so update both when adding a tool.
+
+The public research pack tool (`cm_get_research_pack` in `mcp/src/tools/public.ts`) is served by the separate public HTTP server and is not part of these toolsets.
 
 ## Daily Tools
 
@@ -46,10 +50,12 @@ Use these for normal interaction with an assistant. Users can prompt in plain la
 | `cm_list_sources` | List sources by project and optional status |
 | `cm_get_data_points_by_tag` | Retrieve project-scoped data points for a tag |
 | `cm_list_data_points_by_source` | List data points extracted from one source |
+| `cm_get_data_point_usage` | Show where one data point is used across positions |
+| `cm_get_source_usage` | Show the blast radius of one source across the corpus |
 
 ## Pipeline Tools
 
-The `pipeline` toolset includes every daily tool plus these tools for extraction, enrichment, and evidence linking.
+The `pipeline` toolset includes every daily tool plus these tools for extraction, enrichment, evidence linking, and logged corrections.
 
 | Tool | Purpose |
 |---|---|
@@ -57,6 +63,7 @@ The `pipeline` toolset includes every daily tool plus these tools for extraction
 | `cm_save_data_points` | Save Extract-stage data points |
 | `cm_enrich_data_points_batch` | Add confidence, extraction notes, and related DP links |
 | `cm_update_data_points_tags_batch` | Add Enrich-stage tags in batch |
+| `cm_remove_data_point_tag_batch` | Remove one tag from multiple data points |
 | `cm_save_source_synthesis` | Save the source-level synthesis |
 | `cm_update_source_status` | Mark source status as indexed, extracted, or failed |
 | `cm_add_curator_observation` | Create an immutable curator observation |
@@ -71,6 +78,14 @@ The `pipeline` toolset includes every daily tool plus these tools for extraction
 | `cm_get_position_arrays` | Read current evidence arrays only |
 | `cm_link_evidence_to_position` | Add evidence to one position without changing stance |
 | `cm_update_positions_batch` | Add evidence to multiple positions atomically |
+| `cm_unlink_evidence_from_position` | Remove one evidence item from a position |
+| `cm_replace_evidence_on_position` | Swap one evidence item for another on a position |
+| `cm_correct_anchor` | Correct data point anchor text with a correction log |
+| `cm_correct_attribution` | Correct source metadata or DP speaker attribution with a correction log |
+| `cm_correct_claim` | Correct data point claim text with a correction log, within a 0.5x to 2x length guard, and reset the embedding for reindexing (Decision 37) |
+| `cm_get_source_corrections` | Read the correction history for a source |
+| `cm_supersede_data_point` | Retire a data point, or replace it with another, append-only |
+| `cm_supersede_source` | Link a re-ingested source to the one it replaces |
 | `cm_generate_embeddings` | Generate pending embeddings |
 
 ## Admin And Compatibility Tools
@@ -80,10 +95,7 @@ These are hidden from the default `pipeline` surface. Use `CURATE_MIND_TOOLSET=a
 | Tool | Purpose |
 |---|---|
 | `cm_update_source_metadata` | Repair source metadata after ingestion |
-| `cm_remove_data_point_tag_batch` | Remove one tag from multiple data points |
 | `cm_reset_profile_to_defaults` | Reset project and/or user profile data |
 | `cm_get_data_point_corrections` | Audit correction history for a data point |
 | `cm_get_position_history` | Read full position version history |
 | `cm_retire_tag` | Retire a tag slug and redirect it |
-| `cm_correct_anchor` | Correct data point anchor text with a correction log |
-| `cm_correct_attribution` | Correct source metadata or DP speaker attribution with a correction log |

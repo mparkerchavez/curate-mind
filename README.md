@@ -51,10 +51,10 @@ The MCP server can expose different tool surfaces with `CURATE_MIND_TOOLSET`:
 
 | Value | Use when | Tool count |
 |-------|----------|------------|
-| `daily` | You mainly ingest, review, and ask questions | 25 |
-| `pipeline` | You run the full research workflow, including extraction and evidence linking | 44 |
-| `admin` | You need repair and maintenance tools | 52 |
-| `all` | You are debugging tool registration itself | 52 |
+| `daily` | You mainly ingest, review, and ask questions | 27 |
+| `pipeline` | You run the full research workflow, including extraction and evidence linking | 55 |
+| `admin` | You need repair and maintenance tools | 60 |
+| `all` | You are debugging tool registration itself | 60 |
 
 If unset, Curate Mind uses `pipeline`, which supports the normal curator workflow while hiding legacy and repair-only tools from the default surface. See [MCP tool inventory](docs/mcp-tool-inventory.md) for the full list.
 
