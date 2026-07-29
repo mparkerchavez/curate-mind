@@ -119,7 +119,7 @@ The atomic unit of the entire system. Each data point represents a single curate
 |-------|-------------|-------|
 | sourceId | Reference to parent source | Required |
 | dpSequenceNumber | Order within the source extraction | Auto-incremented |
-| claimText | The synthesized claim | Required |
+| claimText | The synthesized claim, in the extractor's own words | Required. Follows the curator's banned punctuation preference, so no em dashes. See Design Decision 39. |
 | anchorQuote | Verbatim 10-40 words from source (target 15-25). Capture the author's reasoning, not just the conclusion. | Required. Used as verification metadata and source deep-link support. See Design Decisions 13 and 18. |
 | extractionNote | Why this DP matters; significance and context | Added during Enrich |
 | evidenceType | statistic, framework, prediction, case-study, observation, recommendation | Required |
@@ -251,6 +251,8 @@ Extract begins by classifying the document and determining processing strategy:
 **Inputs:** Source text and metadata from Convex.
 
 **Outputs per data point:** Claim text, anchor quote (10-40 words, target 15-25), location, evidence type. No tags. No interpretation.
+
+Claim text is the extractor's own prose, so it follows the curator's style preferences, including banned punctuation. Anchor quotes are verbatim, so they copy the source's punctuation exactly even when that punctuation is banned in the curator's own writing. See Design Decision 39.
 
 **Also produces:** A 2-3 paragraph source synthesis — an analytical summary of the source's argument, key tensions, and strategic implications. Stored on the source record (`sourceSynthesis` field). This preserves document-level context that individual DPs cannot capture.
 

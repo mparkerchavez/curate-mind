@@ -512,4 +512,23 @@ This decision also reopens claim text to logged correction. Decision 32 (amended
 
 ---
 
+## Decision 39: Style Preferences Follow Authorship, and the Verbatim Guarantee Outranks Them
+
+**Decision:** Curator style preferences, including `userPreferences.bannedPunctuation`, apply to every field an agent writes in its own words. They never apply to verbatim captured text. Where the two rules meet, the verbatim guarantee wins.
+
+- **Applies:** `claimText`, `extractionNote`, `sourceSynthesis`, curator observations, mental models, position stance prose, change summaries, and anything else an agent composes.
+- **Does not apply:** `anchorQuote`. Anchor quotes copy the source's punctuation exactly, em dashes included. Normalizing punctuation inside an anchor quote would break the word-for-word match that makes the anchor citable and verifiable against the original source.
+
+**Why this needed stating:** `bannedPunctuation` has contained the em dash since May 20, 2026, but the Extract stage guidance only ever applied it to source synthesis and extraction notes. Claim text was never covered, so claims inherited em dashes from source prose for months. A scan of all 5,781 data points in the AI Strategy project on July 29, 2026 found the claims otherwise mechanically clean: no HTML entities, no encoding artifacts, no truncation, no doubled words. The em dash leak was the only real defect class in extraction output, and it came from an instruction gap rather than a model failure.
+
+The carve-out is the load-bearing half of this decision. A field-blind reading of "no em dashes" would license an agent to clean punctuation inside anchor quotes, which fails silently: the claim still reads well, the anchor still looks like a quote, and nothing surfaces the fact that the anchor no longer matches the source. Tying the rule to authorship rather than to a field list makes the right behavior derivable for fields added later.
+
+**Where enforced:** the claim and anchor field instructions in `cm-batch-orchestrator` and `cm-deep-extract`, and the `cm_save_data_points` input schema descriptions. The schema is the durable layer, since it travels with the tool for any agent that calls it without loading a skill.
+
+**Scope:** extraction going forward only. Claims stored before this change keep their em dashes. Cleaning them retroactively would mean one `cm_correct_claim` call per data point, each writing a corrections row and resetting an embedding, which is a curator decision rather than a maintenance task. Decision 37 makes that possible; this decision does not require it.
+
+**Date:** July 29, 2026
+
+---
+
 *When making implementation decisions not covered here, apply this test: does this decision serve the foundation (persistent, queryable, append-only knowledge structure) or does it serve a specific output? If the latter, it probably doesn't belong in the core system. Generate it on demand instead.*
