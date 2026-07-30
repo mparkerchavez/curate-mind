@@ -99,7 +99,7 @@ Reading context to route is allowed. Acting is not. Detecting that sources are w
 | Process multiple sources | "batch extract", "process indexed sources", "run extraction on these sources" | Use `cm-batch-orchestrator`. Show the queue and wait for confirmation before processing. |
 | Review extraction flags | "review flags", "curator review", pasted Extraction Flag Report | Use `cm-curator-review`. |
 | Execute review decisions or link evidence | "batch integrate", "link evidence", "connect evidence to positions", pasted Decisions Document | Use `cm-evidence-linker`. Use additive evidence-linking tools for evidence-only updates. |
-| Ask a cited research question | "what is my position", "what does the research show", "write the brief", "give me a cited answer" | Use `cm_ask`. Start with Stance, then Evidence, then Source details when needed. |
+| Ask a cited research question | "what is my position", "what does the research show", "write the brief", "give me a cited answer" | Use `cm_ask`, then relay and repair the composed answer against the `renderContract` the response carries. On follow-ups, pass the Carry Forward identifiers as `carriedDataPointIds`. See "Rendering a cm_ask answer". |
 | Explore patterns | "what signals are emerging", "what patterns do you see", "challenge this idea", "what should I investigate" | Use `cm_search`. Say clearly that the answer is exploratory, not a formal cited analyst answer. |
 | Repair metadata, tags, anchors, or attribution | "fix this source metadata", "correct this anchor", "retire this tag" | Confirm the target ID and reason. Use admin tools only when the active MCP toolset exposes them. If not available, tell the curator to restart the MCP server with `CURATE_MIND_TOOLSET=admin`. |
 
@@ -170,6 +170,32 @@ When the user asks a research question:
 - Use `cm_ask` when the user asks for a position, analysis, brief, cited answer, or what the research shows.
 - Use `cm_search` when the user asks for signals, patterns, exploration, idea pressure-testing, or what to investigate.
 - If ambiguous, default to `cm_ask` once the corpus has positions. If no positions are found, say that and offer an exploratory `cm_search` pass.
+
+## Rendering a cm_ask answer
+
+Every `cm_ask` response carries its own formatting contract. It always arrives as a "Render Contract (follow exactly)" block at the top of the response, and the machine-readable pack repeats it as a `renderContract` field whenever that pack fits. Treat the block at the top as the copy that is always there. Follow that contract exactly. Do not wait for the curator to ask for citations, and do not fall back to your own preferred answer shape.
+
+The contract is the authority. The summary below tells you what to expect, but if the two ever disagree, the `renderContract` in the response wins.
+
+**Relay, do not rewrite.** The response already contains an answer under `## Answer`, composed by the project's own analyst prompt with the curator's saved style preferences applied. Present that answer. Repair it where it breaks a rule below, but do not restructure it, re-argue it, or replace it with your own analysis. curatemind.io renders this same composed answer verbatim, so rewriting it here means one question gets two different answers depending on where it was asked. Preserve every `[E#]` token exactly as written, because those tokens are how cited evidence is tracked from one question to the next.
+
+1. **Stance first.** The composed answer should already open with what the project currently says, before any evidence detail. If it does not, reorder it so it does. If the pack returned no positions, say so plainly and label the answer exploratory rather than cited.
+2. **`[E#]` inline citations.** The numbers are fixed by the pack: `[E1]` is the first evidence item, `[E2]` the second. Never invent a label and never renumber. Do not cite curator observations or secondary capture items as `[O#]` or `[M#]`; they are background context. Position labels such as `[P1]` may appear as plain references.
+
+   Watch the label collision. Position stance text carries its own `[E#]` and `[C#]` numbering from that position's evidence chain, and those numbers have nothing to do with the pack's labels. Never cite them, and never write a hybrid label such as `[E1, cited within P1]`. A malformed label matches neither the citation renderer nor the extractor that records which evidence was cited, so it silently drops that data point out of the thread. To cite a claim you read inside a stance, either find the supporting data point in the pack and cite its label, or attribute the claim to the position by name.
+3. **Source reference list at the end.** Close the answer with a reference list covering every label you cited, in label order. Take each entry from the pack's `## Source Reference List` section and keep its data point id and its carried or fresh origin, alongside the source title, author, publisher, date, the anchor quote verbatim in quotation marks, and the resolved source link. Never construct a curatemind.io or source URL yourself, and never paraphrase or trim an anchor quote. Anchor quotes are curator-facing verification text, so do not reuse them as public-facing copy.
+
+Two things stay out of the rendered answer: the machine-readable pack, and any invented fact, quote, or number. When the evidence is thin, say so instead of filling the gap.
+
+### Threading follow-up questions
+
+Nothing threads a Curate Mind conversation automatically over MCP. The website does it for its own users; you have to do it here, or every follow-up starts from scratch and the evidence behind the narrative silently resets.
+
+Each response ends with a `## Carry Forward` section listing data point identifiers. On the next `cm_ask` call in the same conversation, pass exactly those identifiers as `carriedDataPointIds`. The list already accumulates everything cited so far in the thread, so pass it forward as given rather than rebuilding it.
+
+This is what keeps the current data points verifiable as the narrative develops. Evidence that stays relevant travels with the thread and is marked as carried; new retrieval for the latest question is marked as fresh. Surface that distinction when it matters to the curator, for example when a follow-up rests entirely on evidence held over rather than anything newly found.
+
+`cm_search` has no render contract. Exploratory answers from `cm_search` are not cited answers, so say plainly that they are exploratory rather than dressing them up with `[E#]` labels.
 
 ## Handoff pattern
 

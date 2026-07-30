@@ -154,6 +154,12 @@ Use when: the corpus has positions and the question requires a rigorous cited an
 
 Every substantive claim in the answer should carry an inline label drawn from the analyst pack: `[P1]` for position stances, `[O1]` for observations, `[M1]` for mental models, `[E1]` for data point evidence.
 
+**Follow the render contract the response carries.** Every `cm_ask` response opens with a `## Render Contract (follow exactly)` block and repeats it as a `renderContract` field in the machine-readable pack. It is the authority on answer shape, and it does not need to be requested. Three rules matter most:
+
+- **Relay, do not rewrite.** The response already contains an answer composed by the project's own analyst prompt with the curator's style preferences applied, and curatemind.io renders that same answer verbatim. Present it and repair rule breaks in it. Rewriting makes one question give two different answers depending on where it was asked.
+- **Citation labels are a strict token.** A label is a bare `[E` plus digits `]`. Position stance text carries its own `[E#]` and `[C#]` numbering from that position's evidence chain, which is a separate namespace. Never mix them, and never write a hybrid label such as `[E1, cited within P1]`. A malformed label is not cosmetic: it matches neither the citation renderer nor the extractor that records which evidence was cited, so the data point silently drops out of the thread. See Design Decision 40.
+- **Thread follow-up questions.** Nothing does this automatically over MCP. Each response ends with a `## Carry Forward` section; pass those identifiers as `carriedDataPointIds` on the next `cm_ask` call in the same conversation, or the evidence behind the narrative resets.
+
 **Trigger phrases:** "what's my position on", "analyze", "what does the research show", "give me a cited answer", "write the brief", "write it up".
 
 ### Boundary rules
