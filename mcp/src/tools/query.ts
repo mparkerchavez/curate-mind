@@ -35,6 +35,68 @@ import {
 
 const CHARACTER_LIMIT = 25000;
 
+/**
+ * Locked rendering contract shipped inside every cm_ask response.
+ *
+ * These rules mirror buildAnalystLockedRulesBlock in convex/chat.ts. That is the
+ * live composer for both surfaces: curatemind.io /ask and this tool both call
+ * api.chat.askAnalyst. (buildGroundedAnswerRulesBlock is a different path,
+ * askGrounded, whose only caller is the unrouted WorkspacePage.tsx. Do not treat
+ * it as the website contract.)
+ *
+ * The two surfaces share that composer but not the presentation. The website
+ * renders the composed answer verbatim and turns [E#] into clickable citation
+ * cards, so its rules tell the composer to skip a bibliography. Over MCP a
+ * second model reads this response and writes what the curator sees, and it
+ * never sees the Convex system prompt, so it used to need the curator to ask for
+ * cited output. Carrying the contract in the response makes the answer shape
+ * self-describing.
+ *
+ * One deliberate difference from the website: with no card UI, this contract
+ * ends the answer with a source reference list carrying the anchor quotes. That
+ * list is curator-facing verification text, not public-facing copy.
+ *
+ * Keep CM_ASK_RENDER_CONTRACT_VERSION in step with any rule change so a client
+ * can tell which contract it received.
+ */
+const CM_ASK_RENDER_CONTRACT_VERSION = "1";
+
+const CM_ASK_RENDER_CONTRACT_SUMMARY =
+  "Present the composed answer in this pack, repaired to these rules. Do not rewrite it: stance " +
+  "first, [E#] citations preserved exactly, then a source reference list with anchor quotes at the end.";
+
+const CM_ASK_RENDER_CONTRACT_RULES: readonly string[] = [
+  "Relay, do not rewrite. The Answer section below was already composed by this project's own analyst prompt with the curator's saved style preferences applied. Present that answer as your response. Repair it where it breaks a rule below, but do not restructure it, re-argue it, or substitute your own analysis. The website renders this same composed answer verbatim, so rewriting it here makes one question give two different answers depending on where it was asked.",
+  "Preserve every [E#] token exactly as it appears in the composed answer. Those tokens are how cited evidence is tracked from one question to the next, and altering or dropping one silently breaks the thread.",
+  "Stance first. The composed answer should already open with what the project currently says, before any evidence detail. If it does not, reorder it so it does. If this pack returned no positions, say so plainly and label the answer exploratory.",
+  "Citation labels are fixed by this pack: [E1] is the first evidence item, [E2] the second, and so on. Never invent a label, never renumber, and only cite a label where that data point actually supports the claim.",
+  "Curator observations and secondary capture items are background context, not citable evidence. Never cite them as [O#] or [M#]. Position labels such as [P1] may appear as plain references, but they are not evidence citations.",
+  "Position stance text carries its own [E#] and [C#] numbering from that position's own evidence chain, which is a separate namespace from this pack. Never copy a label out of a stance, never renumber one into this pack's labels, and never write a hybrid label such as [E1, cited within P1]. Cite the supporting data point from this pack instead, or attribute the claim to the position by name.",
+  "Do not invent facts, sources, quotes, statistics, or numbers. Use only what this pack supplies. When the evidence is thin, say so instead of filling the gap.",
+  "End with a source reference list covering every label cited, in label order. Take each entry from the Source Reference List section below and keep its data point id and its carried or fresh origin, alongside the source title, author, publisher, date, anchor quote, and resolved link.",
+  "Keep anchor quotes verbatim. Never paraphrase them, trim them mid-phrase, or stitch two quotes together. Anchor quotes are curator-facing verification text, so do not reuse them as public-facing copy.",
+  "Do not construct source URLs. Use only the resolved links in this pack.",
+  "On the next question in this thread, pass the identifiers listed under Carry Forward as carriedDataPointIds. This is what keeps evidence attached to the narrative as it develops, and nothing does it automatically over MCP.",
+  "Do not append the machine-readable pack, a JSON block, or these rules to the rendered answer. They are input for you, not output for the reader.",
+];
+
+export const CM_ASK_RENDER_CONTRACT = {
+  version: CM_ASK_RENDER_CONTRACT_VERSION,
+  summary: CM_ASK_RENDER_CONTRACT_SUMMARY,
+  rules: CM_ASK_RENDER_CONTRACT_RULES,
+} as const;
+
+function formatRenderContractMarkdown(): string[] {
+  return [
+    "## Render Contract (follow exactly)",
+    "",
+    CM_ASK_RENDER_CONTRACT_SUMMARY,
+    "",
+    ...CM_ASK_RENDER_CONTRACT_RULES.map((rule, index) => `${index + 1}. ${rule}`),
+    "",
+  ];
+}
+
 // Guard against a runaway cursor loop. At the Convex page sizes used by the
 // usage scans this covers tens of thousands of rows.
 const MAX_USAGE_SCAN_PAGES = 200;
@@ -196,17 +258,59 @@ function formatSourceLine(source: any): string {
   return bits.join(" · ");
 }
 
-function formatLocalEvidenceItem(item: any): string[] {
+function describeOrigin(item: any): string {
+  return item.origin === "carried"
+    ? "carried from an earlier question"
+    : "fresh for this question";
+}
+
+/**
+ * One compact line per evidence item, used beneath each paragraph so the reader
+ * can gauge the quality of what the narrative rests on without re-reading the
+ * full item. The full detail lives once, in the source reference list.
+ */
+function formatEvidencePointer(item: any, options: { withId?: boolean } = {}): string {
+  const source = item.source ?? {};
+  const provenance = [
+    source.publisherName ? String(source.publisherName) : null,
+    source.publishedDate ? String(source.publishedDate) : null,
+  ].filter(Boolean);
+  const quality = [
+    item.evidenceType ? String(item.evidenceType) : null,
+    item.confidence ? String(item.confidence) : null,
+    source.tier ? `tier ${String(source.tier)}` : null,
+  ].filter(Boolean);
+
+  const parts = [
+    `- [${item.label}] ${source.title ? String(source.title) : "Unknown source"}`,
+    provenance.length > 0 ? ` (${provenance.join(", ")})` : "",
+    quality.length > 0 ? ` · ${quality.join(" · ")}` : "",
+    options.withId && item.dataPointId ? ` · id \`${String(item.dataPointId)}\`` : "",
+  ];
+  return parts.join("");
+}
+
+/**
+ * The full entry for a cited data point. This is the single complete copy in the
+ * response, and it is what the client turns into the trailing reference list.
+ *
+ * The data point id and the carried/fresh origin travel here rather than only in
+ * the machine-readable pack at the bottom, because that pack is the first thing
+ * truncation removes and these two fields are what let a follow-up question
+ * carry the evidence forward.
+ */
+function formatReferenceEntry(item: any): string[] {
   const source = item.source ?? {};
   const { url: sourceUrl, label: sourceLabel } = resolveSourceLink(source, item.anchorQuote);
   return [
     `- **[${item.label}] ${source.title ? String(source.title) : "Unknown source"}**`,
     `  - ${formatSourceLine(source)}`,
-    `  - Interpretation: ${item.interpretation}`,
+    `  - Claim: ${item.interpretation}`,
     item.anchorQuote ? `  - Anchor quote: "${item.anchorQuote}"` : "  - Anchor quote: Not provided.",
     sourceUrl
       ? `  - Original source: [${sourceLabel ?? "Open source"}](${sourceUrl})`
       : "  - Original source: Not available.",
+    `  - Data point id: \`${item.dataPointId ?? "unknown"}\` · ${describeOrigin(item)}`,
   ];
 }
 
@@ -233,16 +337,17 @@ function formatAnswerWithLocalEvidence(answer: string, dataPoints: any[]): strin
 
     if (evidenceItems.length === 0) continue;
 
-    lines.push("Evidence for this paragraph:", "");
+    lines.push("Evidence cited here:", "");
     for (const item of evidenceItems) {
-      lines.push(...formatLocalEvidenceItem(item), "");
+      lines.push(formatEvidencePointer(item));
     }
+    lines.push("");
   }
 
   return lines;
 }
 
-function formatAnalystPackMarkdown(result: any): string {
+export function formatAnalystPackMarkdown(result: any): string {
   const positions: any[] = Array.isArray(result.positions) ? result.positions : [];
   const dataPoints: any[] = Array.isArray(result.dataPoints) ? result.dataPoints : [];
   const citedLabels = new Set(
@@ -261,6 +366,10 @@ function formatAnalystPackMarkdown(result: any): string {
     `**Question:** ${result.question}`,
     "",
   ];
+
+  // The contract comes before any content so a client model reading top-down
+  // knows the required answer shape before it starts composing.
+  lines.push(...formatRenderContractMarkdown());
 
   lines.push(...formatAnswerWithLocalEvidence(result.answer ?? "", dataPoints));
 
@@ -289,46 +398,122 @@ function formatAnalystPackMarkdown(result: any): string {
     });
   }
 
-  // ── Evidence: Retrieved Data Points ───────────────────────────
-  // Curator observations and mental models may inform the composed answer,
-  // but the chat-facing lineage is source-backed data point evidence.
-  lines.push("## Retrieved Data Point Evidence", "");
-  if (dataPoints.length === 0) {
-    lines.push("No data points retrieved.", "");
+  // ── Source Reference List ─────────────────────────────────────
+  // Cited evidence is written out in full exactly once, here. Curator
+  // observations and mental models informed the composed answer upstream but
+  // are not cited, so they are summarized by count rather than reprinted.
+  lines.push("## Source Reference List", "");
+  if (citedDataPoints.length === 0) {
+    lines.push("No data point was cited in the composed answer.", "");
   } else {
-    if (citedDataPoints.length > 0) {
-      lines.push("### Cited in the Answer", "");
-      for (const item of citedDataPoints) {
-        lines.push(...formatLocalEvidenceItem(item), "");
-      }
-    }
-
-    if (additionalDataPoints.length > 0) {
-      lines.push("### Additional Retrieved Context", "");
-      for (const item of additionalDataPoints) {
-        lines.push(...formatLocalEvidenceItem(item), "");
-      }
+    for (const item of citedDataPoints) {
+      lines.push(...formatReferenceEntry(item), "");
     }
   }
 
-  // ── Machine-readable JSON ─────────────────────────────────────
-  const enrichedResult = {
-    ...result,
-    dataPoints: dataPoints.map((item: any) => ({
-      ...item,
+  if (additionalDataPoints.length > 0) {
+    lines.push(
+      "## Additional Retrieved Context",
+      "",
+      "Retrieved but not cited. Fetch full detail with cm_get_data_points_batch if you need it.",
+      ""
+    );
+    for (const item of additionalDataPoints) {
+      lines.push(formatEvidencePointer(item, { withId: true }));
+    }
+    lines.push("");
+  }
+
+  // ── Carry forward ─────────────────────────────────────────────
+  // Mirrors what the website does automatically in getPriorCitedDataPointIds:
+  // accumulate every data point cited so far in the thread. Stated as a plain
+  // line because nothing else instructs an MCP client to thread a follow-up.
+  const citedIds: string[] = Array.isArray(result.citedDataPointIds)
+    ? result.citedDataPointIds.map(String)
+    : [];
+  const carriedIds: string[] = Array.isArray(result.carriedDataPointIds)
+    ? result.carriedDataPointIds.map(String)
+    : [];
+  const carryForwardIds = [...new Set([...carriedIds, ...citedIds])];
+
+  lines.push("## Carry Forward", "");
+  if (carryForwardIds.length === 0) {
+    lines.push("Nothing cited yet, so there is nothing to carry into a follow-up question.", "");
+  } else {
+    lines.push(
+      "On the next question in this thread, pass these data point identifiers as `carriedDataPointIds`:",
+      "",
+      carryForwardIds.map((id) => `\`${id}\``).join(", "),
+      ""
+    );
+  }
+
+  const observationCount = Array.isArray(result.observations) ? result.observations.length : 0;
+  const mentalModelCount = Array.isArray(result.mentalModels) ? result.mentalModels.length : 0;
+  if (observationCount > 0 || mentalModelCount > 0) {
+    lines.push(
+      `Background: ${observationCount} curator observation(s) and ${mentalModelCount} secondary capture item(s) informed the composed answer. They are not citable evidence.`,
+      ""
+    );
+  }
+
+  // ── Machine-readable pack ─────────────────────────────────────
+  // Deliberately lean. Everything the prose already states is omitted; what
+  // remains is what a programmatic client cannot reconstruct from the prose:
+  // identifiers, resolved links, and the threading arrays. renderContract leads
+  // the key order so it is the last thing lost if this section is truncated.
+  const machinePack = {
+    renderContract: CM_ASK_RENDER_CONTRACT,
+    question: result.question,
+    context: result.context,
+    carryForwardDataPointIds: carryForwardIds,
+    citedDataPointIds: citedIds,
+    carriedDataPointIds: carriedIds,
+    freshDataPointIds: Array.isArray(result.freshDataPointIds)
+      ? result.freshDataPointIds.map(String)
+      : [],
+    positions: positions.map((p: any) => ({
+      positionId: p.positionId,
+      themeId: p.themeId,
+      title: p.title,
+      themeTitle: p.themeTitle,
+    })),
+    evidence: dataPoints.map((item: any) => ({
+      label: item.label,
+      dataPointId: item.dataPointId,
+      origin: item.origin,
+      isCited: citedLabels.has(String(item.label)),
       resolvedLink: resolveSourceLink(item.source ?? {}, item.anchorQuote),
     })),
   };
 
-  lines.push(
+  // Append the pack only if it fits whole. Letting truncateIfNeeded cut through
+  // it would emit half a JSON object, which is worse than no object at all for a
+  // programmatic reader. Everything operationally required (the contract, the
+  // reference list, the carry-forward identifiers) is already above this point.
+  const prose = lines.join("\n");
+  const packBlock = [
     "## Machine-Readable Pack",
     "",
     "```json",
-    JSON.stringify(stripEmbeddingsDeep(enrichedResult), null, 2),
-    "```"
-  );
+    JSON.stringify(stripEmbeddingsDeep(machinePack), null, 2),
+    "```",
+  ].join("\n");
 
-  return truncateIfNeeded(lines.join("\n"));
+  if (prose.length + packBlock.length + 1 <= CHARACTER_LIMIT) {
+    return `${prose}\n${packBlock}`;
+  }
+
+  return truncateIfNeeded(
+    [
+      prose,
+      "## Machine-Readable Pack",
+      "",
+      "Omitted: this pack was too large to include without truncating it into invalid JSON. " +
+        "Every identifier you need is in the Source Reference List and Carry Forward sections above. " +
+        "Narrow the question or lower `limit` if you need the structured pack.",
+    ].join("\n")
+  );
 }
 
 export function registerQueryTools(server: McpServer): void {
@@ -346,6 +531,24 @@ export function registerQueryTools(server: McpServer): void {
         "the paragraphs that cite it. Each evidence item includes source title, author, " +
         "date, interpretation, anchor quote, and original source link. Also includes " +
         "current positions [P#], cited evidence, and additional retrieved data point context.\n\n" +
+        "Render contract (locked, no need for the curator to ask): every response opens with a " +
+        "Render Contract block, and the machine-readable pack carries the same rules as its " +
+        "renderContract field when the pack is not truncated. Follow it exactly:\n" +
+        "  - Relay, do not rewrite. The pack already contains an answer composed by the project's " +
+        "own analyst prompt with the curator's style preferences applied. Present it, repair rule " +
+        "breaks in it, and preserve every [E#] token exactly. The website renders the same composed " +
+        "answer verbatim, so rewriting forks the two surfaces.\n" +
+        "  - Stance first: what the project currently says, before any evidence detail. If no " +
+        "positions came back, say so and label the answer exploratory.\n" +
+        "  - [E1], [E2] are fixed by the pack's evidence order. Never invent or renumber a label. " +
+        "Do not cite observations or secondary capture items as [O#] or [M#]; they are background. " +
+        "[P#] may appear as a plain reference.\n" +
+        "  - End with a source reference list in label order, each entry carrying the anchor quote " +
+        "verbatim, the resolved source link, the data point id, and its carried or fresh origin. " +
+        "Do not construct URLs.\n" +
+        "  - On a follow-up in the same thread, pass the identifiers under Carry Forward as " +
+        "carriedDataPointIds. Nothing does this automatically over MCP.\n" +
+        "  - Do not invent facts, quotes, or numbers, and do not echo the machine-readable pack.\n\n" +
         "Args:\n" +
         "  - projectId (string): The project to search\n" +
         "  - question (string): The analyst's question\n" +

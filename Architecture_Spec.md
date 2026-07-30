@@ -33,6 +33,10 @@ Response bands apply to how data is queried and surfaced. They do **not** apply 
 
 **`cm_ask` implements the response-band shape server-side.** The `cm_ask` MCP tool fetches the relevant material in a single call and returns a structured pack: positions first (the current stance on the topic), then supporting evidence (curator observations, secondary items, and data points with resolved source links), with anchor quotes included as verification metadata. Every substantive claim in the pack carries an inline citation label: `[P#]` for positions, `[O#]` for observations, `[M#]` for mental models, `[E#]` for data point evidence. This is the primary tool for cite-and-trace queries. See Design Decision 31 for why it exists as a separate tool from `cm_search`.
 
+**The response carries its own render contract.** Both curatemind.io and `cm_ask` call `api.chat.askAnalyst`, which composes a finished answer before either surface sees it. The website renders that answer verbatim and turns `[E#]` tokens into clickable citations. An MCP client has no such renderer and never sees the Convex system prompt, so every `cm_ask` response ships the rules for rendering it: a `## Render Contract (follow exactly)` block at the top and a `renderContract` field in the machine-readable pack. The contract instructs the client to relay and repair the composed answer rather than rewrite it, so both surfaces answer a given question the same way. See Design Decisions 40 through 43.
+
+**Threading is explicit over MCP.** The website accumulates previously cited data point identifiers automatically. An MCP client has no equivalent, so each response ends with a `## Carry Forward` section listing the identifiers to pass as `carriedDataPointIds` on the next question in the thread. Those identifiers, and each cited item's carried or fresh origin, travel in the prose reference list rather than only in the machine-readable pack, because the pack is the first thing dropped when a response exceeds its character limit.
+
 ### 3. Append-Only Data Architecture
 
 Nothing is deleted. Nothing is overwritten. Every change creates a new record.

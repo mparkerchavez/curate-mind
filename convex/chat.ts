@@ -839,10 +839,20 @@ function buildGroundedAnswerRulesBlock(): string {
 
 function buildAnalystLockedRulesBlock(): string {
   // Locked because rendered analyst answers only map data point labels to clickable citations.
+  //
+  // The citation label shape is load-bearing, not cosmetic. Both the web
+  // renderer (web/src/lib/workspace-utils.tsx) and collectCitedIdsFromInlineLabels
+  // below match on an exact [E<digits>] token. A malformed label such as
+  // "[E1, cited within P1]" matches neither, so it renders as raw text with no
+  // clickable citation AND its data point never lands in citedDataPointIds,
+  // which silently drops it from the carried evidence on the next question.
+  // That is why the namespace rule below is stated explicitly.
   return [
     "Use only the supplied project context, positions, observations, mental models, and evidence data points.",
     "Cite every source-backed claim with data point labels like [E1]. Do not cite observations or mental models with [O#] or [M#]; use them only as background context for synthesis.",
     "You may mention position labels like [P1] as plain references when they help orient the answer.",
+    "Write citation labels as a bare [E followed by digits] and nothing else, for example [E1] or [E12]. Never add words, commas, or qualifiers inside the brackets.",
+    "Position stance text carries its own [E#] and [C#] numbering from that position's own evidence chain. That numbering is a separate namespace and it does not match the evidence data points supplied for this question. Never copy a label out of a stance, never renumber one into this question's labels, and never write a hybrid label such as [E1, cited within P1]. To cite something you read in a stance, find the supporting evidence data point supplied above and cite its label, or attribute the claim to the position by name instead.",
     "Do not invent facts, sources, quotes, statistics, or labels. If the evidence is thin, say so.",
     "Do not include a JSON block or bibliography.",
   ].join("\n");

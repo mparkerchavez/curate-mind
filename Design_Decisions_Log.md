@@ -531,4 +531,67 @@ The carve-out is the load-bearing half of this decision. A field-blind reading o
 
 ---
 
+## Decision 40: Citation Labels Are a Strict Token, and Namespaces Never Mix
+
+**Decision:** A citation label in composed answer text is a bare `[E` followed by digits `]` and nothing else. Position stance text carries its own `[E#]` and `[C#]` numbering drawn from that position's own evidence chain, which is a separate namespace from the evidence supplied for a given question. The two never mix, and a hybrid label such as `[E1, cited within P1]` is invalid.
+
+**Why this needed stating:** the label shape is load-bearing, not cosmetic. Two independent consumers match on an exact token:
+
+- `collectCitedIdsFromInlineLabels` in `convex/chat.ts` uses `/\[E(\d+)\]/g` to decide which data points were actually cited.
+- the web renderer in `web/src/lib/workspace-utils.tsx` splits on `/(\[E\d+\]|\[C\d+\]|...)/` to build clickable citations.
+
+A malformed label matches neither. The visible symptom is a citation that renders as raw text on curatemind.io. The invisible and more serious symptom is that the data point never enters `citedDataPointIds`, so it is not carried into the next question and quietly falls out of the evidence behind an evolving narrative. This was observed in a live answer on July 30, 2026.
+
+**Where enforced:** `buildAnalystLockedRulesBlock` in `convex/chat.ts`, which is the composer for both curatemind.io and `cm_ask`. Mirrored client-side in the `cm_ask` render contract and in `cm-workflow-router`, so a malformed label that slips through is repaired rather than relayed.
+
+**Scope:** prompt rules only. No schema change, no rendering change. Answers composed before this change are not rewritten.
+
+**Date:** July 30, 2026
+
+---
+
+## Decision 41: cm_ask Answers Carry Their Own Render Contract, and Clients Relay Rather Than Rewrite
+
+**Decision:** every `cm_ask` response ships the rules for rendering it. The contract appears as a `## Render Contract (follow exactly)` block at the top of the response and as a `renderContract` field in the machine-readable pack. It instructs the calling model to **relay and repair** the composed answer, not to replace it.
+
+**Why relay rather than rewrite:** `api.chat.askAnalyst` composes a finished answer before either surface sees it, and curatemind.io renders that answer verbatim. If an MCP client re-composes from the same pack, the same question yields two different answers depending on where it was asked, which defeats the site's role as a verification surface for the same research. Relaying also preserves the curator's saved style preferences, which are applied only in the Convex composer, and preserves the `[E#]` tokens that evidence threading depends on.
+
+**Why the contract travels in the response:** an MCP client never sees the Convex system prompt. Before this, cited output depended on the curator asking for it. Carrying the contract makes the answer shape self-describing for any client, including ones that never load a Curate Mind skill.
+
+**Response shape (MCP only, the website is unaffected):** contract, composed answer with a compact evidence pointer under each citing paragraph, context, positions, source reference list, additional retrieved context, carry-forward identifiers, machine-readable pack.
+
+**Date:** July 30, 2026
+
+---
+
+## Decision 42: Cited Evidence Is Written Out Once, and Threading Identifiers Live in Prose
+
+**Decision:** in the `cm_ask` response, a cited data point's claim and anchor quote appear exactly once, in the source reference list. Paragraph-level evidence is a one-line pointer carrying label, source, date, evidence type, and confidence. Uncited evidence is listed as pointers with identifiers only. The machine-readable pack carries identifiers, resolved links, and threading arrays, not restated prose. If that pack cannot fit within the response character limit, it is omitted whole rather than truncated into invalid JSON.
+
+**Why:** the formatter printed each cited item three times, which pushed a realistic response past the 25,000 character limit and truncated away the machine-readable pack. That pack was the only place data point identifiers appeared, so the redundant copies were destroying the one copy carrying unique information. Measured on a representative pack, per-paragraph evidence dropped from 7,955 to 4,371 characters and the pack now survives.
+
+**Consequence for threading:** data point identifiers and carried/fresh origin now travel in the reference list, and every response ends with a `## Carry Forward` section listing the identifiers to pass as `carriedDataPointIds` on the next question. These sit above the machine-readable pack precisely so truncation cannot remove them.
+
+**Why threading needed its own instruction:** curatemind.io accumulates prior cited identifiers automatically in `getPriorCitedDataPointIds`. Over MCP, `carriedDataPointIds` was an available parameter that nothing instructed any client to use, so follow-up questions silently started from scratch. The render contract and `cm-workflow-router` now both require it.
+
+**Date:** July 30, 2026
+
+---
+
+## Decision 43: Interactive Widgets Are Parked, Not Rejected
+
+**Decision:** the `cm_ask` text response stays the primary MCP surface for now. An MCP Apps widget is the intended eventual direction but is deliberately parked. Because of that, the text path is kept lean and correct rather than elaborate: no rich per-paragraph presentation that a widget would replace.
+
+**Why parked rather than built:** MCP Apps became an official MCP extension on January 26, 2026, and would solve several problems at once. Full evidence data moves to `_meta`, which never enters model context, so the character budget stops competing with presentation; the widget becomes the evidence panel, giving chat the clickable citations that curatemind.io already has; and because widgets hold state and can call tools, turn-local `[E#]` labels stop being a hazard.
+
+The blocker is client maturity in the surfaces actually in use. There are open reports of widgets rendering as empty containers in Claude Code Desktop (`anthropics/claude-code#65653`) and of UI resources not rendering in Claude Desktop and claude.ai (`ext-apps#671`). Codex appears to be text-only, so a text fallback is required regardless. The two specifications also disagree on whether `structuredContent` reaches the model, so the portable split is model-facing data in `content` and widget-only data in `_meta`.
+
+**Related work this would absorb:** the two surfaces already resolve source links differently. The MCP prefers storage, then canonical, and appends a `#:~:text=` fragment so a link jumps to the anchor quote. The website (`web/src/components/SourceBadge.tsx`) uses a different precedence and appends no fragment. A shared widget is the natural place to define that once.
+
+**Where the detail lives:** `docs/cm-ask-rendering-design.md`.
+
+**Date:** July 30, 2026
+
+---
+
 *When making implementation decisions not covered here, apply this test: does this decision serve the foundation (persistent, queryable, append-only knowledge structure) or does it serve a specific output? If the latter, it probably doesn't belong in the core system. Generate it on demand instead.*
