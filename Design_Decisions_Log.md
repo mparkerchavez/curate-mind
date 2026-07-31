@@ -596,4 +596,54 @@ The blocker is client maturity in the surfaces actually in use. There are open r
 
 ---
 
+## Decision 44: Lifecycle Decisions Are Reversible, Because Append-Only Means History Is Never Lost
+
+**What:** A data point's lifecycle state can now be changed more than once. Retire, supersede, and restore each append an immutable row to a new `lifecycleEvents` table and materialize the resulting state on the data point row. `cm_restore_data_point` returns a retired or superseded data point to active. `cm_get_lifecycle_history` reads the full trail. Both are curator-only, in the admin toolset.
+
+The write-once rule from Decision 38 is removed. `resolveSupersedePatch` no longer throws when the data point is not active.
+
+**Why:** Six months of real use showed that the curator needs to fix issues as they arise, during processing and later while querying. The blocker was that a lifecycle decision could be made exactly once, forever.
+
+The key realization is that write-once was **stricter than append-only actually requires.** True append-only means history is never lost, which permits reversal by appending a new event that supersedes the earlier decision. Both stay on the record. Write-once instead made the first write final, which is a different and stronger property that nothing in the design called for.
+
+This project already had the better pattern and was not applying it here. The `corrections` table has always been freely repeatable: `correctClaim` rejects a no-op and bounds the edit, but has no "already corrected" guard, so a claim can be corrected today and corrected again next month with every step preserved. Lifecycle was also the outlier in a system where tags add and remove, evidence links link and unlink, and positions version. Data point lifecycle and source lineage were the only write-once surfaces.
+
+**How it works (append and materialize, not derive on read):** `correctClaim` appends an audit row *and* patches the new value onto the data point. Current state lives on the row; history lives in a separate table. Lifecycle copies this exactly. Reads never touch `lifecycleEvents`, so `isLiveDataPoint` keeps reading `dp.status` and **all six liveness call sites are unchanged** (`search.ts`, `chat.ts`, `sources.ts`, `publicResearch.ts`, `tags.ts`, plus `usage.ts` for reporting). Deriving state from events would have added a query per data point on hot retrieval paths.
+
+**What stays immutable:** `claimText`, `anchorQuote`, source `fullText`, data point identity, and position version history. That is provenance. A curator's *classification* of a data point is a judgment, and judgments are what six months of use revises.
+
+**Guard rails replacing the lock:**
+
+- Reason still required at 10 characters, on every action.
+- `supersede` requires a replacement; `retire` and `restore` must not carry one.
+- **No-ops return `outcome: "noop"` and write no event, rather than throwing.** This deliberately diverges from `correctClaim`, which throws. The two no-ops differ: correcting a claim to what it already says has no legitimate use, while retiring an already-retired data point is expected during batch work and retries. Silent success would be worse than either, so the outcome is explicit. Re-pointing a supersede at a *different* replacement is real work, not a no-op.
+- **Cycle guard**, the one genuinely new invariant. Under write-once a cycle was impossible by construction. Once a pointer can be re-pointed, "A superseded by B" then "B superseded by A" becomes reachable and anything walking the chain would spin. The chain is walked before writing, with a depth cap as a second backstop.
+- Restore warns without blocking when the data point was superseded *with* a replacement (both go back into live evidence) or when its parent source is `failed`.
+
+**Reporting:** `cm_get_source_usage` summarizes history per data point as `eventCount`, `restoreCount`, and the latest action, rather than inlining the full trail, matching how `resolveEffectiveContent` summarizes corrections and keeping that already-paginated response bounded. `restoreCount` exists because lifecycle, unlike corrections, can be reversed: without it a data point reads "retired" identically whether that was one clean decision or the third flip in a sequence.
+
+**Scope:** shipped in two passes. Data points first, then source lineage, which now uses the same `lifecycleEvents` table under `targetType: "source"` with no schema change. `cm_restore_source` reverses a supersede, recovering the status the source held before it was retired from its own history rather than assuming `extracted`; where no event exists (lineage predating the backfill) it restores to `indexed` so the source is reviewed rather than trusted, and says so in a warning.
+
+**The gap that started this, now closed at the tool boundary:** superseding a source does not retire its data points, and no read path consults the parent source. `cm_supersede_source` reports `dataPointCount` and `liveDataPointCount` and warns when live evidence remains, naming `cm_supersede_data_points_batch` as the fix. The curator did the right thing at the source level in June and had no way to learn a second step existed; that is now impossible to miss.
+
+**Batch tooling:** `cm_supersede_data_points_batch` and `cm_restore_data_points_batch` apply the same per-item semantics up to 200 items. They validate everything before writing anything, and unlike `enrichBatch` (which throws on the first bad id) they collect every problem and report it at once. Cycle detection covers the batch's own pending re-points, since "A superseded by B" and "B superseded by A" in one call are each valid against stored state and a loop once both land.
+
+**Backfill:** `migrations.backfillLifecycleEvents` (paginated, with `dryRun`) reconstructs history for pre-Decision-44 rows from the `supersedeReason` and `supersededAt` already on each row, marked `recordedBy: "pipeline"` so reconstructed history is never mistaken for a decision recorded at the time. It wrote 134 events, including 50 from an earlier cleanup that had left no other trace.
+
+**What prompted this:** a tracker reconciliation found 82 duplicate data points live in the corpus from failed ingest attempts. Retiring them took a five-batch structure with a pilot and verification at every step, entirely because the operations could not be undone. That cost is the argument for this decision.
+
+**Considered and deliberately not built: a cascade.** The obvious fix for "superseding a source leaves its data points live" is to have `cm_supersede_source` retire them automatically. It was scoped twice and rejected twice, for different reasons each time.
+
+The first objection was that a blind cascade permanently flattens per-item judgment. The cleanup's fifth batch is the concrete case: thirteen data points deserved a bare retire, and one deserved a `supersededBy` pointer to its live equivalent, because a curator observation cited it as the counterexample that scoped its thesis. A cascade would have retired all fourteen identically and irreversibly.
+
+Reversibility weakened that objection, so it was reconsidered and rejected again on a simpler ground: the problem is already solved. The warning reports exactly how many data points are live and names the tool that clears them, and that tool clears them in one call. The workflow is two calls and impossible to miss. A cascade would save one call and take back the judgment that mattered.
+
+The general principle: when a gap is caused by someone not knowing a second step exists, telling them is usually better than doing it for them, because doing it for them also removes the choice.
+
+Revisit only if re-ingests become frequent enough that the prompt is pure noise. Nothing about the current cadence suggests that.
+
+**Date:** July 30, 2026
+
+---
+
 *When making implementation decisions not covered here, apply this test: does this decision serve the foundation (persistent, queryable, append-only knowledge structure) or does it serve a specific output? If the latter, it probably doesn't belong in the core system. Generate it on demand instead.*

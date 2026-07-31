@@ -122,11 +122,17 @@ After extraction waves, data points need to be connected to Research Positions. 
 ### Append-Only Rule
 
 **CRITICAL: Never delete. Never overwrite. Always append.**
+
+Append-only means **history is never lost**. It does not mean a curator's judgment can never be revised. Provenance is immutable; classification is revisable, and every revision is recorded (Decision 44).
+
 - Position updates create new version rows
-- Data points are immutable once created
-- The only fields that update in place: `currentVersionId` on researchPositions; `status` plus lineage pointers (`supersededBy`, `replaces`, `supersededAt`, `supersedeReason`) on sources; `embeddingStatus` and lifecycle fields (`status`, `supersededBy`, `supersededAt`, `supersedeReason`) on data points. Lifecycle and lineage pointers are set once and never re-pointed (Decision 38); the original data point claim/anchor and source content are never altered.
-- Retiring or replacing a single data point uses `cm_supersede_data_point`; linking a re-ingested source to the one it replaced uses `cm_supersede_source`. Both are append-only. Superseded/retired data points are excluded from live evidence (cm_ask, cm_search, public routes, tag retrieval) but stay fetchable by id.
-- If an agent makes an error, recovery = revert pointer, never delete records
+- Data points are immutable once created. `claimText`, `anchorQuote`, and source `fullText` are provenance and are never altered in place; corrections append to the `corrections` table.
+- The only fields that update in place: `currentVersionId` on researchPositions; `status` plus lineage pointers (`supersededBy`, `replaces`, `supersededAt`, `supersedeReason`) on sources; `embeddingStatus` and lifecycle fields (`status`, `supersededBy`, `supersededAt`, `supersedeReason`) on data points.
+- **Data point lifecycle is reversible (Decision 44).** Retire, supersede, and restore each append a row to `lifecycleEvents` and materialize the new state on the data point row, the same append-and-materialize pattern `corrections` uses. A `restore` is a new event, never an erasure of the retire before it. Re-pointing a supersede at a different replacement is allowed and recorded. A request matching current state is a no-op: it writes no event and returns `outcome: "noop"` rather than failing, so batch and retry work is safe.
+- **Source lineage is reversible too (Decision 44).** `cm_supersede_source` appends a `lifecycleEvents` row, a mistaken pointer can be re-pointed, and `cm_restore_source` reverses it, returning the source to the status it held *before* it was superseded rather than guessing. Cycles are rejected on both source and data point lineage.
+- Retiring or replacing a single data point uses `cm_supersede_data_point`, or `cm_supersede_data_points_batch` for many at once; reversing either uses `cm_restore_data_point` / `cm_restore_data_points_batch`. Linking a re-ingested source to the one it replaced uses `cm_supersede_source`, reversed by `cm_restore_source`. All the restore tools are admin-toolset, curator-only, so extraction sub-agents cannot reverse a curator's judgment. Superseded/retired data points are excluded from live evidence (cm_ask, cm_search, public routes, tag retrieval) but stay fetchable by id.
+- **Retiring a source does NOT retire its data points.** The two lifecycles are independent and no read path consults the parent source, so a superseded source leaves its evidence live until each data point is retired separately. `cm_supersede_source` now reports `liveDataPointCount` and warns when it is non-zero, so this cannot be missed silently. `cm_get_source_usage` reports the same, plus `restoreCount` where a decision has been reversed.
+- If an agent makes an error, recovery = append a correcting event, never delete records
 
 ---
 

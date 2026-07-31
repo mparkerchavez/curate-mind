@@ -236,14 +236,67 @@ export const getSourceUsage = query({
     dps.sort((a, b) => a.dpSequenceNumber - b.dpSequenceNumber);
 
     const dataPointIds = dps.map((dp) => String(dp._id));
-    const dataPoints = dps.map((dp) => ({
-      _id: String(dp._id),
-      dpSequenceNumber: dp.dpSequenceNumber,
-      status: source.status,
-      supersedeState: supersedeStateView(dp),
-    }));
+    // `sourceStatus` is the PARENT SOURCE's pipeline status, not the data
+    // point's own lifecycle state. The two are independent: superseding a
+    // source does not retire its data points. A data point's own state lives
+    // in `supersedeState` (active / superseded / retired) and is the only
+    // thing that decides whether it appears in live evidence.
+    // Named to match getDataPointUsage.dataPoint.sourceStatus and the
+    // summaryCore.sourceStatus below. It was previously keyed `status`, which
+    // read as the data point's status and misled a curator during the
+    // 2026-07-30 duplicate cleanup.
+    // Lifecycle history is summarized, not inlined: this screen already lists
+    // every data point in the source and is bounded by takeItemsWithinJsonLimit
+    // on the MCP side. Full history is one call away via getLifecycleHistory.
+    //
+    // `restoreCount` is the one fact a count-plus-latest summary would
+    // otherwise hide. Lifecycle, unlike corrections, can be reversed, so
+    // "retired" reads the same whether it was one clean decision or the third
+    // flip in a retire/restore/retire sequence. That distinction is exactly
+    // what matters before trusting a retirement.
+    const lifecycleByTarget = new Map<
+      string,
+      { count: number; restoreCount: number; latest: any }
+    >();
+    for (const dp of dps) {
+      const events = await ctx.db
+        .query("lifecycleEvents")
+        .withIndex("by_target", (q: any) =>
+          q.eq("targetType", "dataPoint").eq("targetId", dp._id)
+        )
+        .collect();
+      if (events.length === 0) continue;
+      lifecycleByTarget.set(String(dp._id), {
+        count: events.length,
+        restoreCount: events.filter((e: any) => e.action === "restore").length,
+        latest: events[events.length - 1],
+      });
+    }
+
+    const dataPoints = dps.map((dp) => {
+      const hist = lifecycleByTarget.get(String(dp._id));
+      return {
+        _id: String(dp._id),
+        dpSequenceNumber: dp.dpSequenceNumber,
+        sourceStatus: source.status,
+        supersedeState: supersedeStateView(dp),
+        lifecycle: hist
+          ? {
+              eventCount: hist.count,
+              restoreCount: hist.restoreCount,
+              latestAction: hist.latest.action,
+              latestReason: hist.latest.reason,
+              latestAt: hist.latest.recordedAt,
+              latestBy: hist.latest.recordedBy,
+            }
+          : null,
+      };
+    });
     const supersededDataPointCount = dps.filter(
       (dp) => supersedeStateView(dp).status !== "active"
+    ).length;
+    const restoredDataPointCount = [...lifecycleByTarget.values()].filter(
+      (h) => h.restoreCount > 0
     ).length;
 
     const positions = await collectProjectCurrentVersions(
@@ -272,6 +325,7 @@ export const getSourceUsage = query({
       summaryCore: {
         dataPointCount: dataPoints.length,
         supersededDataPointCount,
+        restoredDataPointCount,
         positionCount: blastRadiusPositions.length,
         sourceStatus: source.status,
         supersededBy: source.supersededBy ? String(source.supersededBy) : null,

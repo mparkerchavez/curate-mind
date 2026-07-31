@@ -1,11 +1,15 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 import { resolveSourceMeta } from "./sources";
 import {
+  chainReaches,
+  isLifecycleNoop,
   normalizeStatus,
-  resolveSupersedePatch,
+  resolveLifecyclePatch,
   supersedeStateView,
 } from "./lib/supersede";
+import type { LifecycleAction } from "./lib/supersede";
 
 async function resolveProjectTag(ctx: any, projectId: any, slug: string) {
   const tag = await ctx.db
@@ -557,78 +561,453 @@ export const getDataPointsBatch = query({
 });
 
 // ============================================================
-// Supersede or retire a data point (Decision 38, append-only)
+// Data point lifecycle: retire, supersede, restore (Decision 44)
 //
-// Sets the lifecycle fields in place without touching the immutable claim or
-// anchor. A replacement id makes this a "superseded" (replaced) record; no
-// replacement makes it "retired" (removed). A data point that is already
-// superseded or retired cannot be re-superseded — that would overwrite a prior
-// pointer. Requires a reason of at least 10 characters, like the correction
-// tools.
+// Every change appends an immutable row to `lifecycleEvents` and materializes
+// the new state on the data point row, exactly as `correctClaim` appends to
+// `corrections` and patches `claimText`. The immutable claim and anchor are
+// never touched.
+//
+// This replaces the pre-Decision-44 write-once rule: a lifecycle decision is a
+// curator judgment and can be revised, with every step preserved. A no-op
+// writes no event and returns outcome "noop" rather than throwing, because
+// retiring an already-retired point is expected in batch work.
 // ============================================================
+
+/**
+ * Resolve the next link in a supersede chain.
+ *
+ * `pending` lets a batch see its own not-yet-written re-points, so a cycle the
+ * batch itself would create is caught. Single-item callers pass an empty map
+ * and get plain stored-state resolution. One resolver, one walk
+ * (`chainReaches`), so the cycle guard cannot drift between call sites.
+ */
+function supersedeResolver(
+  ctx: any,
+  pending: Map<string, Id<"dataPoints"> | null> = new Map()
+) {
+  return async (id: string): Promise<string | null> => {
+    if (pending.has(id)) {
+      const next = pending.get(id) ?? null;
+      return next ? String(next) : null;
+    }
+    const row: any = await ctx.db.get(id as Id<"dataPoints">);
+    return row?.supersededBy ? String(row.supersededBy) : null;
+  };
+}
+
+async function applyLifecycle(
+  ctx: any,
+  args: {
+    dataPointId: Id<"dataPoints">;
+    action: LifecycleAction;
+    replacementDataPointId?: Id<"dataPoints">;
+    reason: string;
+    recordedBy?: "curator" | "agent" | "pipeline";
+  }
+) {
+  const dp = await ctx.db.get(args.dataPointId);
+  if (!dp) {
+    throw new Error(`Data point not found: ${args.dataPointId}`);
+  }
+  const source = await ctx.db.get(dp.sourceId);
+  if (!source) {
+    throw new Error(`Source not found for data point: ${args.dataPointId}`);
+  }
+
+  const warnings: string[] = [];
+  const previousStatus = normalizeStatus(dp.status);
+  const previousReplacementId = dp.supersededBy ?? null;
+
+  if (args.replacementDataPointId !== undefined) {
+    if (args.replacementDataPointId === args.dataPointId) {
+      throw new Error("replacementDataPointId must be different from dataPointId");
+    }
+    const replacement = await ctx.db.get(args.replacementDataPointId);
+    if (!replacement) {
+      throw new Error(`Replacement data point not found: ${args.replacementDataPointId}`);
+    }
+    const replacementSource = await ctx.db.get(replacement.sourceId);
+    if (!replacementSource || replacementSource.projectId !== source.projectId) {
+      throw new Error("Replacement data point must be in the same project");
+    }
+    if (normalizeStatus(replacement.status) !== "active") {
+      warnings.push(
+        `Replacement data point ${args.replacementDataPointId} is itself ${normalizeStatus(replacement.status)}`
+      );
+    }
+    // Cycle guard (Decision 44). Re-pointing is now allowed, so a loop is
+    // reachable and would hang anything that walks the chain.
+    if (
+      await chainReaches(
+        String(args.replacementDataPointId),
+        String(args.dataPointId),
+        supersedeResolver(ctx)
+      )
+    ) {
+      throw new Error(
+        `Refusing to create a supersede cycle: ${args.dataPointId} is already reachable from ${args.replacementDataPointId}`
+      );
+    }
+  }
+
+  // No-op short-circuit: no event, no patch, explicit outcome.
+  if (
+    isLifecycleNoop({
+      currentStatus: previousStatus,
+      currentReplacementId: previousReplacementId
+        ? String(previousReplacementId)
+        : null,
+      action: args.action,
+      replacementId: args.replacementDataPointId
+        ? String(args.replacementDataPointId)
+        : null,
+    })
+  ) {
+    return {
+      dataPointId: String(args.dataPointId),
+      outcome: "noop" as const,
+      previousStatus,
+      status: previousStatus,
+      supersededBy: previousReplacementId ? String(previousReplacementId) : null,
+      supersededAt: dp.supersededAt ?? null,
+      reason: dp.supersedeReason ?? null,
+      lifecycleEventId: null,
+      warnings,
+    };
+  }
+
+  const patch = resolveLifecyclePatch({
+    currentStatus: previousStatus,
+    action: args.action,
+    replacementId: args.replacementDataPointId
+      ? String(args.replacementDataPointId)
+      : null,
+    reason: args.reason,
+  });
+
+  if (args.action === "restore") {
+    if (previousStatus === "superseded" && previousReplacementId) {
+      warnings.push(
+        `This data point was superseded by ${previousReplacementId}; restoring it puts both back in live evidence.`
+      );
+    }
+    if (source.status === "failed") {
+      warnings.push(
+        `Parent source ${dp.sourceId} is status "failed"; restoring makes live evidence hang off a retired source.`
+      );
+    }
+  }
+
+  const recordedAt = Date.now();
+  const lifecycleEventId = await ctx.db.insert("lifecycleEvents", {
+    projectId: source.projectId,
+    targetType: "dataPoint" as const,
+    targetId: args.dataPointId,
+    action: args.action,
+    previousStatus,
+    newStatus: patch.status,
+    previousReplacementId: previousReplacementId ?? null,
+    newReplacementId: args.replacementDataPointId ?? null,
+    reason: patch.supersedeReason,
+    recordedAt,
+    recordedBy: args.recordedBy ?? "curator",
+  });
+
+  await ctx.db.patch(args.dataPointId, {
+    status: patch.status,
+    supersededBy: args.replacementDataPointId,
+    supersededAt: recordedAt,
+    supersedeReason: patch.supersedeReason,
+  });
+
+  return {
+    dataPointId: String(args.dataPointId),
+    outcome: "applied" as const,
+    previousStatus,
+    status: patch.status,
+    supersededBy: patch.supersededBy,
+    supersededAt: recordedAt,
+    reason: patch.supersedeReason,
+    lifecycleEventId: String(lifecycleEventId),
+    warnings,
+  };
+}
+
 export const supersedeDataPoint = mutation({
   args: {
     dataPointId: v.id("dataPoints"),
     replacementDataPointId: v.optional(v.id("dataPoints")),
     reason: v.string(),
+    recordedBy: v.optional(
+      v.union(v.literal("curator"), v.literal("agent"), v.literal("pipeline"))
+    ),
   },
   handler: async (ctx, args) => {
-    const dp = await ctx.db.get(args.dataPointId);
+    return await applyLifecycle(ctx, {
+      dataPointId: args.dataPointId,
+      action: args.replacementDataPointId ? "supersede" : "retire",
+      replacementDataPointId: args.replacementDataPointId,
+      reason: args.reason,
+      recordedBy: args.recordedBy,
+    });
+  },
+});
+
+// ============================================================
+// Restore a retired or superseded data point to active (Decision 44)
+//
+// Curator-only: exposed through the admin toolset so extraction sub-agents
+// running the pipeline toolset cannot reverse a curator's judgment.
+// ============================================================
+export const restoreDataPoint = mutation({
+  args: {
+    dataPointId: v.id("dataPoints"),
+    reason: v.string(),
+    recordedBy: v.optional(
+      v.union(v.literal("curator"), v.literal("agent"), v.literal("pipeline"))
+    ),
+  },
+  handler: async (ctx, args) => {
+    return await applyLifecycle(ctx, {
+      dataPointId: args.dataPointId,
+      action: "restore",
+      reason: args.reason,
+      recordedBy: args.recordedBy,
+    });
+  },
+});
+
+// ============================================================
+// Batch lifecycle (Decision 44)
+//
+// Retiring a source's duplicate evidence was one call per data point, which
+// made an 82-item cleanup feel heavy enough to defer. These apply the same
+// per-item semantics in one call.
+//
+// Follows the enrichBatch convention: validate everything before writing
+// anything, so a batch never lands half-applied. It differs on one point,
+// deliberately: enrichBatch throws on the FIRST bad id, which means diagnosing
+// a long list one item per round trip. These collect every problem and report
+// them together.
+//
+// Per-item outcomes are still "applied" or "noop", so re-running a partially
+// completed cleanup is free rather than an error.
+// ============================================================
+const LIFECYCLE_BATCH_MAX = 200;
+
+async function applyLifecycleBatch(
+  ctx: any,
+  items: Array<{
+    dataPointId: Id<"dataPoints">;
+    action: LifecycleAction;
+    replacementDataPointId?: Id<"dataPoints">;
+    reason: string;
+  }>,
+  recordedBy?: "curator" | "agent" | "pipeline"
+) {
+  if (items.length === 0) {
+    throw new Error("items must not be empty");
+  }
+  if (items.length > LIFECYCLE_BATCH_MAX) {
+    throw new Error(
+      `Batch of ${items.length} exceeds the ${LIFECYCLE_BATCH_MAX} item limit; split it into smaller calls`
+    );
+  }
+
+  const seenIds = new Set<string>();
+  const problems: string[] = [];
+  const pending = new Map<string, Id<"dataPoints"> | null>();
+
+  // Pass 1: per-item validation that does not depend on other items.
+  for (const item of items) {
+    const key = String(item.dataPointId);
+    if (seenIds.has(key)) {
+      problems.push(`${key}: listed more than once in the same batch`);
+      continue;
+    }
+    seenIds.add(key);
+
+    const dp = await ctx.db.get(item.dataPointId);
     if (!dp) {
-      throw new Error(`Data point not found: ${args.dataPointId}`);
+      problems.push(`${key}: data point not found`);
+      continue;
     }
     const source = await ctx.db.get(dp.sourceId);
     if (!source) {
-      throw new Error(`Source not found for data point: ${args.dataPointId}`);
+      problems.push(`${key}: source ${dp.sourceId} not found`);
+      continue;
     }
 
-    const warnings: string[] = [];
+    if (item.reason.trim().length < 10) {
+      problems.push(`${key}: reason must be at least 10 characters`);
+    }
+    if (item.action === "supersede" && !item.replacementDataPointId) {
+      problems.push(`${key}: supersede requires a replacementDataPointId`);
+    }
+    if (item.action !== "supersede" && item.replacementDataPointId) {
+      problems.push(
+        `${key}: ${item.action} must not carry a replacementDataPointId`
+      );
+    }
 
-    // Validate the replacement (if any) before resolving the patch.
-    if (args.replacementDataPointId !== undefined) {
-      if (args.replacementDataPointId === args.dataPointId) {
-        throw new Error("replacementDataPointId must be different from dataPointId");
+    if (item.replacementDataPointId) {
+      if (String(item.replacementDataPointId) === key) {
+        problems.push(`${key}: replacement must differ from the data point`);
+      } else {
+        const replacement = await ctx.db.get(item.replacementDataPointId);
+        if (!replacement) {
+          problems.push(
+            `${key}: replacement ${item.replacementDataPointId} not found`
+          );
+        } else {
+          const rSource = await ctx.db.get(replacement.sourceId);
+          if (!rSource || rSource.projectId !== source.projectId) {
+            problems.push(
+              `${key}: replacement ${item.replacementDataPointId} is in a different project`
+            );
+          }
+        }
       }
-      const replacement = await ctx.db.get(args.replacementDataPointId);
-      if (!replacement) {
-        throw new Error(`Replacement data point not found: ${args.replacementDataPointId}`);
-      }
-      const replacementSource = await ctx.db.get(replacement.sourceId);
-      if (!replacementSource || replacementSource.projectId !== source.projectId) {
-        throw new Error("Replacement data point must be in the same project");
-      }
-      if (normalizeStatus(replacement.status) !== "active") {
-        warnings.push(
-          `Replacement data point ${args.replacementDataPointId} is itself ${normalizeStatus(replacement.status)}`
+    }
+
+    pending.set(
+      key,
+      item.action === "supersede" ? item.replacementDataPointId ?? null : null
+    );
+  }
+
+  // Pass 2: cycle detection across stored state AND this batch's own changes.
+  if (problems.length === 0) {
+    for (const item of items) {
+      if (item.action !== "supersede" || !item.replacementDataPointId) continue;
+      if (
+        await chainReaches(
+          String(item.replacementDataPointId),
+          String(item.dataPointId),
+          supersedeResolver(ctx, pending)
+        )
+      ) {
+        problems.push(
+          `${item.dataPointId}: would create a supersede cycle via ${item.replacementDataPointId}`
         );
       }
     }
+  }
 
-    const patch = resolveSupersedePatch({
-      currentStatus: normalizeStatus(dp.status),
-      replacementId: args.replacementDataPointId
-        ? String(args.replacementDataPointId)
+  if (problems.length > 0) {
+    throw new Error(
+      `Batch rejected, nothing was written. ${problems.length} problem(s):\n- ${problems.join("\n- ")}`
+    );
+  }
+
+  // Pass 3: apply. Every item is already known good, so no partial landing.
+  const results = [];
+  for (const item of items) {
+    results.push(
+      await applyLifecycle(ctx, {
+        dataPointId: item.dataPointId,
+        action: item.action,
+        replacementDataPointId: item.replacementDataPointId,
+        reason: item.reason,
+        recordedBy,
+      })
+    );
+  }
+
+  return {
+    total: results.length,
+    applied: results.filter((r) => r.outcome === "applied").length,
+    noop: results.filter((r) => r.outcome === "noop").length,
+    warnings: results.flatMap((r) =>
+      r.warnings.map((w: string) => `${r.dataPointId}: ${w}`)
+    ),
+    results,
+  };
+}
+
+export const supersedeDataPointsBatch = mutation({
+  args: {
+    items: v.array(
+      v.object({
+        dataPointId: v.id("dataPoints"),
+        replacementDataPointId: v.optional(v.id("dataPoints")),
+        reason: v.optional(v.string()),
+      })
+    ),
+    reason: v.optional(v.string()),
+    recordedBy: v.optional(
+      v.union(v.literal("curator"), v.literal("agent"), v.literal("pipeline"))
+    ),
+  },
+  handler: async (ctx, args) => {
+    return await applyLifecycleBatch(
+      ctx,
+      args.items.map((i) => ({
+        dataPointId: i.dataPointId,
+        action: (i.replacementDataPointId
+          ? "supersede"
+          : "retire") as LifecycleAction,
+        replacementDataPointId: i.replacementDataPointId,
+        reason: i.reason ?? args.reason ?? "",
+      })),
+      args.recordedBy
+    );
+  },
+});
+
+export const restoreDataPointsBatch = mutation({
+  args: {
+    items: v.array(
+      v.object({
+        dataPointId: v.id("dataPoints"),
+        reason: v.optional(v.string()),
+      })
+    ),
+    reason: v.optional(v.string()),
+    recordedBy: v.optional(
+      v.union(v.literal("curator"), v.literal("agent"), v.literal("pipeline"))
+    ),
+  },
+  handler: async (ctx, args) => {
+    return await applyLifecycleBatch(
+      ctx,
+      args.items.map((i) => ({
+        dataPointId: i.dataPointId,
+        action: "restore" as LifecycleAction,
+        reason: i.reason ?? args.reason ?? "",
+      })),
+      args.recordedBy
+    );
+  },
+});
+
+// ============================================================
+// Lifecycle history for one data point, newest last (Decision 44)
+// ============================================================
+export const getLifecycleHistory = query({
+  args: { dataPointId: v.id("dataPoints") },
+  handler: async (ctx, args) => {
+    const events = await ctx.db
+      .query("lifecycleEvents")
+      .withIndex("by_target", (q: any) =>
+        q.eq("targetType", "dataPoint").eq("targetId", args.dataPointId)
+      )
+      .collect();
+
+    return events.map((e: any) => ({
+      _id: String(e._id),
+      action: e.action,
+      previousStatus: e.previousStatus,
+      newStatus: e.newStatus,
+      previousReplacementId: e.previousReplacementId
+        ? String(e.previousReplacementId)
         : null,
-      reason: args.reason,
-    });
-
-    const supersededAt = Date.now();
-    await ctx.db.patch(args.dataPointId, {
-      status: patch.status,
-      supersededBy: args.replacementDataPointId,
-      supersededAt,
-      supersedeReason: patch.supersedeReason,
-    });
-
-    return {
-      dataPointId: String(args.dataPointId),
-      previousStatus: normalizeStatus(dp.status),
-      status: patch.status,
-      supersededBy: patch.supersededBy,
-      supersededAt,
-      reason: patch.supersedeReason,
-      warnings,
-    };
+      newReplacementId: e.newReplacementId ? String(e.newReplacementId) : null,
+      reason: e.reason,
+      recordedAt: e.recordedAt,
+      recordedBy: e.recordedBy,
+    }));
   },
 });
 

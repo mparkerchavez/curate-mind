@@ -348,6 +348,197 @@ export const backfillDataPointStatus = mutation({
 });
 
 // ============================================================
+// Reconstruct lifecycle history for pre-Decision-44 rows
+//
+// Every non-active data point already carries supersedeReason and
+// supersededAt on the row, so its retire/supersede can be reconstructed
+// losslessly as a single lifecycleEvents row. Without this, history starts
+// empty and the 82 retirements from the 2026-07-30 duplicate cleanup would
+// look like they never happened.
+//
+// recordedBy is "pipeline" so reconstructed history is never mistaken for a
+// decision someone actually recorded at the time.
+//
+// Append-only and idempotent: a target that already has any event is skipped,
+// so re-running cannot double-write. Pages like backfillDataPointStatus above,
+// because data point rows carry a 1536-dimension embedding and the table
+// cannot be collected whole under the 16 MB per-execution read budget:
+//   npx convex run migrations:backfillLifecycleEvents '{}'
+//   npx convex run migrations:backfillLifecycleEvents '{"cursor":"<continueCursor>"}'
+//
+// Pass dryRun: true to count what would be written without writing anything.
+// ============================================================
+const LIFECYCLE_EVENT_PAGE_SIZE = 256;
+
+export const backfillLifecycleEvents = mutation({
+  args: {
+    cursor: v.optional(v.union(v.string(), v.null())),
+    dryRun: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const dryRun = args.dryRun ?? false;
+    const page = await ctx.db.query("dataPoints").paginate({
+      numItems: LIFECYCLE_EVENT_PAGE_SIZE,
+      cursor: args.cursor ?? null,
+    });
+
+    let reconstructed = 0;
+    let skippedActive = 0;
+    let skippedExisting = 0;
+    let skippedNoSource = 0;
+
+    for (const dp of page.page) {
+      const status = dp.status;
+      if (status !== "superseded" && status !== "retired") {
+        skippedActive++;
+        continue;
+      }
+
+      const existing = await ctx.db
+        .query("lifecycleEvents")
+        .withIndex("by_target", (q: any) =>
+          q.eq("targetType", "dataPoint").eq("targetId", dp._id)
+        )
+        .first();
+      if (existing) {
+        skippedExisting++;
+        continue;
+      }
+
+      const source = await ctx.db.get(dp.sourceId);
+      if (!source) {
+        skippedNoSource++;
+        continue;
+      }
+
+      if (!dryRun) {
+        await ctx.db.insert("lifecycleEvents", {
+          projectId: source.projectId,
+          targetType: "dataPoint" as const,
+          targetId: dp._id,
+          action: status === "superseded" ? "supersede" : "retire",
+          previousStatus: "active",
+          newStatus: status,
+          previousReplacementId: null,
+          newReplacementId: dp.supersededBy ?? null,
+          reason:
+            dp.supersedeReason ??
+            "Reconstructed from row state; no reason was recorded at the time.",
+          recordedAt: dp.supersededAt ?? dp._creationTime,
+          recordedBy: "pipeline" as const,
+        });
+      }
+      reconstructed++;
+    }
+
+    return {
+      dryRun,
+      pageSize: page.page.length,
+      reconstructed,
+      skippedActive,
+      skippedExisting,
+      skippedNoSource,
+      isDone: page.isDone,
+      continueCursor: page.continueCursor,
+    };
+  },
+});
+
+// ============================================================
+// Reconstruct lifecycle history for source lineage set before Decision 44
+//
+// Every source carrying a supersededBy pointer had that pointer set before
+// supersedeSource appended events, so its lineage decision has no recorded
+// history at all.
+//
+// One thing is NOT recoverable and is deliberately not guessed. supersedeSource
+// overwrites status to "failed" without recording what it was, so the
+// pre-supersede status is simply gone. Writing "failed" would be a guess that
+// is wrong for at least one known case (the OpenAI re-ingest, which was almost
+// certainly "extracted" beforehand), and writing "extracted" would risk
+// promoting a merely-indexed source into the corpus on a later restore.
+//
+// So previousStatus is recorded as "unknown". resolveRestoredSourceStatus
+// already treats any unrecognized value as the safe fallback: restore to
+// "indexed" for review, with a warning saying why. Honest gap, correct
+// behavior, no invented state.
+//
+// Append-only and idempotent: a source that already has any lifecycle event is
+// skipped. Sources carry fullText, so this pages rather than collecting.
+//   npx convex run migrations:backfillSourceLifecycleEvents '{"dryRun":true}'
+//   npx convex run migrations:backfillSourceLifecycleEvents '{}'
+// ============================================================
+const SOURCE_LIFECYCLE_PAGE_SIZE = 64;
+
+export const backfillSourceLifecycleEvents = mutation({
+  args: {
+    cursor: v.optional(v.union(v.string(), v.null())),
+    dryRun: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const dryRun = args.dryRun ?? false;
+    const page = await ctx.db.query("sources").paginate({
+      numItems: SOURCE_LIFECYCLE_PAGE_SIZE,
+      cursor: args.cursor ?? null,
+    });
+
+    let reconstructed = 0;
+    let skippedNoLineage = 0;
+    let skippedExisting = 0;
+    const targets: string[] = [];
+
+    for (const source of page.page) {
+      if (!source.supersededBy) {
+        skippedNoLineage++;
+        continue;
+      }
+
+      const existing = await ctx.db
+        .query("lifecycleEvents")
+        .withIndex("by_target", (q: any) =>
+          q.eq("targetType", "source").eq("targetId", source._id)
+        )
+        .first();
+      if (existing) {
+        skippedExisting++;
+        continue;
+      }
+
+      targets.push(String(source._id));
+      if (!dryRun) {
+        await ctx.db.insert("lifecycleEvents", {
+          projectId: source.projectId,
+          targetType: "source" as const,
+          targetId: source._id,
+          action: "supersede" as const,
+          previousStatus: "unknown",
+          newStatus: source.status,
+          previousReplacementId: null,
+          newReplacementId: source.supersededBy,
+          reason:
+            source.supersedeReason ??
+            "Reconstructed from row state; no reason was recorded at the time.",
+          recordedAt: source.supersededAt ?? source._creationTime,
+          recordedBy: "pipeline" as const,
+        });
+      }
+      reconstructed++;
+    }
+
+    return {
+      dryRun,
+      pageSize: page.page.length,
+      reconstructed,
+      skippedNoLineage,
+      skippedExisting,
+      targets,
+      isDone: page.isDone,
+      continueCursor: page.continueCursor,
+    };
+  },
+});
+
+// ============================================================
 // Backfill known source replacement lineage (Design Decision 38)
 //
 // Records the OpenAI re-ingestion that previously only lived in handoff docs:

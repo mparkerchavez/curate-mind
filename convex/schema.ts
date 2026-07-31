@@ -349,6 +349,49 @@ export default defineSchema({
     .index("by_target", ["targetType", "targetId", "correctedAt"]),
 
   // ============================================================
+  // 4b. LIFECYCLE EVENTS - Append-only history of retire/supersede/restore
+  //
+  // Mirrors `corrections` above: the event row is the immutable history, and
+  // the current state stays materialized on the target row (dataPoints.status,
+  // supersededBy, supersededAt, supersedeReason). Reads never reconstruct
+  // state from this table, so no retrieval path pays for it.
+  //
+  // This is what makes a lifecycle decision reversible without losing the
+  // record of it: a `restore` is a new event, not an erasure of the retire.
+  // A no-op writes NO event, so history stays free of "nothing happened" rows.
+  //
+  // by_target carries the timestamp last so the newest row is simply the last
+  // one collected, matching how resolveEffectiveContent reads corrections.
+  // ============================================================
+  lifecycleEvents: defineTable({
+    projectId: v.id("projects"),
+    targetType: v.union(v.literal("dataPoint"), v.literal("source")),
+    targetId: v.union(v.id("dataPoints"), v.id("sources")),
+    action: v.union(
+      v.literal("retire"), // -> retired, no replacement
+      v.literal("supersede"), // -> superseded, replacement required
+      v.literal("restore") // -> active, pointers cleared
+    ),
+    previousStatus: v.string(),
+    newStatus: v.string(),
+    previousReplacementId: v.union(
+      v.id("dataPoints"),
+      v.id("sources"),
+      v.null()
+    ),
+    newReplacementId: v.union(v.id("dataPoints"), v.id("sources"), v.null()),
+    reason: v.string(),
+    recordedAt: v.number(),
+    recordedBy: v.union(
+      v.literal("curator"),
+      v.literal("agent"),
+      v.literal("pipeline")
+    ),
+  })
+    .index("by_project_target", ["projectId", "targetType", "targetId"])
+    .index("by_target", ["targetType", "targetId", "recordedAt"]),
+
+  // ============================================================
   // 5. CURATOR OBSERVATIONS - The curator's connective insights
   // ============================================================
   curatorObservations: defineTable({

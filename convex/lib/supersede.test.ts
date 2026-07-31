@@ -5,8 +5,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  chainReaches,
+  isLifecycleNoop,
   isLiveDataPoint,
   normalizeStatus,
+  resolveLifecyclePatch,
+  resolveRestoredSourceStatus,
   resolveSupersedePatch,
   supersedeStateView,
 } from "./supersede";
@@ -87,16 +91,211 @@ test("resolveSupersedePatch rejects reasons shorter than 10 characters", () => {
   );
 });
 
-test("resolveSupersedePatch refuses to re-apply to a non-active data point", () => {
+// Decision 44 replaced the old write-once lock. The test that used to live
+// here asserted that resolveSupersedePatch threw on any non-active data point.
+// Reversal is now the point, so the behavior it pinned is gone deliberately;
+// what replaces it is the guard-rail coverage below.
+test("resolveSupersedePatch re-applies to a non-active data point (Decision 44)", () => {
   for (const currentStatus of ["superseded", "retired"] as const) {
+    const patch = resolveSupersedePatch({
+      currentStatus,
+      replacementId: "dp_new",
+      reason: "re-pointing an already retired record after review",
+    });
+    assert.equal(patch.status, "superseded");
+    assert.equal(patch.supersededBy, "dp_new");
+  }
+});
+
+test("resolveLifecyclePatch restores to active and clears the pointer", () => {
+  const patch = resolveLifecyclePatch({
+    currentStatus: "retired",
+    action: "restore",
+    reason: "retired in error during the duplicate cleanup",
+  });
+  assert.deepEqual(patch, {
+    status: "active",
+    supersededBy: null,
+    supersedeReason: "retired in error during the duplicate cleanup",
+  });
+});
+
+test("resolveLifecyclePatch requires a replacement for supersede", () => {
+  assert.throws(
+    () =>
+      resolveLifecyclePatch({
+        currentStatus: "active",
+        action: "supersede",
+        reason: "superseding without naming a replacement",
+      }),
+    /requires a replacementDataPointId/
+  );
+});
+
+test("resolveLifecyclePatch rejects a replacement on retire and restore", () => {
+  for (const action of ["retire", "restore"] as const) {
     assert.throws(
       () =>
-        resolveSupersedePatch({
-          currentStatus,
+        resolveLifecyclePatch({
+          currentStatus: "active",
+          action,
           replacementId: "dp_new",
-          reason: "trying to re-point an already retired record",
+          reason: "carrying a replacement where none belongs",
         }),
-      /append-only/
+      /must not carry a replacementDataPointId/
     );
   }
+});
+
+test("resolveLifecyclePatch enforces the reason floor on every action", () => {
+  for (const action of ["retire", "supersede", "restore"] as const) {
+    assert.throws(
+      () =>
+        resolveLifecyclePatch({
+          currentStatus: action === "restore" ? "retired" : "active",
+          action,
+          replacementId: action === "supersede" ? "dp_new" : null,
+          reason: "too short",
+        }),
+      /at least 10 characters/
+    );
+  }
+});
+
+test("isLifecycleNoop detects same-state requests in each direction", () => {
+  assert.equal(
+    isLifecycleNoop({ currentStatus: "retired", action: "retire" }),
+    true
+  );
+  assert.equal(
+    isLifecycleNoop({ currentStatus: "active", action: "restore" }),
+    true
+  );
+  assert.equal(
+    isLifecycleNoop({
+      currentStatus: "superseded",
+      currentReplacementId: "dp_a",
+      action: "supersede",
+      replacementId: "dp_a",
+    }),
+    true
+  );
+});
+
+test("isLifecycleNoop treats a re-point at a different replacement as real work", () => {
+  assert.equal(
+    isLifecycleNoop({
+      currentStatus: "superseded",
+      currentReplacementId: "dp_a",
+      action: "supersede",
+      replacementId: "dp_b",
+    }),
+    false
+  );
+  assert.equal(
+    isLifecycleNoop({ currentStatus: "retired", action: "restore" }),
+    false
+  );
+  assert.equal(
+    isLifecycleNoop({ currentStatus: "active", action: "retire" }),
+    false
+  );
+});
+
+test("chainReaches rejects a direct A -> B -> A cycle", async () => {
+  // B currently points at A; superseding A by B would close the loop.
+  const next: Record<string, string | null> = { dp_b: "dp_a", dp_a: null };
+  assert.equal(await chainReaches("dp_b", "dp_a", (id) => next[id] ?? null), true);
+});
+
+test("chainReaches rejects a longer cycle", async () => {
+  const next: Record<string, string | null> = {
+    dp_b: "dp_c",
+    dp_c: "dp_d",
+    dp_d: "dp_a",
+    dp_a: null,
+  };
+  assert.equal(await chainReaches("dp_b", "dp_a", (id) => next[id] ?? null), true);
+});
+
+test("chainReaches allows an acyclic chain", async () => {
+  const next: Record<string, string | null> = { dp_b: "dp_c", dp_c: null };
+  assert.equal(await chainReaches("dp_b", "dp_a", (id) => next[id] ?? null), false);
+});
+
+test("chainReaches terminates on a pre-existing loop it is not asked about", async () => {
+  // dp_b <-> dp_c already loop; asking about an unrelated dp_a must not hang.
+  const next: Record<string, string | null> = { dp_b: "dp_c", dp_c: "dp_b" };
+  assert.equal(await chainReaches("dp_b", "dp_a", (id) => next[id] ?? null), false);
+});
+
+test("chainReaches works with an async resolver (the production path)", async () => {
+  // The Convex callers resolve each link with a db read, so the resolver is
+  // async there. Covering it here keeps the tested walk the same walk that
+  // actually runs, rather than a sync lookalike.
+  const next: Record<string, string | null> = { dp_b: "dp_c", dp_c: "dp_a" };
+  const asyncResolve = async (id: string) => next[id] ?? null;
+  assert.equal(await chainReaches("dp_b", "dp_a", asyncResolve), true);
+  assert.equal(await chainReaches("dp_b", "dp_zz", asyncResolve), false);
+});
+
+test("chainReaches honours a batch's pending re-points over stored state", async () => {
+  // A batch supersedes dp_b by dp_a while stored state still says dp_b -> null.
+  // Resolving from stored state alone would miss the cycle the batch creates.
+  const stored: Record<string, string | null> = { dp_b: null, dp_a: null };
+  const pending = new Map<string, string | null>([["dp_b", "dp_a"]]);
+  const resolve = async (id: string) =>
+    pending.has(id) ? pending.get(id) ?? null : stored[id] ?? null;
+
+  assert.equal(await chainReaches("dp_b", "dp_a", resolve), true);
+  assert.equal(
+    await chainReaches("dp_b", "dp_a", async (id) => stored[id] ?? null),
+    false
+  );
+});
+
+test("resolveRestoredSourceStatus replays the recorded status exactly", () => {
+  // Including "failed". A source that was already failed before it was
+  // superseded was failed for its own reason, and a restore that promotes it
+  // to "indexed" invents a state it never held. Caught in live verification:
+  // an abandoned ingest shell came back as "indexed" and silently looked like
+  // unextracted work waiting to be done.
+  for (const s of ["indexed", "extracted", "failed"] as const) {
+    assert.deepEqual(resolveRestoredSourceStatus(s), {
+      status: s,
+      warning: null,
+    });
+  }
+});
+
+test("resolveRestoredSourceStatus falls back to indexed, with a warning, when history is missing", () => {
+  for (const missing of [null, undefined, "", "nonsense"]) {
+    const r = resolveRestoredSourceStatus(missing as any);
+    assert.equal(r.status, "indexed");
+    assert.match(r.warning ?? "", /No lifecycle event records/);
+  }
+});
+
+test("a retire, restore, retire sequence resolves correctly at each step", () => {
+  const one = resolveLifecyclePatch({
+    currentStatus: "active",
+    action: "retire",
+    reason: "duplicate of the successful re-ingest",
+  });
+  assert.equal(one.status, "retired");
+
+  const two = resolveLifecyclePatch({
+    currentStatus: "retired",
+    action: "restore",
+    reason: "retired in error, the claim is not a duplicate",
+  });
+  assert.equal(two.status, "active");
+  assert.equal(two.supersededBy, null);
+
+  const three = resolveLifecyclePatch({
+    currentStatus: "active",
+    action: "retire",
+    reason: "confirmed duplicate after a second read of the source",
+  });
+  assert.equal(three.status, "retired");
 });

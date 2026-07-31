@@ -1282,19 +1282,26 @@ export function registerSynthesisTools(server: McpServer): void {
       title: "Supersede or Retire Data Point",
       description:
         "Retire a data point, or replace it with another, without failing its whole source " +
-        "(Decision 38, append-only). The original claim and anchor are never altered; only the " +
-        "lifecycle fields are set, once. Provide a replacement to mark it 'superseded'; omit the " +
-        "replacement to mark it 'retired' (removed with no replacement). A data point that is " +
-        "already superseded or retired cannot be changed again.\n\n" +
+        "(Decision 38). The original claim and anchor are never altered; only the lifecycle " +
+        "fields change. Provide a replacement to mark it 'superseded'; omit the replacement to " +
+        "mark it 'retired' (removed with no replacement).\n\n" +
+        "Every change appends a row to the lifecycle history and can be reversed with " +
+        "cm_restore_data_point (Decision 44). A request that matches the current state is a " +
+        "no-op: it writes no history and returns outcome 'noop' rather than failing, so batch " +
+        "and retry work is safe. Re-pointing an already-superseded data point at a DIFFERENT " +
+        "replacement is real work, not a no-op, and is recorded.\n\n" +
         "Superseded and retired data points are excluded from live evidence by default " +
         "(cm_ask, cm_search, public routes, and cm_get_data_points_by_tag) but stay fetchable by " +
         "id, and their status is surfaced wherever the data point is returned.\n\n" +
+        "Retiring a source with cm_supersede_source does NOT retire its data points. They are " +
+        "separate lifecycles, and the data points stay live until retired here.\n\n" +
         "Args:\n" +
         "  - dataPointId (string): Data point to retire or replace\n" +
         "  - replacementDataPointId (string, optional): Replacement data point; presence makes " +
         "this 'superseded', absence makes it 'retired'\n" +
         "  - reason (string): Required curator explanation, at least 10 characters\n\n" +
-        "Returns: dataPointId, previousStatus, status, supersededBy, supersededAt, reason, warnings.",
+        "Returns: dataPointId, outcome ('applied' or 'noop'), previousStatus, status, " +
+        "supersededBy, supersededAt, reason, lifecycleEventId, warnings.",
       inputSchema: {
         dataPointId: z.string().describe("Data point ID to retire or replace"),
         replacementDataPointId: z.string().optional()
@@ -1341,23 +1348,426 @@ export function registerSynthesisTools(server: McpServer): void {
   );
 
   // ============================================================
-  // cm_supersede_source - Append-only source replacement lineage
+  // cm_supersede_data_points_batch - Retire/replace many in one call
+  // ============================================================
+  server.registerTool(
+    "cm_supersede_data_points_batch",
+    {
+      title: "Supersede or Retire Data Points (Batch)",
+      description:
+        "Retire or replace many data points in one call (Decision 44). Same per-item semantics " +
+        "as cm_supersede_data_point: an item with a replacementDataPointId is 'superseded', an " +
+        "item without one is 'retired'.\n\n" +
+        "Use this when clearing a source's duplicate evidence. Doing it one call at a time is " +
+        "what made a large cleanup expensive enough to defer.\n\n" +
+        "All-or-nothing validation: every item is checked before anything is written, so a batch " +
+        "never lands half-applied. If any item fails, the call writes nothing and the error " +
+        "lists EVERY problem at once rather than stopping at the first. Checks cover unknown " +
+        "ids, duplicate ids within the batch, reasons under 10 characters, replacements in " +
+        "another project, and supersede cycles, including a cycle the batch itself would create.\n\n" +
+        "Items already in the requested state are a no-op, not an error, so re-running a " +
+        "partially completed cleanup is safe. The result reports applied and noop counts plus a " +
+        "per-item outcome.\n\n" +
+        "Reverse a batch with cm_restore_data_points_batch (curator-only).\n\n" +
+        "Args:\n" +
+        "  - items (array): up to 200 objects of { dataPointId, replacementDataPointId?, reason? }\n" +
+        "  - reason (string, optional): shared explanation used for any item without its own; " +
+        "at least 10 characters\n\n" +
+        "Returns: total, applied, noop, warnings, and results[] carrying each item's outcome.",
+      inputSchema: {
+        items: z
+          .array(
+            z.object({
+              dataPointId: z.string().describe("Data point to retire or replace"),
+              replacementDataPointId: z.string().optional()
+                .describe("Replacement; omit to retire with no replacement"),
+              reason: z.string().optional()
+                .describe("Per-item explanation; falls back to the batch reason"),
+            })
+          )
+          .min(1)
+          .max(200)
+          .describe("Data points to retire or replace, at most 200"),
+        reason: z.string().optional()
+          .describe("Shared explanation for items without their own, at least 10 characters"),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ items, reason }) => {
+      try {
+        const result = await convexMutation(
+          api.dataPoints.supersedeDataPointsBatch,
+          {
+            items: items.map((i) => ({
+              dataPointId: asId<"dataPoints">(i.dataPointId),
+              replacementDataPointId: i.replacementDataPointId
+                ? asId<"dataPoints">(i.replacementDataPointId)
+                : undefined,
+              reason: i.reason,
+            })),
+            reason,
+          }
+        );
+
+        return {
+          content: [
+            { type: "text" as const, text: JSON.stringify(result, null, 2) },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+            },
+          ],
+        };
+      }
+    }
+  );
+
+  // ============================================================
+  // cm_restore_data_points_batch - Reverse a batch (Decision 44)
+  //
+  // Curator-only, same reasoning as the single-item restore below.
+  // ============================================================
+  server.registerTool(
+    "cm_restore_data_points_batch",
+    {
+      title: "Restore Data Points (Batch)",
+      description:
+        "Return many retired or superseded data points to active in one call (Decision 44). " +
+        "This is the undo for cm_supersede_data_points_batch.\n\n" +
+        "Same all-or-nothing validation and the same no-op handling: items already active are " +
+        "counted as noop rather than failing, so re-running is safe.\n\n" +
+        "Restoring a data point that was superseded WITH a replacement puts both back in live " +
+        "evidence, and restoring one whose parent source is 'failed' makes live evidence hang " +
+        "off a retired source. Both are reported in warnings and neither blocks the call.\n\n" +
+        "Args:\n" +
+        "  - items (array): up to 200 objects of { dataPointId, reason? }\n" +
+        "  - reason (string, optional): shared explanation, at least 10 characters\n\n" +
+        "Returns: total, applied, noop, warnings, and results[] carrying each item's outcome.",
+      inputSchema: {
+        items: z
+          .array(
+            z.object({
+              dataPointId: z.string().describe("Data point to restore"),
+              reason: z.string().optional()
+                .describe("Per-item explanation; falls back to the batch reason"),
+            })
+          )
+          .min(1)
+          .max(200)
+          .describe("Data points to restore, at most 200"),
+        reason: z.string().optional()
+          .describe("Shared explanation for items without their own, at least 10 characters"),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ items, reason }) => {
+      try {
+        const result = await convexMutation(
+          api.dataPoints.restoreDataPointsBatch,
+          {
+            items: items.map((i) => ({
+              dataPointId: asId<"dataPoints">(i.dataPointId),
+              reason: i.reason,
+            })),
+            reason,
+          }
+        );
+
+        return {
+          content: [
+            { type: "text" as const, text: JSON.stringify(result, null, 2) },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+            },
+          ],
+        };
+      }
+    }
+  );
+
+  // ============================================================
+  // cm_restore_data_point - Reverse a retire/supersede (Decision 44)
+  //
+  // Curator-only: registered in the admin toolset so extraction sub-agents
+  // running the pipeline toolset cannot reverse a curator's judgment.
+  // ============================================================
+  server.registerTool(
+    "cm_restore_data_point",
+    {
+      title: "Restore Data Point",
+      description:
+        "Return a retired or superseded data point to active (Decision 44). Appends a 'restore' " +
+        "row to the lifecycle history rather than erasing the retire that preceded it, so the " +
+        "full sequence of decisions stays on the record.\n\n" +
+        "Restoring an already-active data point is a no-op: it writes no history and returns " +
+        "outcome 'noop' rather than failing.\n\n" +
+        "Warnings, which do not block the call: restoring a data point that was superseded WITH " +
+        "a replacement puts both back in live evidence, and restoring one whose parent source is " +
+        "'failed' makes live evidence hang off a retired source. Both are sometimes correct, " +
+        "which is why they warn instead of refusing.\n\n" +
+        "Args:\n" +
+        "  - dataPointId (string): Data point to restore\n" +
+        "  - reason (string): Required curator explanation, at least 10 characters\n\n" +
+        "Returns: dataPointId, outcome ('applied' or 'noop'), previousStatus, status, " +
+        "supersededBy, supersededAt, reason, lifecycleEventId, warnings.",
+      inputSchema: {
+        dataPointId: z.string().describe("Data point ID to restore to active"),
+        reason: z.string().min(10)
+          .describe("Required curator explanation for this restore"),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ dataPointId, reason }) => {
+      try {
+        const result = await convexMutation(api.dataPoints.restoreDataPoint, {
+          dataPointId: asId<"dataPoints">(dataPointId),
+          reason,
+        });
+
+        return {
+          content: [
+            { type: "text" as const, text: JSON.stringify(result, null, 2) },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+            },
+          ],
+        };
+      }
+    }
+  );
+
+  // ============================================================
+  // cm_get_lifecycle_history - Full retire/supersede/restore trail
+  // ============================================================
+  server.registerTool(
+    "cm_get_lifecycle_history",
+    {
+      title: "Get Data Point Lifecycle History",
+      description:
+        "Read the full retire / supersede / restore history for one data point, oldest first " +
+        "(Decision 44). Read-only.\n\n" +
+        "cm_get_source_usage summarizes this per data point (eventCount, restoreCount, and the " +
+        "latest action) to keep that response bounded. Use this when the summary shows a restore " +
+        "and you need the actual sequence.\n\n" +
+        "Args:\n" +
+        "  - dataPointId (string): The data point\n\n" +
+        "Returns: an array of events with action, previousStatus, newStatus, " +
+        "previousReplacementId, newReplacementId, reason, recordedAt, recordedBy.",
+      inputSchema: {
+        dataPointId: z.string().describe("Data point ID to read history for"),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ dataPointId }) => {
+      try {
+        const events = await convexQuery(api.dataPoints.getLifecycleHistory, {
+          dataPointId: asId<"dataPoints">(dataPointId),
+        });
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(
+                { dataPointId, eventCount: events.length, events },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+            },
+          ],
+        };
+      }
+    }
+  );
+
+  // ============================================================
+  // cm_restore_source - Reverse a source supersede (Decision 44)
+  //
+  // Curator-only, mirroring cm_restore_data_point.
+  // ============================================================
+  server.registerTool(
+    "cm_restore_source",
+    {
+      title: "Restore Source",
+      description:
+        "Reverse a source supersede (Decision 44). Clears both lineage pointers and returns the " +
+        "source to the status it held BEFORE it was superseded, read from its lifecycle history, " +
+        "so a source that was 'indexed' does not come back as 'extracted'. Appends a restore " +
+        "event rather than erasing the supersede.\n\n" +
+        "Restoring a source that is not superseded is a no-op returning outcome 'noop'.\n\n" +
+        "This does not restore the source's data points. If they were retired alongside it, use " +
+        "cm_restore_data_points_batch; the result warns when retired data points remain.\n\n" +
+        "Args:\n" +
+        "  - sourceId (string): The superseded source to restore\n" +
+        "  - reason (string): Required curator explanation, at least 10 characters\n\n" +
+        "Returns: sourceId, outcome, previousStatus, status, restoredFrom, lifecycleEventId, " +
+        "dataPointCount, liveDataPointCount, warnings.",
+      inputSchema: {
+        sourceId: z.string().describe("The superseded source ID to restore"),
+        reason: z.string().min(10)
+          .describe("Required curator explanation for this restore"),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ sourceId, reason }) => {
+      try {
+        const result = await convexMutation(api.sources.restoreSource, {
+          sourceId: asId<"sources">(sourceId),
+          reason,
+        });
+        return {
+          content: [
+            { type: "text" as const, text: JSON.stringify(result, null, 2) },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+            },
+          ],
+        };
+      }
+    }
+  );
+
+  // ============================================================
+  // cm_get_source_lifecycle_history - Source retire/restore trail
+  // ============================================================
+  server.registerTool(
+    "cm_get_source_lifecycle_history",
+    {
+      title: "Get Source Lifecycle History",
+      description:
+        "Read the full supersede / restore history for one source, oldest first (Decision 44). " +
+        "Read-only. Use this when a source's lineage has been re-pointed and you need the " +
+        "sequence rather than just its current pointer.\n\n" +
+        "Args:\n" +
+        "  - sourceId (string): The source\n\n" +
+        "Returns: an array of events with action, previousStatus, newStatus, " +
+        "previousReplacementId, newReplacementId, reason, recordedAt, recordedBy.",
+      inputSchema: {
+        sourceId: z.string().describe("Source ID to read lifecycle history for"),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ sourceId }) => {
+      try {
+        const events = await convexQuery(
+          api.sources.getSourceLifecycleHistory,
+          { sourceId: asId<"sources">(sourceId) }
+        );
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(
+                { sourceId, eventCount: events.length, events },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+            },
+          ],
+        };
+      }
+    }
+  );
+
+  // ============================================================
+  // cm_supersede_source - Source replacement lineage
   // ============================================================
   server.registerTool(
     "cm_supersede_source",
     {
       title: "Supersede Source",
       description:
-        "Record that a source was replaced by a re-ingested version (Decision 38, append-only). " +
-        "Add the replacement source first with cm_add_source, then call this to link them. It sets " +
-        "the old source's supersededBy pointer plus status='failed', and the new source's replaces " +
-        "pointer. Original content of both sources is untouched, and the pointers cannot be " +
-        "re-pointed once set. cm_get_source and cm_get_source_usage surface the lineage.\n\n" +
+        "Record that a source was replaced by a re-ingested version (Decision 38). Add the " +
+        "replacement source first with cm_add_source, then call this to link them. It sets the " +
+        "old source's supersededBy pointer plus status='failed', and the new source's replaces " +
+        "pointer. Source content is never touched.\n\n" +
+        "IMPORTANT: this does NOT retire the old source's data points. The two lifecycles are " +
+        "independent and no read path consults the parent source, so the old source's evidence " +
+        "stays live in cm_ask, cm_search, tag retrieval, and the public routes until each data " +
+        "point is retired separately. The result reports liveDataPointCount and warns when it is " +
+        "non-zero; clear them with cm_supersede_data_points_batch.\n\n" +
+        "Lineage is reversible (Decision 44): every change appends to the source's lifecycle " +
+        "history, a mistaken pointer can be re-pointed, and cm_restore_source reverses it " +
+        "entirely. Re-pointing at the SAME replacement is a no-op returning outcome 'noop'. " +
+        "Cycles are rejected.\n\n" +
         "Args:\n" +
         "  - oldSourceId (string): The retired source\n" +
         "  - newSourceId (string): The replacement source\n" +
         "  - reason (string): Required curator explanation, at least 10 characters\n\n" +
-        "Returns: oldSourceId, newSourceId, previousStatus, status, supersededAt, reason.",
+        "Returns: oldSourceId, newSourceId, outcome ('applied' or 'noop'), previousStatus, " +
+        "status, supersededAt, reason, lifecycleEventId, dataPointCount, liveDataPointCount, " +
+        "warnings.",
       inputSchema: {
         oldSourceId: z.string().describe("The retired source ID"),
         newSourceId: z.string().describe("The replacement source ID"),
