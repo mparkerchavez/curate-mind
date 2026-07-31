@@ -157,11 +157,19 @@ export function registerIntakeTools(server: McpServer): void {
         'with reviewed=true to push it to the database.\n\n' +
         "Args:\n" +
         "  - url (string): The public URL to fetch\n" +
-        "  - title (string): Source title (used for the filename)\n\n" +
+        "  - title (string): Source title (used for the filename)\n" +
+        "  - capturedAt (string, optional): The date the curator captured (saved) the link, in YYYY-MM-DD format. " +
+        "Controls which week folder the markdown is written to, the filename date, and the Captured metadata line. " +
+        "Pass this when the link was captured in an earlier week than the one you are fetching in, so the markdown " +
+        "lands in the capture week's folder instead of today's. Omit to use today (the common same-week case).\n\n" +
         "Returns: The local file path where the markdown was saved.",
       inputSchema: {
         url: z.string().url().describe("The public URL to fetch"),
         title: z.string().min(1).describe("Source title (used for filename)"),
+        capturedAt: z.string().optional()
+          .describe(
+            "Capture date in YYYY-MM-DD format. Determines the week folder the markdown is written to, the filename date, and the Captured metadata line. Pass when the link was captured before the week you are fetching in, so the markdown lands in the capture week, not today's. Omit to default to today."
+          ),
         author: z.string().optional().describe("Override author name (skips extraction)"),
         publisher: z.string().optional().describe("Override publisher name (skips extraction)"),
         publishedDate: z.string().optional().describe("Override published date in YYYY-MM-DD format (skips extraction)"),
@@ -177,7 +185,7 @@ export function registerIntakeTools(server: McpServer): void {
         openWorldHint: true,
       },
     },
-    async ({ url, title, author: authorOverride, publisher: publisherOverride, publishedDate: publishedDateOverride, sourceType }) => {
+    async ({ url, title, author: authorOverride, publisher: publisherOverride, publishedDate: publishedDateOverride, sourceType, capturedAt: capturedAtInput }) => {
       try {
         const curateMindPath = process.env.CURATE_MIND_PATH;
         if (!curateMindPath) {
@@ -192,7 +200,18 @@ export function registerIntakeTools(server: McpServer): void {
           };
         }
 
-        const capturedAt = new Date();
+        const capturedAtResult = resolveCapturedAt(capturedAtInput);
+        if ("error" in capturedAtResult) {
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: `Error: ${capturedAtResult.error}`,
+              },
+            ],
+          };
+        }
+        const capturedAt = capturedAtResult.date;
 
         // Fetch content via Supadata and metadata via direct HTML fetch, concurrently.
         // If the metadata fetch fails for any reason (paywall, network error, etc.)
@@ -315,11 +334,19 @@ export function registerIntakeTools(server: McpServer): void {
         'with reviewed=true to push it to the database.\n\n' +
         "Args:\n" +
         "  - url (string): YouTube video URL\n" +
-        "  - title (string, optional): Override title (uses video title if omitted)\n\n" +
+        "  - title (string, optional): Override title (uses video title if omitted)\n" +
+        "  - capturedAt (string, optional): The date the curator captured (saved) the video, in YYYY-MM-DD format. " +
+        "Controls which week folder the transcript markdown is written to, the filename date, and the capture metadata line. " +
+        "Pass this when the video was captured in an earlier week than the one you are fetching the transcript in, so the " +
+        "markdown lands in the capture week's folder instead of today's. Omit to use today (the common same-week case).\n\n" +
         "Returns: The local file path where the markdown transcript was saved.",
       inputSchema: {
         url: z.string().url().describe("YouTube video URL"),
         title: z.string().optional().describe("Override title (uses video title if omitted)"),
+        capturedAt: z.string().optional()
+          .describe(
+            "Capture date in YYYY-MM-DD format. Determines the week folder the transcript markdown is written to, the filename date, and the capture metadata line. Pass when the video was captured before the week you are fetching in, so the markdown lands in the capture week, not today's. Omit to default to today."
+          ),
       },
       annotations: {
         readOnlyHint: false,
@@ -328,7 +355,7 @@ export function registerIntakeTools(server: McpServer): void {
         openWorldHint: true,
       },
     },
-    async ({ url, title }) => {
+    async ({ url, title, capturedAt: capturedAtInput }) => {
       try {
         if (!isYoutubeUrl(url)) {
           return {
@@ -355,7 +382,19 @@ export function registerIntakeTools(server: McpServer): void {
           };
         }
 
-        const capturedAt = new Date();
+        const capturedAtResult = resolveCapturedAt(capturedAtInput);
+        if ("error" in capturedAtResult) {
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: `Error: ${capturedAtResult.error}`,
+              },
+            ],
+          };
+        }
+        const capturedAt = capturedAtResult.date;
+
         const metadata = await getYoutubeMetadata(url);
         const transcriptContent = await getYoutubeTranscript(url);
 
@@ -365,6 +404,13 @@ export function registerIntakeTools(server: McpServer): void {
           typeof transcriptContent === "string"
             ? transcriptContent.trim()
             : formatTranscriptChunksAsParagraphs(transcriptContent);
+        // The capture stamp keeps its original "Transcript Extracted" label when the
+        // capture moment is now, because then both readings of the line are true. When
+        // the curator backdates with capturedAt, the date is the capture date and not
+        // the day the transcript was pulled, so the line says "Captured" instead.
+        // cm_review_queue reads either label as the capture date.
+        const captureLabel =
+          capturedAtInput === undefined ? "Transcript Extracted" : "Captured";
         const markdown =
           `# ${resolvedTitle}\n\n` +
           "## Metadata\n" +
@@ -373,7 +419,7 @@ export function registerIntakeTools(server: McpServer): void {
           `* **Duration:** ${formatDuration(metadata.durationSeconds)}\n` +
           "* **Type:** Video\n" +
           `* **URL:** ${url}\n` +
-          `* **Transcript Extracted:** ${formatDateForMetadata(capturedAt)}\n\n` +
+          `* **${captureLabel}:** ${formatDateForMetadata(capturedAt)}\n\n` +
           "---\n\n" +
           "## Transcript\n\n" +
           transcriptMarkdown;
@@ -1306,12 +1352,14 @@ export function registerIntakeTools(server: McpServer): void {
 /**
  * Resolve the capture date for an intake tool.
  *
+ * Shared by cm_fetch_url, cm_fetch_youtube, and cm_extract_pdf.
+ *
  * When `capturedAt` is omitted, the capture moment is "now" — this preserves
- * the original behavior for the common case of extracting a PDF the same week
- * it was downloaded. When provided, it must be an ISO calendar date
- * (YYYY-MM-DD) representing the day the curator actually captured (downloaded)
- * the source. That day drives both the week folder the wrapper/PDF are filed
- * under and the `**Captured:**` metadata line.
+ * the original behavior for the common case of processing a source the same
+ * week it was captured. When provided, it must be an ISO calendar date
+ * (YYYY-MM-DD) representing the day the curator actually captured (downloaded
+ * or saved) the source. That day drives the week folder the markdown is filed
+ * under, the date in the filename, and the `**Captured:**` metadata line.
  *
  * The date is parsed as a LOCAL calendar day (new Date(year, month, day)), not
  * via new Date("YYYY-MM-DD") which parses as UTC midnight and can shift to the

@@ -71,6 +71,14 @@ Which week should we work on? I will not start anything until you tell me.
 
 Never silently roll a new week's intake into an unfinished prior week, and never auto-advance either week.
 
+### Capture-week rule for intake tools
+
+Week folders represent the week the curator captured a source, not the week it happens to be processed. `cm_fetch_url`, `cm_fetch_youtube`, and `cm_extract_pdf` all default to the week that is current when they run, and all three accept an optional `capturedAt` (the capture date in YYYY-MM-DD) that overrides it.
+
+Pass `capturedAt` whenever the curator signals that capture happened earlier than the run: a stated download or save date, or wording such as "this one sat around for a couple weeks", "I saved this link last month", or "these are from my backlog". The markdown then lands directly in the capture week's folder, with the filename date and the capture metadata line matching. When capture and processing are in the same week, omit it.
+
+Two notes: `cm_extract_pdf` references the original PDF by path in place, so it does not move or copy the PDF, and an invalid date is rejected rather than rounded. Only if a source was already processed without `capturedAt` do you need the manual fallback: move the markdown (and, for a PDF, the original file) back into the capture week's folder after ingestion, and update `review-status.json` in both folders.
+
 ## First move
 
 Read the active project context before routing whenever a project-specific decision matters:
@@ -89,9 +97,9 @@ Reading context to route is allowed. Acting is not. Detecting that sources are w
 |---|---|---|
 | Set up project | "set up Curate Mind", "configure my project", "first run" | Run the project profile setup flow. Use `cm_create_project` only if no project exists. Then use `cm_get_project_profile`, `cm_get_user_preferences`, profile update tools, and `cm_preview_prompt_profile`. |
 | Change setup | "change audience", "update style", "change secondary capture", "edit suggested prompts" | Use the relevant prompt in `prompts/` if available. Otherwise read current settings, ask for the exact change, save only approved fields, validate, and preview. |
-| Fetch a web source | "fetch this article", "capture this link", a non-YouTube URL | Use `cm_fetch_url` to save markdown for review. Do not ingest yet. Tell the curator which file to review and which metadata fields need verification. |
-| Fetch a YouTube source | YouTube URL, "transcript", "video" | Use `cm_fetch_youtube` to save transcript markdown for review. Do not ingest yet. |
-| Prepare a PDF | "extract this PDF", local `.pdf` path | Use `cm_extract_pdf`. Tell the curator to fill metadata placeholders and remove the `verify_` prefix before ingestion. Week folders represent capture week, not processing week. If the curator indicates the PDF was downloaded in an earlier week than the one active during extraction (for example "this one sat around for a couple weeks" or a known download date), pass `capturedAt` (the download date in YYYY-MM-DD) so the wrapper markdown is filed directly into the capture week's folder (the tool references the PDF by path in place, it does not move or copy it). Only if you extract without `capturedAt` and later discover the PDF was captured earlier do you need the manual fallback: move the wrapper and PDF back into the capture week's folder after ingestion and update `review-status.json` in both folders. |
+| Fetch a web source | "fetch this article", "capture this link", a non-YouTube URL | Use `cm_fetch_url` to save markdown for review. Do not ingest yet. Apply the capture-week rule below. Tell the curator which file to review and which metadata fields need verification. |
+| Fetch a YouTube source | YouTube URL, "transcript", "video" | Use `cm_fetch_youtube` to save transcript markdown for review. Do not ingest yet. Apply the capture-week rule below. |
+| Prepare a PDF | "extract this PDF", local `.pdf` path | Use `cm_extract_pdf`. Apply the capture-week rule below. Tell the curator to fill metadata placeholders and remove the `verify_` prefix before ingestion. |
 | Ingest local folder | "ingest files in folder X", "start ingestion for folder X" | Inspect the folder if filesystem access is available, then report counts, file titles, and which week before acting. Apply the week-boundary guard. Classify files as markdown, PDF, or unsupported, and ask before doing anything. Detection alone starts nothing. For PDFs, run `cm_extract_pdf` only after the curator says to; for reviewed markdown, ask whether each file is already reviewed before `cm_add_source`; for unsupported files, explain the conversion needed. See "Source detection and week boundaries". |
 | Review pending intake | "what's waiting", "review queue", "pending files" | Use `cm_review_queue`. Report counts, source titles, and which week. Apply the week-boundary guard. Run the content-quality skim (see "Content-quality skim before ingest") on each file and report its verdict. Recommend the next file to review, but do not ingest, and do not start extraction, until the curator confirms. |
 | Ingest reviewed source | "this file is reviewed", "add this reviewed markdown" | Run the content-quality skim FIRST. Ingest with `cm_add_source` (`reviewed=true`) only after the skim verdict is READY, or after the curator has fixed flagged issues and you have re-skimmed. For PDFs, include `originalFilePath` when available. |
