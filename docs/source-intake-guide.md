@@ -29,11 +29,19 @@ The review step matters because extracted data points are designed to be durable
 
 ## Week Folders
 
-Source folders under `sources/{YYYY-MM}/{YYYY-MM-DD_to_DD}/` represent the week a source was **captured** (downloaded or fetched), not the week it was processed or ingested. By default `cm_extract_pdf`, `cm_fetch_url`, and `cm_fetch_youtube` file their output by whatever week is current when they run. For `cm_fetch_url` and `cm_fetch_youtube` that is correct: the fetch action is the capture. For `cm_extract_pdf` it is not, because the PDF was downloaded to disk earlier, when the curator saved it; if intake happens later than capture (a PDF sits around for a week or two before extraction, for example), the wrapper markdown and original PDF would otherwise land in the wrong week folder.
+Source folders under `sources/{YYYY-MM}/{YYYY-MM-DD_to_DD}/` represent the week a source was **captured** (downloaded, fetched, or saved for later), not the week it was processed or ingested. By default `cm_extract_pdf`, `cm_fetch_url`, and `cm_fetch_youtube` file their output by whatever week is current when they run. That is correct whenever you process a source the same week you captured it, which is the common case. It is wrong whenever capture and processing fall in different weeks: a PDF that sat on disk for two weeks before extraction, a link you saved on your phone and fetched the following Monday, or a video you queued up in one week and pulled the transcript for in the next.
 
-**Preferred fix — pass `capturedAt`.** When you know a PDF was downloaded before the week you are extracting in, pass `capturedAt` (the download date in `YYYY-MM-DD`) to `cm_extract_pdf`. The markdown wrapper and the `Captured:` metadata line are then filed into that capture week's folder directly, creating it if needed, and today's week folder is left untouched. (The tool references the original PDF by path in place; it does not move or copy the PDF, so keep the PDF wherever the curator saved it.) Omit `capturedAt` for the common case where the PDF is extracted the same week it was downloaded.
+**Preferred fix: pass `capturedAt`.** All three intake tools accept an optional `capturedAt`, the capture date in `YYYY-MM-DD`. When you pass it, the markdown file is written into that capture week's folder (created if needed), the date in the generated filename is the capture date, and the capture metadata line in the header carries that date too. The week folder for the day you are actually running in is left untouched. Omit `capturedAt` for the common same-week case.
 
-**Manual fallback — only if you already extracted without `capturedAt`.** If a source was extracted into the wrong week folder before you realized it was captured earlier, move the wrapper markdown and the original PDF back into the capture week's folder, and update `review-status.json` in both the capture week and the processing week so each tracker matches what's actually sitting in that folder. Otherwise an already-ingested source can look unprocessed the next time you scan its real capture week, or look like new work in the week it happened to be extracted.
+```text
+Use cm_fetch_url with capturedAt="2026-07-13" to fetch this article for review: <URL>
+Use cm_fetch_youtube with capturedAt="2026-07-13" to fetch this transcript for review: <URL>
+Use cm_extract_pdf with capturedAt="2026-07-13" on this local PDF: <absolute path to PDF>
+```
+
+An invalid or impossible date is rejected rather than silently rounded, so a typo such as `2026-07-32` fails loudly instead of filing the source into a surprise week. For `cm_extract_pdf`, note that the tool references the original PDF by path in place; it does not move or copy the PDF, so keep the PDF wherever the curator saved it.
+
+**Manual fallback: only if you already processed a source without `capturedAt`.** If a source landed in the wrong week folder before you realized it was captured earlier, move the markdown (and, for a PDF, the original file) back into the capture week's folder, and update `review-status.json` in both the capture week and the processing week so each tracker matches what's actually sitting in that folder. Otherwise an already-ingested source can look unprocessed the next time you scan its real capture week, or look like new work in the week it happened to be processed.
 
 ## Vendor and Local Dependencies
 
@@ -105,7 +113,7 @@ Paste this into your AI assistant:
 Use cm_fetch_url to fetch this article for review: <URL>
 ```
 
-The tool saves a markdown file under `sources/YYYY-MM/YYYY-MM-DD_to_DD/` and tells you the file path. Open that file, clean up obvious noise, fill any `[verify]` metadata fields, then paste:
+The tool saves a markdown file under `sources/YYYY-MM/YYYY-MM-DD_to_DD/` and tells you the file path. If you saved the link in an earlier week than the one you are fetching in, add `capturedAt` so it files under the capture week: see [Week Folders](#week-folders). Open the saved file, clean up obvious noise, fill any `[verify]` metadata fields, then paste:
 
 ```text
 Use cm_add_source with reviewed=true to ingest this reviewed file: <file path>
@@ -119,7 +127,7 @@ Paste this into your AI assistant:
 Use cm_fetch_youtube to fetch this YouTube transcript for review: <URL>
 ```
 
-Review the transcript markdown, fix obvious metadata gaps, then ingest:
+If you queued the video up in an earlier week than the one you are pulling the transcript in, add `capturedAt` so it files under the capture week: see [Week Folders](#week-folders). Review the transcript markdown, fix obvious metadata gaps, then ingest:
 
 ```text
 Use cm_add_source with reviewed=true to ingest this reviewed transcript: <file path>

@@ -79,6 +79,12 @@ Paste:
 Use cm_fetch_url to fetch this article for review: <URL>
 ```
 
+If you saved the link in an earlier week than the one you are fetching in, name the capture date so it files under the capture week:
+
+```text
+Use cm_fetch_url with capturedAt="<YYYY-MM-DD>" to fetch this article for review: <URL>
+```
+
 Done when:
 
 - The tool returns a markdown file path under `sources/`.
@@ -98,6 +104,12 @@ Paste:
 
 ```text
 Use cm_fetch_youtube to fetch this YouTube transcript for review: <URL>
+```
+
+If you queued the video up in an earlier week than the one you are pulling the transcript in, name the capture date so it files under the capture week:
+
+```text
+Use cm_fetch_youtube with capturedAt="<YYYY-MM-DD>" to fetch this YouTube transcript for review: <URL>
 ```
 
 Done when:
@@ -127,13 +139,19 @@ For scanned or image-heavy PDFs, try:
 Use cm_extract_pdf with method=docling_ocr on this local PDF: <absolute path to PDF>
 ```
 
+If the PDF was downloaded in an earlier week than the one you are extracting in, name the capture date so it files under the capture week:
+
+```text
+Use cm_extract_pdf with capturedAt="<YYYY-MM-DD>" on this local PDF: <absolute path to PDF>
+```
+
 Done when:
 
 - The tool creates a `verify_*.md` wrapper in `sources/`.
 - The original PDF path is preserved for ingestion.
 - You fill required metadata fields such as publisher, author, published date, and canonical URL.
 - You rename the markdown file to remove the `verify_` prefix.
-- If the PDF was captured in an earlier week than the one active when you ran `cm_extract_pdf`, move the wrapper markdown and PDF back to the capture week's folder and update `review-status.json` in both folders.
+- If the PDF was captured in an earlier week and you already ran `cm_extract_pdf` without `capturedAt`, move the wrapper markdown and PDF back to the capture week's folder and update `review-status.json` in both folders.
 
 Next prompt:
 
