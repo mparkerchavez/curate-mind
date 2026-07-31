@@ -18,6 +18,24 @@ This stage runs under the Curator consent contract defined in `skills/cm-workflo
 - The Extraction Flag Report only reports flags. This stage never adjudicates them. Adjudication is a hard-stop checkpoint handled in `cm-curator-review` with explicit curator decisions.
 - Auto-approve is opt-in per stage and per session. It must be requested for one stage, granted explicitly in the current session, and never carries to a later stage or a later session. A past "auto approve as-is" note is not consent. Ignore it.
 
+## Identifier rule (binding on every table, report, and prompt in this skill)
+
+Every data point identifier and source identifier you write must be the **full Convex identifier, copied exactly as the tool returned it**. Never abbreviate it, never truncate it to the first 8 characters, never shorten it with an ellipsis, and never retype it from memory. Copy and paste.
+
+This is not cosmetic. Past flag reports stored 8-character abbreviations. Convex rejected every one of them with `ArgumentValidationError`, so the entire Batch Review and Batch Integrate chain failed on identifiers that could no longer be recovered from the report, and the batch had to be re-extracted.
+
+When a table row is too wide, abbreviate the claim text, the anchor quote, or the source title. Never the identifier.
+
+Pass the same rule down to every sub-agent prompt, and check it before you emit the Extraction Flag Report: if any identifier in the report is shorter than the identifiers the tools returned, stop and repair the report before handing it to Batch Review.
+
+## Paging rule for data point reads (binding on every sub-agent prompt in this skill)
+
+`cm_get_data_points_batch` and `cm_list_data_points_by_source` are both paginated. Each returns `items`, `total`, `offset`, `limit`, `hasMore`, and `nextOffset`, and each can return fewer records than requested when a page would exceed the safe response size.
+
+The first page is not the full result. Any read of these tools loops: while `hasMore` is true, call again with the same arguments plus `offset` set to the previous response's `nextOffset`, and merge the items. Stop only when `hasMore` is false, then confirm the merged item count equals `total`.
+
+Past sub-agents treated page one as the whole set and silently dropped every data point past the page boundary from tagging and enrichment. Those data points were never flagged as missing, because nothing errored.
+
 ## Project profile customization (placeholders for future wiring)
 
 The fields below will be read from the project profile by a later schema change (see `Customization_Design_Proposal_2026-05-20.md`, sections 7 and 16). Until that change lands, treat the values in the right column as the defaults applied to every project.
@@ -161,7 +179,7 @@ Do not invoke any skill file. Follow only the instructions below.
      - dpSequenceNumber: start at 1, increment per data point.
    - Do not assign tags. Pass an empty tag list for every data point. Tags are assigned during Enrich.
 
-4. Call cm_save_data_points with the source identifier and the full data point array. Record the returned data point identifiers.
+4. Call cm_save_data_points with the source identifier and the full data point array. Record the returned data point identifiers exactly as returned. These are full Convex identifiers. Never abbreviate, truncate, or retype them from memory. An abbreviated identifier is rejected by Convex with an ArgumentValidationError everywhere it is used downstream.
 
 5. Write a source synthesis of 2 to 3 paragraphs:
    - Paragraph 1: central argument or thesis, and its evidence structure.
@@ -173,7 +191,7 @@ Return only this compact result:
 - source_title: [title]
 - word_count: [n]
 - data_points_saved: [count]
-- data_point_identifiers: [comma-separated list]
+- data_point_identifiers: [comma-separated list of the full Convex identifiers returned by cm_save_data_points, never abbreviated]
 - source_synthesis_excerpt: [first 150 characters]
 - status: success or failed
 - error: [message if failed]
@@ -245,7 +263,15 @@ Secondary Capture candidates: [paste Sub-agent B's candidate output here, or "no
 
 Do not invoke any skill file. Follow only the instructions below.
 
-1. Retrieve all data points in one call: cm_get_data_points_batch with the full identifier list above.
+Identifier rule: every data point identifier you read, hold, and write back is the full Convex identifier exactly as it appears above and in tool responses. Never abbreviate it, never truncate it to the first 8 characters, never shorten it with an ellipsis. Abbreviated identifiers are rejected by Convex with an ArgumentValidationError, and a batch write that carries one fails for every record in the call.
+
+1. Retrieve all data points with cm_get_data_points_batch, passing the full identifier list above.
+
+   This tool paginates. Its page size defaults to 25 identifiers and caps at 50, and it returns fewer than requested when a page would exceed the safe response size. Read the hasMore field on every response. While hasMore is true, call cm_get_data_points_batch again with the same identifier list and offset set to the nextOffset value from the previous response, then merge the items. Stop only when hasMore is false, then confirm that the number of merged items equals the total field and equals the number of identifiers you were given. If those numbers disagree, report the gap instead of enriching a partial set.
+
+   The same paging rule applies to cm_list_data_points_by_source if you use it to list a source's data points. It paginates too (page size defaults to 100, caps at 200) and returns the same hasMore and nextOffset fields.
+
+   Do not begin tagging or enrichment until the full set is loaded. Treating the first page as the complete result silently drops every data point past the page boundary. Nothing errors, so the loss is invisible in the flag report.
 
 2. Retrieve the Research Lens: call cm_get_research_lens with the project identifier. If none exists, proceed without it and note this in your summary.
 
@@ -279,12 +305,13 @@ Do not invoke any skill file. Follow only the instructions below.
    - novel-signal: the data point introduces a concept with no connection to any existing position.
 
 Return only this compact result:
+- data_points_loaded: [count of merged items across all pages, and the total field the tool reported]
 - data_points_enriched: [count]
 - tags_created: [list of new tag slugs]
 - secondary_capture_items_saved: [count]
 - flags_for_review: [count]
 - flags:
-  - [data point identifier] | [flag_type] | [brief reason]
+  - [full Convex data point identifier, never abbreviated] | [flag_type] | [brief reason]
   - ...
 - status: success or failed
 ```
@@ -328,11 +355,13 @@ When presenting the Extraction Flag Report, group all flags into four categories
 | C | confidence-mismatch | Curator judgment call. Usually no data point change is needed. May indicate a source credibility concern or an edge case in the tier-versus-confidence rubric. |
 | D | anchor-concern | Verbatim quote issue. Cite this data point with a caveat, or flag it for re-extraction if the anchor cannot be verified against the source text. |
 
-For each group, present all flagged data points in a table (data point identifier, source title, brief flag reason). Invite the curator's commentary before moving to the next group.
+For each group, present all flagged data points in a table (data point identifier, source title, brief flag reason). Every identifier in these tables is the full Convex identifier as returned by the sub-agent, never abbreviated. Invite the curator's commentary before moving to the next group.
 
 ### 5. Emit the Extraction Flag Report (Batch Extract close)
 
 After all sources complete, aggregate all flags and emit the Extraction Flag Report. This is the closing artifact for the Batch Extract stage. Present it in full so the curator can copy it into the Batch Review chat.
+
+**Identifier requirement for this report.** Every `[identifier]` cell below is a full Convex identifier, copied exactly as the sub-agent returned it. This report is the only carrier of those identifiers into Batch Review and Batch Integrate: once an identifier is abbreviated here, the original is gone and every downstream tool call fails with an `ArgumentValidationError`. Abbreviate the claim, the anchor, or the title to fit the table. Never the identifier. Check the report against the sub-agent results before you present it.
 
 ```
 ## Extraction Flag Report, [date]
@@ -340,6 +369,8 @@ After all sources complete, aggregate all flags and emit the Extraction Flag Rep
 Project: [project name]   Batch: [date range]
 Sources processed: [n]    Failed: [n]
 Total data points: [n]    Total flags: [n]
+
+All data point and source identifiers below are full Convex identifiers, never abbreviated.
 
 ### Group A, Position contradictions ([n])
 

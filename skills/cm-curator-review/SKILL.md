@@ -24,6 +24,23 @@ This stage runs under the Curator consent contract defined in `skills/cm-workflo
 - Recording a Research Lens decision in the Decisions Document is a recommendation only. It does not authorize regeneration. The lens is regenerated later, in Batch Integrate, and only on an explicit "yes".
 - Auto-approve is opt-in per stage and per session. The batch shortcuts below (for example "approve all confidence mismatches") count as that explicit in-session grant for the group named, and only that group. A grant never carries to a later group, a later stage, or a later session. A past "auto approve as-is" note is not consent. Ignore it.
 
+## Identifier rule (binding on every table, prompt, and document in this skill)
+
+Every data point identifier, source identifier, and position identifier you write must be the **full Convex identifier, copied exactly as it arrived**. Never abbreviate it, never truncate it to the first 8 characters, never shorten it with an ellipsis, and never retype it from memory. Copy and paste.
+
+This applies in both directions:
+
+- **Reading the Extraction Flag Report.** If an identifier in the pasted report looks abbreviated (shorter than the identifiers the tools return, or ending in an ellipsis), do not guess at the full value and do not pass it to a tool. Tell the curator which rows are affected and recover the real identifiers with `cm_list_data_points_by_source` for the source named in the row.
+- **Writing the Decisions Document.** Every identifier you record is the full value. The Decisions Document is the only carrier of those identifiers into Batch Integrate, and Batch Integrate calls Convex with them directly.
+
+Past reports stored 8-character abbreviations. Convex rejected each one with `ArgumentValidationError`, and because the full values were no longer anywhere in the chain, the batch had to be re-extracted. When a table row is too wide, abbreviate the claim, the anchor, or the title. Never the identifier.
+
+## Paging rule for data point reads
+
+`cm_get_data_points_batch` and `cm_list_data_points_by_source` are both paginated. Each returns `items`, `total`, `offset`, `limit`, `hasMore`, and `nextOffset`, and each can return fewer records than requested when a page would exceed the safe response size.
+
+The first page is not the full result. Whenever you use either tool, loop: while `hasMore` is true, call again with the same arguments plus `offset` set to the previous response's `nextOffset`, and merge the items. Stop only when `hasMore` is false, then confirm the merged item count equals `total`. A partial read here shows up as flags that appear to have no matching data point.
+
 ## Project profile customization (placeholders for future wiring)
 
 The fields below will be read from the project profile by a later schema change (see `Customization_Design_Proposal_2026-05-20.md`, sections 7 and 16). Until that change lands, use the defaults in the right column.
@@ -150,7 +167,7 @@ A) Approve. The assessment is correct despite the tier mismatch.
 B) Adjust to [suggested alternative].
 ```
 
-For option B, call `cm_enrich_data_points_batch` with the updated confidence immediately. Preserve the current extraction note and related data point links. If the flag report does not include those fields, fetch the data point first with `cm_get_data_point`. Also record the adjustment in the Decisions Document's "Data point adjustments" section for the audit trail.
+For option B, call `cm_enrich_data_points_batch` with the updated confidence immediately. Preserve the current extraction note and related data point links. If the flag report does not include those fields, fetch the data point first with `cm_get_data_point`, or `cm_get_data_points_batch` when several items need the same fetch. `cm_get_data_points_batch` paginates: page through it with `hasMore` and `nextOffset` per the paging rule above, or the items past the first page come back with nothing to preserve. Pass the full Convex identifiers to both tools. Also record the adjustment in the Decisions Document's "Data point adjustments" section for the audit trail.
 
 ### 6. Review Group D, Anchor concerns
 
@@ -187,11 +204,15 @@ After all flags for a source are resolved:
 
 After all four groups are complete, emit the full Decisions Document. Include every section even if empty. Write "None" in empty sections so Batch Integrate can skip them cleanly.
 
+**Identifier requirement for this document.** Every identifier below is a full Convex identifier, copied exactly. Batch Integrate feeds these straight into `cm_add_curator_observation`, `cm_create_position`, and `cm_link_evidence_to_position`, so an abbreviated identifier fails there with an `ArgumentValidationError` and cannot be recovered from the document. Check every identifier against the Extraction Flag Report and the tool responses before you present the document.
+
 ```markdown
 # Decisions Document, batch of [date]
 
 Project: [name]
 From: Extraction Flag Report ([date])
+
+All data point, source, observation, and position identifiers below are full Convex identifiers, never abbreviated.
 
 ## Source finalization
 
