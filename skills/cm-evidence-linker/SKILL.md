@@ -21,6 +21,21 @@ This stage runs under the Curator consent contract defined in `skills/cm-workflo
 
 Everything here stays append-only. Consent gates whether a write happens and when. It never authorizes a delete or an overwrite.
 
+## Identifier rule (binding on every table, triage list, and report in this skill)
+
+Every data point identifier, source identifier, observation identifier, and position identifier you read or write must be the **full Convex identifier, copied exactly as it arrived**. Never abbreviate it, never truncate it to the first 8 characters, never shorten it with an ellipsis, and never retype it from memory. Copy and paste.
+
+This stage is where abbreviated identifiers actually fail. Every write here (`cm_add_curator_observation`, `cm_create_position`, `cm_link_evidence_to_position`, `cm_update_positions_batch`) passes identifiers straight to Convex, and a single shortened identifier fails the whole call with an `ArgumentValidationError`. In past runs an abbreviated Decisions Document produced a storm of these errors because each retry carried the same unusable value.
+
+- **Reading a pasted Decisions Document.** If an identifier looks abbreviated, do not guess at the full value and do not pass it to a tool. Name the affected rows to the curator and recover the real identifiers with `cm_list_data_points_by_source` for the source in question, or `cm_get_data_points_by_tag` for the relevant tag.
+- **Writing triage tables and completion reports.** Record the full value. Abbreviate the claim text or the source title to fit a row. Never the identifier.
+
+## Paging rule for data point reads
+
+`cm_get_data_points_batch`, `cm_list_data_points_by_source`, and `cm_get_data_points_by_tag` are all paginated. Each returns `items`, `total`, `offset`, `limit`, `hasMore`, and `nextOffset`, and each can return fewer records than requested when a page would exceed the safe response size.
+
+The first page is not the full result. Whenever you use any of them, loop: while `hasMore` is true, call again with the same arguments plus `offset` set to the previous response's `nextOffset`, and merge the items. Stop only when `hasMore` is false, then confirm the merged item count equals `total`. Silently linking only page one means the evidence pool the curator triages is smaller than the pool that actually exists, and nothing in the output shows the gap.
+
 ## Project profile customization (placeholders for future wiring)
 
 The fields below will be read from the project profile by a later schema change (see `Customization_Design_Proposal_2026-05-20.md`, sections 7 and 16). Until that change lands, use the defaults in the right column.
@@ -64,7 +79,7 @@ When the curator pastes a Decisions Document or says "Start the Batch Integrate 
 
 ### 1. Confirm the document
 
-Parse the pasted document and present a brief summary before executing:
+Parse the pasted document and present a brief summary before executing. While parsing, check every identifier in the document against the identifier rule above. Abbreviated identifiers are the single most common cause of a failed Batch Integrate, and catching them here costs one message instead of a run of rejected writes.
 
 ```
 ## Batch Integrate
@@ -73,17 +88,20 @@ Curator observations to save: [n]
 New positions to create: [n]
 Existing position updates: [n]
 Research Lens: [Regenerate or Defer]
+Identifier check: all identifiers full, or [n] rows carry abbreviated identifiers and need recovery first
 
 Ready to execute. Say "go" to proceed, or adjust anything first.
 ```
+
+If the identifier check fails, list the affected rows and recover the full identifiers before executing anything.
 
 ### 2. Save curator observations (Section A)
 
 Execute in order. Observation identifiers are needed for cross-references in subsequent steps.
 
 For each observation in Section A:
-- Call `cm_add_curator_observation` with the observation text, data point identifiers, position identifiers, and tags.
-- Record the returned observation identifier mapped to its label (A1 maps to the returned identifier, A2 maps to the next returned identifier, and so on).
+- Call `cm_add_curator_observation` with the observation text, data point identifiers, position identifiers, and tags. Pass the identifiers in full, exactly as the Decisions Document carries them.
+- Record the returned observation identifier mapped to its label (A1 maps to the returned identifier, A2 maps to the next returned identifier, and so on). Store the full returned value, never a shortened form, because Section C updates pass it back to Convex.
 - Report each as it saves: "Observation A1 saved as [returned identifier]."
 
 ### 3. Create new positions (Section B)
@@ -156,8 +174,8 @@ Before starting tag-based evidence linking:
 For each theme being processed:
 
 1. Identify 2 to 4 relevant tag slugs that map to the theme's positions. Use `cm_get_tag_trends(projectId)` to see available tags and their data point counts.
-2. Pull data points for each tag using `cm_get_data_points_by_tag(projectId, tagSlug)`. This returns clean data (identifier, claim text, evidence type, confidence, source title, source tier) without embedding vectors.
-3. Handle truncation. Tool responses truncate at 25,000 characters. Large tag pools (50 or more data points) are partially visible. This is acceptable. Work with what is visible. If exhaustive coverage is needed, use narrower tags or multiple queries.
+2. Pull data points for each tag using `cm_get_data_points_by_tag(projectId, tagSlug)`. This returns clean data (identifier, claim text, evidence type, confidence, source title, source tier) without embedding vectors. Keep each identifier in full. It is what you will pass to the position update.
+3. Page through the tag pool. This tool paginates (page size defaults to 100, caps at 200) and returns fewer records than requested when a page would exceed the safe response size. Read `hasMore` on every response. While it is true, call again with the same arguments and `offset` set to the previous response's `nextOffset`, then merge. Stop when `hasMore` is false and the merged count equals `total`. A large tag pool that stops at page one looks like a complete pool: the response is well formed and nothing errors, so the missing evidence never surfaces. If a pool is too large to triage in one pass, say so to the curator and split it by narrower tags, rather than quietly working from the first page.
 
 **Important: do not use `cm_search` for evidence linking.** Semantic search returns embedding vectors (1,536-dimension arrays) that blow out context windows. Tag-based retrieval is the correct approach for linking.
 
@@ -170,7 +188,7 @@ Present candidate data points to the curator, organized by position:
    - Supporting: strengthens or validates the position's thesis.
    - Counter: challenges, contradicts, or introduces tension with the thesis.
    - Skip: tagged with a relevant tag but not directly relevant to this specific position.
-3. Present concisely. For each candidate show: claim text (truncated if needed), source title, tier, confidence, and your recommended classification.
+3. Present concisely. For each candidate show: the full data point identifier, claim text (truncated if needed), source title, tier, confidence, and your recommended classification. Truncate the claim, never the identifier. The identifiers in this triage table are what you pass to the position update, so they must survive the presentation intact.
 4. The curator decides. They confirm, reclassify, or skip each candidate. Batch approval ("approve as-is") is common for well-curated recommendations.
 
 ### Step 2.5: Fetch existing evidence arrays (assistant)
@@ -237,6 +255,8 @@ After incremental linking, assess emerging positions for promotion:
 4. **Stale Research Lens.** If the lens was last generated before evidence linking, it does not reflect the strengthened positions. Always regenerate after linking is complete.
 5. **Using the wrong read tool.** Never use `cm_get_position_detail` or `cm_get_position_history` to fetch current arrays before a linkage operation. `cm_get_position_detail` returns embedding vectors that cause truncation. `cm_get_position_history` returns all prior versions unnecessarily. Always use `cm_get_position_arrays`. It returns only the current version's identifier arrays.
 6. **Overwriting evidence arrays via `cm_update_position`.** If you call `cm_update_position` for a linkage-only update, you must pass the full merged arrays or existing evidence is lost. Avoid this pattern entirely for linkage. `cm_link_evidence_to_position` and `cm_update_positions_batch` accept only the new additions and handle merging internally.
+7. **Abbreviated identifiers.** An identifier shortened to 8 characters in a report, a triage table, or a Decisions Document is rejected by Convex with an `ArgumentValidationError` on every call that uses it, and retrying reproduces the same error because the full value is gone. Check identifiers when a document is pasted in, not after the first failed write. Recover full values from the source or tag rather than reconstructing them.
+8. **Reading only the first page.** Every data point read here paginates. If you stop at page one, the triage pool is silently short and the positions get less evidence than the corpus holds. Loop on `hasMore` and `nextOffset` until the merged count equals `total`.
 
 ## Example session flow
 
