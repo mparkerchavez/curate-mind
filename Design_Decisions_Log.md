@@ -632,6 +632,16 @@ This project already had the better pattern and was not applying it here. The `c
 
 **What prompted this:** a tracker reconciliation found 82 duplicate data points live in the corpus from failed ingest attempts. Retiring them took a five-batch structure with a pilot and verification at every step, entirely because the operations could not be undone. That cost is the argument for this decision.
 
+**Considered and deliberately not built: a cascade.** The obvious fix for "superseding a source leaves its data points live" is to have `cm_supersede_source` retire them automatically. It was scoped twice and rejected twice, for different reasons each time.
+
+The first objection was that a blind cascade permanently flattens per-item judgment. The cleanup's fifth batch is the concrete case: thirteen data points deserved a bare retire, and one deserved a `supersededBy` pointer to its live equivalent, because a curator observation cited it as the counterexample that scoped its thesis. A cascade would have retired all fourteen identically and irreversibly.
+
+Reversibility weakened that objection, so it was reconsidered and rejected again on a simpler ground: the problem is already solved. The warning reports exactly how many data points are live and names the tool that clears them, and that tool clears them in one call. The workflow is two calls and impossible to miss. A cascade would save one call and take back the judgment that mattered.
+
+The general principle: when a gap is caused by someone not knowing a second step exists, telling them is usually better than doing it for them, because doing it for them also removes the choice.
+
+Revisit only if re-ingests become frequent enough that the prompt is pure noise. Nothing about the current cadence suggests that.
+
 **Date:** July 30, 2026
 
 ---

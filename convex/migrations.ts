@@ -445,6 +445,100 @@ export const backfillLifecycleEvents = mutation({
 });
 
 // ============================================================
+// Reconstruct lifecycle history for source lineage set before Decision 44
+//
+// Every source carrying a supersededBy pointer had that pointer set before
+// supersedeSource appended events, so its lineage decision has no recorded
+// history at all.
+//
+// One thing is NOT recoverable and is deliberately not guessed. supersedeSource
+// overwrites status to "failed" without recording what it was, so the
+// pre-supersede status is simply gone. Writing "failed" would be a guess that
+// is wrong for at least one known case (the OpenAI re-ingest, which was almost
+// certainly "extracted" beforehand), and writing "extracted" would risk
+// promoting a merely-indexed source into the corpus on a later restore.
+//
+// So previousStatus is recorded as "unknown". resolveRestoredSourceStatus
+// already treats any unrecognized value as the safe fallback: restore to
+// "indexed" for review, with a warning saying why. Honest gap, correct
+// behavior, no invented state.
+//
+// Append-only and idempotent: a source that already has any lifecycle event is
+// skipped. Sources carry fullText, so this pages rather than collecting.
+//   npx convex run migrations:backfillSourceLifecycleEvents '{"dryRun":true}'
+//   npx convex run migrations:backfillSourceLifecycleEvents '{}'
+// ============================================================
+const SOURCE_LIFECYCLE_PAGE_SIZE = 64;
+
+export const backfillSourceLifecycleEvents = mutation({
+  args: {
+    cursor: v.optional(v.union(v.string(), v.null())),
+    dryRun: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const dryRun = args.dryRun ?? false;
+    const page = await ctx.db.query("sources").paginate({
+      numItems: SOURCE_LIFECYCLE_PAGE_SIZE,
+      cursor: args.cursor ?? null,
+    });
+
+    let reconstructed = 0;
+    let skippedNoLineage = 0;
+    let skippedExisting = 0;
+    const targets: string[] = [];
+
+    for (const source of page.page) {
+      if (!source.supersededBy) {
+        skippedNoLineage++;
+        continue;
+      }
+
+      const existing = await ctx.db
+        .query("lifecycleEvents")
+        .withIndex("by_target", (q: any) =>
+          q.eq("targetType", "source").eq("targetId", source._id)
+        )
+        .first();
+      if (existing) {
+        skippedExisting++;
+        continue;
+      }
+
+      targets.push(String(source._id));
+      if (!dryRun) {
+        await ctx.db.insert("lifecycleEvents", {
+          projectId: source.projectId,
+          targetType: "source" as const,
+          targetId: source._id,
+          action: "supersede" as const,
+          previousStatus: "unknown",
+          newStatus: source.status,
+          previousReplacementId: null,
+          newReplacementId: source.supersededBy,
+          reason:
+            source.supersedeReason ??
+            "Reconstructed from row state; no reason was recorded at the time.",
+          recordedAt: source.supersededAt ?? source._creationTime,
+          recordedBy: "pipeline" as const,
+        });
+      }
+      reconstructed++;
+    }
+
+    return {
+      dryRun,
+      pageSize: page.page.length,
+      reconstructed,
+      skippedNoLineage,
+      skippedExisting,
+      targets,
+      isDone: page.isDone,
+      continueCursor: page.continueCursor,
+    };
+  },
+});
+
+// ============================================================
 // Backfill known source replacement lineage (Design Decision 38)
 //
 // Records the OpenAI re-ingestion that previously only lived in handoff docs:
