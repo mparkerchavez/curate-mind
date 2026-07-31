@@ -201,31 +201,56 @@ test("isLifecycleNoop treats a re-point at a different replacement as real work"
   );
 });
 
-test("chainReaches rejects a direct A -> B -> A cycle", () => {
+test("chainReaches rejects a direct A -> B -> A cycle", async () => {
   // B currently points at A; superseding A by B would close the loop.
   const next: Record<string, string | null> = { dp_b: "dp_a", dp_a: null };
-  assert.equal(chainReaches("dp_b", "dp_a", (id) => next[id] ?? null), true);
+  assert.equal(await chainReaches("dp_b", "dp_a", (id) => next[id] ?? null), true);
 });
 
-test("chainReaches rejects a longer cycle", () => {
+test("chainReaches rejects a longer cycle", async () => {
   const next: Record<string, string | null> = {
     dp_b: "dp_c",
     dp_c: "dp_d",
     dp_d: "dp_a",
     dp_a: null,
   };
-  assert.equal(chainReaches("dp_b", "dp_a", (id) => next[id] ?? null), true);
+  assert.equal(await chainReaches("dp_b", "dp_a", (id) => next[id] ?? null), true);
 });
 
-test("chainReaches allows an acyclic chain", () => {
+test("chainReaches allows an acyclic chain", async () => {
   const next: Record<string, string | null> = { dp_b: "dp_c", dp_c: null };
-  assert.equal(chainReaches("dp_b", "dp_a", (id) => next[id] ?? null), false);
+  assert.equal(await chainReaches("dp_b", "dp_a", (id) => next[id] ?? null), false);
 });
 
-test("chainReaches terminates on a pre-existing loop it is not asked about", () => {
+test("chainReaches terminates on a pre-existing loop it is not asked about", async () => {
   // dp_b <-> dp_c already loop; asking about an unrelated dp_a must not hang.
   const next: Record<string, string | null> = { dp_b: "dp_c", dp_c: "dp_b" };
-  assert.equal(chainReaches("dp_b", "dp_a", (id) => next[id] ?? null), false);
+  assert.equal(await chainReaches("dp_b", "dp_a", (id) => next[id] ?? null), false);
+});
+
+test("chainReaches works with an async resolver (the production path)", async () => {
+  // The Convex callers resolve each link with a db read, so the resolver is
+  // async there. Covering it here keeps the tested walk the same walk that
+  // actually runs, rather than a sync lookalike.
+  const next: Record<string, string | null> = { dp_b: "dp_c", dp_c: "dp_a" };
+  const asyncResolve = async (id: string) => next[id] ?? null;
+  assert.equal(await chainReaches("dp_b", "dp_a", asyncResolve), true);
+  assert.equal(await chainReaches("dp_b", "dp_zz", asyncResolve), false);
+});
+
+test("chainReaches honours a batch's pending re-points over stored state", async () => {
+  // A batch supersedes dp_b by dp_a while stored state still says dp_b -> null.
+  // Resolving from stored state alone would miss the cycle the batch creates.
+  const stored: Record<string, string | null> = { dp_b: null, dp_a: null };
+  const pending = new Map<string, string | null>([["dp_b", "dp_a"]]);
+  const resolve = async (id: string) =>
+    pending.has(id) ? pending.get(id) ?? null : stored[id] ?? null;
+
+  assert.equal(await chainReaches("dp_b", "dp_a", resolve), true);
+  assert.equal(
+    await chainReaches("dp_b", "dp_a", async (id) => stored[id] ?? null),
+    false
+  );
 });
 
 test("a retire, restore, retire sequence resolves correctly at each step", () => {

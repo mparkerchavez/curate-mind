@@ -1348,6 +1348,165 @@ export function registerSynthesisTools(server: McpServer): void {
   );
 
   // ============================================================
+  // cm_supersede_data_points_batch - Retire/replace many in one call
+  // ============================================================
+  server.registerTool(
+    "cm_supersede_data_points_batch",
+    {
+      title: "Supersede or Retire Data Points (Batch)",
+      description:
+        "Retire or replace many data points in one call (Decision 44). Same per-item semantics " +
+        "as cm_supersede_data_point: an item with a replacementDataPointId is 'superseded', an " +
+        "item without one is 'retired'.\n\n" +
+        "Use this when clearing a source's duplicate evidence. Doing it one call at a time is " +
+        "what made a large cleanup expensive enough to defer.\n\n" +
+        "All-or-nothing validation: every item is checked before anything is written, so a batch " +
+        "never lands half-applied. If any item fails, the call writes nothing and the error " +
+        "lists EVERY problem at once rather than stopping at the first. Checks cover unknown " +
+        "ids, duplicate ids within the batch, reasons under 10 characters, replacements in " +
+        "another project, and supersede cycles, including a cycle the batch itself would create.\n\n" +
+        "Items already in the requested state are a no-op, not an error, so re-running a " +
+        "partially completed cleanup is safe. The result reports applied and noop counts plus a " +
+        "per-item outcome.\n\n" +
+        "Reverse a batch with cm_restore_data_points_batch (curator-only).\n\n" +
+        "Args:\n" +
+        "  - items (array): up to 200 objects of { dataPointId, replacementDataPointId?, reason? }\n" +
+        "  - reason (string, optional): shared explanation used for any item without its own; " +
+        "at least 10 characters\n\n" +
+        "Returns: total, applied, noop, warnings, and results[] carrying each item's outcome.",
+      inputSchema: {
+        items: z
+          .array(
+            z.object({
+              dataPointId: z.string().describe("Data point to retire or replace"),
+              replacementDataPointId: z.string().optional()
+                .describe("Replacement; omit to retire with no replacement"),
+              reason: z.string().optional()
+                .describe("Per-item explanation; falls back to the batch reason"),
+            })
+          )
+          .min(1)
+          .max(200)
+          .describe("Data points to retire or replace, at most 200"),
+        reason: z.string().optional()
+          .describe("Shared explanation for items without their own, at least 10 characters"),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ items, reason }) => {
+      try {
+        const result = await convexMutation(
+          api.dataPoints.supersedeDataPointsBatch,
+          {
+            items: items.map((i) => ({
+              dataPointId: asId<"dataPoints">(i.dataPointId),
+              replacementDataPointId: i.replacementDataPointId
+                ? asId<"dataPoints">(i.replacementDataPointId)
+                : undefined,
+              reason: i.reason,
+            })),
+            reason,
+          }
+        );
+
+        return {
+          content: [
+            { type: "text" as const, text: JSON.stringify(result, null, 2) },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+            },
+          ],
+        };
+      }
+    }
+  );
+
+  // ============================================================
+  // cm_restore_data_points_batch - Reverse a batch (Decision 44)
+  //
+  // Curator-only, same reasoning as the single-item restore below.
+  // ============================================================
+  server.registerTool(
+    "cm_restore_data_points_batch",
+    {
+      title: "Restore Data Points (Batch)",
+      description:
+        "Return many retired or superseded data points to active in one call (Decision 44). " +
+        "This is the undo for cm_supersede_data_points_batch.\n\n" +
+        "Same all-or-nothing validation and the same no-op handling: items already active are " +
+        "counted as noop rather than failing, so re-running is safe.\n\n" +
+        "Restoring a data point that was superseded WITH a replacement puts both back in live " +
+        "evidence, and restoring one whose parent source is 'failed' makes live evidence hang " +
+        "off a retired source. Both are reported in warnings and neither blocks the call.\n\n" +
+        "Args:\n" +
+        "  - items (array): up to 200 objects of { dataPointId, reason? }\n" +
+        "  - reason (string, optional): shared explanation, at least 10 characters\n\n" +
+        "Returns: total, applied, noop, warnings, and results[] carrying each item's outcome.",
+      inputSchema: {
+        items: z
+          .array(
+            z.object({
+              dataPointId: z.string().describe("Data point to restore"),
+              reason: z.string().optional()
+                .describe("Per-item explanation; falls back to the batch reason"),
+            })
+          )
+          .min(1)
+          .max(200)
+          .describe("Data points to restore, at most 200"),
+        reason: z.string().optional()
+          .describe("Shared explanation for items without their own, at least 10 characters"),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ items, reason }) => {
+      try {
+        const result = await convexMutation(
+          api.dataPoints.restoreDataPointsBatch,
+          {
+            items: items.map((i) => ({
+              dataPointId: asId<"dataPoints">(i.dataPointId),
+              reason: i.reason,
+            })),
+            reason,
+          }
+        );
+
+        return {
+          content: [
+            { type: "text" as const, text: JSON.stringify(result, null, 2) },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+            },
+          ],
+        };
+      }
+    }
+  );
+
+  // ============================================================
   // cm_restore_data_point - Reverse a retire/supersede (Decision 44)
   //
   // Curator-only: registered in the admin toolset so extraction sub-agents

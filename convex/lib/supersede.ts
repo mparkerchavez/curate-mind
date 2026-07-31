@@ -124,22 +124,28 @@ function normalizeReplacementId(id?: string | null): string | null {
  * "A superseded by B" followed by "B superseded by A" is reachable, and
  * anything that follows the chain would spin forever.
  *
- * `resolveNext` returns the replacement id for a given id, or null. The depth
- * cap is a second backstop in case the data already contains a loop.
+ * `resolveNext` returns the replacement id for a given id, or null. It may be
+ * sync (plain fixtures in tests) or async (a Convex db read, or a batch's
+ * pending re-points checked ahead of stored rows). Keeping ONE implementation
+ * matters: a cycle guard that has to be re-established by every future caller
+ * is an invariant waiting to be forgotten, and a duplicate walk means the
+ * version covered by tests is not the version that runs.
+ *
+ * The depth cap is a second backstop in case the data already contains a loop.
  */
-export function chainReaches(
+export async function chainReaches(
   startId: string | null,
   targetId: string,
-  resolveNext: (id: string) => string | null,
+  resolveNext: (id: string) => string | null | Promise<string | null>,
   maxDepth = 64
-): boolean {
+): Promise<boolean> {
   let current = startId;
   const seen = new Set<string>();
   for (let i = 0; i < maxDepth && current != null; i++) {
     if (current === targetId) return true;
     if (seen.has(current)) return false; // pre-existing loop, stop walking
     seen.add(current);
-    current = resolveNext(current);
+    current = await resolveNext(current);
   }
   return false;
 }

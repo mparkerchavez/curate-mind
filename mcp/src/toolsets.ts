@@ -61,8 +61,10 @@ const ALL_TOOLS = [
   "cm_correct_attribution",
   "cm_correct_claim",
   "cm_supersede_data_point",
+  "cm_supersede_data_points_batch",
   "cm_supersede_source",
   "cm_restore_data_point",
+  "cm_restore_data_points_batch",
   "cm_get_lifecycle_history",
   "cm_generate_embeddings",
 ] as const;
@@ -124,6 +126,7 @@ const PIPELINE_EXTRA_TOOLS = [
   "cm_correct_claim",
   "cm_get_source_corrections",
   "cm_supersede_data_point",
+  "cm_supersede_data_points_batch",
   "cm_supersede_source",
   "cm_generate_embeddings",
 ] as const;
@@ -140,6 +143,7 @@ const ADMIN_EXTRA_TOOLS = [
   // admin), so admin is the only set a curator has that pipeline does not.
   // This tier is already where the repair tools live.
   "cm_restore_data_point",
+  "cm_restore_data_points_batch",
   "cm_get_lifecycle_history",
 ] as const;
 

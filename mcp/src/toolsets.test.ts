@@ -52,3 +52,17 @@ test("Decision 44: lifecycle history is a curator-tier read", () => {
   assert.ok(admin.has("cm_get_lifecycle_history"));
   assert.ok(all.has("cm_get_lifecycle_history"));
 });
+
+test("batch lifecycle tools mirror the tier of their single-item counterparts", () => {
+  // Batch retire is ordinary pipeline work, like the single-item version.
+  assert.ok(pipeline.has("cm_supersede_data_points_batch"));
+  assert.ok(admin.has("cm_supersede_data_points_batch"));
+  assert.equal(daily.has("cm_supersede_data_points_batch"), false);
+
+  // Batch restore is curator-only, like the single-item version. A batch must
+  // not become a way around the tier that gates reversing a retirement.
+  assert.equal(pipeline.has("cm_restore_data_points_batch"), false);
+  assert.equal(daily.has("cm_restore_data_points_batch"), false);
+  assert.ok(admin.has("cm_restore_data_points_batch"));
+  assert.ok(all.has("cm_restore_data_points_batch"));
+});
