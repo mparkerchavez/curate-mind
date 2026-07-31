@@ -30,3 +30,25 @@ test("Part B: source-correction read tool is available in pipeline", () => {
   assert.ok(admin.has("cm_get_source_corrections"));
   assert.ok(all.has("cm_get_source_corrections"));
 });
+
+test("Decision 44: restore is curator-only, out of reach of pipeline agents", () => {
+  // The whole point of putting restore in the admin tier: an extraction
+  // sub-agent running the pipeline toolset must not be able to reverse a
+  // curator's retirement.
+  assert.equal(pipeline.has("cm_restore_data_point"), false);
+  assert.equal(daily.has("cm_restore_data_point"), false);
+  assert.ok(admin.has("cm_restore_data_point"));
+  assert.ok(all.has("cm_restore_data_point"));
+});
+
+test("Decision 44: retiring stays available to pipeline, only reversing is gated", () => {
+  // Retiring is ordinary pipeline work; it is reversal that needs the curator.
+  assert.ok(pipeline.has("cm_supersede_data_point"));
+  assert.ok(admin.has("cm_supersede_data_point"));
+});
+
+test("Decision 44: lifecycle history is a curator-tier read", () => {
+  assert.equal(pipeline.has("cm_get_lifecycle_history"), false);
+  assert.ok(admin.has("cm_get_lifecycle_history"));
+  assert.ok(all.has("cm_get_lifecycle_history"));
+});

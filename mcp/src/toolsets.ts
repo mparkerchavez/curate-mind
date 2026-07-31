@@ -62,6 +62,8 @@ const ALL_TOOLS = [
   "cm_correct_claim",
   "cm_supersede_data_point",
   "cm_supersede_source",
+  "cm_restore_data_point",
+  "cm_get_lifecycle_history",
   "cm_generate_embeddings",
 ] as const;
 
@@ -132,6 +134,13 @@ const ADMIN_EXTRA_TOOLS = [
   "cm_get_data_point_corrections",
   "cm_get_position_history",
   "cm_retire_tag",
+  // Decision 44. Restore is curator-only by design: an extraction sub-agent
+  // running the pipeline toolset must not be able to reverse a curator's
+  // retirement. The toolsets are cumulative tiers (daily -> pipeline ->
+  // admin), so admin is the only set a curator has that pipeline does not.
+  // This tier is already where the repair tools live.
+  "cm_restore_data_point",
+  "cm_get_lifecycle_history",
 ] as const;
 
 const TOOLSETS: Record<ToolsetName, ReadonlySet<string>> = {

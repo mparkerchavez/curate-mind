@@ -348,6 +348,103 @@ export const backfillDataPointStatus = mutation({
 });
 
 // ============================================================
+// Reconstruct lifecycle history for pre-Decision-44 rows
+//
+// Every non-active data point already carries supersedeReason and
+// supersededAt on the row, so its retire/supersede can be reconstructed
+// losslessly as a single lifecycleEvents row. Without this, history starts
+// empty and the 82 retirements from the 2026-07-30 duplicate cleanup would
+// look like they never happened.
+//
+// recordedBy is "pipeline" so reconstructed history is never mistaken for a
+// decision someone actually recorded at the time.
+//
+// Append-only and idempotent: a target that already has any event is skipped,
+// so re-running cannot double-write. Pages like backfillDataPointStatus above,
+// because data point rows carry a 1536-dimension embedding and the table
+// cannot be collected whole under the 16 MB per-execution read budget:
+//   npx convex run migrations:backfillLifecycleEvents '{}'
+//   npx convex run migrations:backfillLifecycleEvents '{"cursor":"<continueCursor>"}'
+//
+// Pass dryRun: true to count what would be written without writing anything.
+// ============================================================
+const LIFECYCLE_EVENT_PAGE_SIZE = 256;
+
+export const backfillLifecycleEvents = mutation({
+  args: {
+    cursor: v.optional(v.union(v.string(), v.null())),
+    dryRun: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const dryRun = args.dryRun ?? false;
+    const page = await ctx.db.query("dataPoints").paginate({
+      numItems: LIFECYCLE_EVENT_PAGE_SIZE,
+      cursor: args.cursor ?? null,
+    });
+
+    let reconstructed = 0;
+    let skippedActive = 0;
+    let skippedExisting = 0;
+    let skippedNoSource = 0;
+
+    for (const dp of page.page) {
+      const status = dp.status;
+      if (status !== "superseded" && status !== "retired") {
+        skippedActive++;
+        continue;
+      }
+
+      const existing = await ctx.db
+        .query("lifecycleEvents")
+        .withIndex("by_target", (q: any) =>
+          q.eq("targetType", "dataPoint").eq("targetId", dp._id)
+        )
+        .first();
+      if (existing) {
+        skippedExisting++;
+        continue;
+      }
+
+      const source = await ctx.db.get(dp.sourceId);
+      if (!source) {
+        skippedNoSource++;
+        continue;
+      }
+
+      if (!dryRun) {
+        await ctx.db.insert("lifecycleEvents", {
+          projectId: source.projectId,
+          targetType: "dataPoint" as const,
+          targetId: dp._id,
+          action: status === "superseded" ? "supersede" : "retire",
+          previousStatus: "active",
+          newStatus: status,
+          previousReplacementId: null,
+          newReplacementId: dp.supersededBy ?? null,
+          reason:
+            dp.supersedeReason ??
+            "Reconstructed from row state; no reason was recorded at the time.",
+          recordedAt: dp.supersededAt ?? dp._creationTime,
+          recordedBy: "pipeline" as const,
+        });
+      }
+      reconstructed++;
+    }
+
+    return {
+      dryRun,
+      pageSize: page.page.length,
+      reconstructed,
+      skippedActive,
+      skippedExisting,
+      skippedNoSource,
+      isDone: page.isDone,
+      continueCursor: page.continueCursor,
+    };
+  },
+});
+
+// ============================================================
 // Backfill known source replacement lineage (Design Decision 38)
 //
 // Records the OpenAI re-ingestion that previously only lived in handoff docs:
