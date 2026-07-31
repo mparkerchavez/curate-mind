@@ -63,6 +63,8 @@ const ALL_TOOLS = [
   "cm_supersede_data_point",
   "cm_supersede_data_points_batch",
   "cm_supersede_source",
+  "cm_restore_source",
+  "cm_get_source_lifecycle_history",
   "cm_restore_data_point",
   "cm_restore_data_points_batch",
   "cm_get_lifecycle_history",
@@ -145,6 +147,8 @@ const ADMIN_EXTRA_TOOLS = [
   "cm_restore_data_point",
   "cm_restore_data_points_batch",
   "cm_get_lifecycle_history",
+  "cm_restore_source",
+  "cm_get_source_lifecycle_history",
 ] as const;
 
 const TOOLSETS: Record<ToolsetName, ReadonlySet<string>> = {

@@ -1,7 +1,12 @@
 import { v } from "convex/values";
 import { mutation, query, type QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
-import { isLiveDataPoint, supersedeStateView } from "./lib/supersede";
+import {
+  chainReaches,
+  isLiveDataPoint,
+  resolveRestoredSourceStatus,
+  supersedeStateView,
+} from "./lib/supersede";
 
 export type ResolvedLinkKind = "storage" | "canonical" | "internal";
 
@@ -216,19 +221,45 @@ export const updateStatus = mutation({
 });
 
 // ============================================================
-// Record replacement lineage between two sources (Decision 38, append-only)
+// Source replacement lineage (Decision 38, extended by Decision 44)
 //
 // Used when a source is re-ingested as a corrected/updated version. Sets the
 // forward pointer on the old (retired) source and the back pointer on the new
-// source, and marks the old source "failed". The original content of both
-// sources is untouched; only the lineage fields and the old status are set.
-// Pointers are set once and cannot be re-pointed.
+// source, and marks the old source "failed". Source content is never touched.
+//
+// Decision 44 brings source lineage in line with data point lifecycle: every
+// change appends a row to `lifecycleEvents` (targetType "source") and the
+// current state stays materialized on the source rows. The write-once lock is
+// gone, so a mistaken lineage can be re-pointed or reversed with
+// `restoreSource`, and the history of both decisions survives.
+//
+// It also closes the gap that caused the 2026-07-30 duplicate cleanup:
+// superseding a source does NOT retire its data points, and nothing in the
+// read paths consults the parent source. The result now reports
+// `liveDataPointCount` and warns when it is non-zero, so the second step
+// cannot be silently missed.
 // ============================================================
+
+/** Count the old source's data points that are still live in retrieval. */
+async function countLiveDataPoints(ctx: any, sourceId: Id<"sources">) {
+  const dps = await ctx.db
+    .query("dataPoints")
+    .withIndex("by_sourceId", (q: any) => q.eq("sourceId", sourceId))
+    .collect();
+  return {
+    total: dps.length,
+    live: dps.filter((dp: any) => isLiveDataPoint(dp)).length,
+  };
+}
+
 export const supersedeSource = mutation({
   args: {
     oldSourceId: v.id("sources"),
     newSourceId: v.id("sources"),
     reason: v.string(),
+    recordedBy: v.optional(
+      v.union(v.literal("curator"), v.literal("agent"), v.literal("pipeline"))
+    ),
   },
   handler: async (ctx, args) => {
     if (args.oldSourceId === args.newSourceId) {
@@ -251,18 +282,88 @@ export const supersedeSource = mutation({
     if (oldSource.projectId !== newSource.projectId) {
       throw new Error("Both sources must be in the same project");
     }
-    if (oldSource.supersededBy) {
+
+    const warnings: string[] = [];
+    const previousReplacementId = oldSource.supersededBy ?? null;
+
+    // No-op: already superseded by exactly this source. Matches the data point
+    // rule so retries and batch work stay safe.
+    if (
+      previousReplacementId &&
+      String(previousReplacementId) === String(args.newSourceId)
+    ) {
+      const counts = await countLiveDataPoints(ctx, args.oldSourceId);
+      return {
+        oldSourceId: String(args.oldSourceId),
+        newSourceId: String(args.newSourceId),
+        outcome: "noop" as const,
+        previousStatus: oldSource.status,
+        status: oldSource.status,
+        supersededAt: oldSource.supersededAt ?? null,
+        reason: oldSource.supersedeReason ?? null,
+        lifecycleEventId: null,
+        dataPointCount: counts.total,
+        liveDataPointCount: counts.live,
+        warnings,
+      };
+    }
+
+    // Cycle guard (Decision 44). Re-pointing is now allowed, so a loop is
+    // reachable. Same shared walk the data point lifecycle uses.
+    if (
+      await chainReaches(
+        String(args.newSourceId),
+        String(args.oldSourceId),
+        async (id: string) => {
+          const row: any = await ctx.db.get(id as Id<"sources">);
+          return row?.supersededBy ? String(row.supersededBy) : null;
+        }
+      )
+    ) {
       throw new Error(
-        `Source ${args.oldSourceId} is already superseded by ${oldSource.supersededBy}; lineage is append-only`
+        `Refusing to create a source supersede cycle: ${args.oldSourceId} is already reachable from ${args.newSourceId}`
       );
     }
-    if (newSource.replaces && String(newSource.replaces) !== String(args.oldSourceId)) {
+
+    if (
+      newSource.replaces &&
+      String(newSource.replaces) !== String(args.oldSourceId)
+    ) {
       throw new Error(
-        `Source ${args.newSourceId} already replaces ${newSource.replaces}; lineage is append-only`
+        `Source ${args.newSourceId} already replaces ${newSource.replaces}; re-point that lineage first`
+      );
+    }
+
+    if (previousReplacementId) {
+      warnings.push(
+        `Re-pointing lineage: ${args.oldSourceId} was superseded by ${previousReplacementId} and now points at ${args.newSourceId}.`
+      );
+    }
+
+    // The gap that caused the duplicate cleanup. Retiring a source leaves its
+    // evidence live, because no read path consults the parent source.
+    const counts = await countLiveDataPoints(ctx, args.oldSourceId);
+    if (counts.live > 0) {
+      warnings.push(
+        `${counts.live} of this source's ${counts.total} data points are still LIVE in cm_ask, cm_search, tag retrieval, and the public routes. Superseding the source does not retire them. Use cm_supersede_data_points_batch to retire them.`
       );
     }
 
     const supersededAt = Date.now();
+    const lifecycleEventId = await ctx.db.insert("lifecycleEvents", {
+      projectId: oldSource.projectId,
+      targetType: "source" as const,
+      targetId: args.oldSourceId,
+      action: "supersede" as const,
+      previousStatus: oldSource.status,
+      newStatus: "failed",
+      previousReplacementId: previousReplacementId ?? null,
+      newReplacementId: args.newSourceId,
+      reason,
+      recordedAt: supersededAt,
+      recordedBy: args.recordedBy ?? "curator",
+    });
+
     await ctx.db.patch(args.oldSourceId, {
       supersededBy: args.newSourceId,
       supersededAt,
@@ -273,14 +374,168 @@ export const supersedeSource = mutation({
       replaces: args.oldSourceId,
     });
 
+    // Clear the stale back pointer if this re-points away from a prior target.
+    if (
+      previousReplacementId &&
+      String(previousReplacementId) !== String(args.newSourceId)
+    ) {
+      const stale: any = await ctx.db.get(previousReplacementId);
+      if (stale && String(stale.replaces) === String(args.oldSourceId)) {
+        await ctx.db.patch(previousReplacementId, { replaces: undefined });
+      }
+    }
+
     return {
       oldSourceId: String(args.oldSourceId),
       newSourceId: String(args.newSourceId),
+      outcome: "applied" as const,
       previousStatus: oldSource.status,
       status: "failed" as const,
       supersededAt,
       reason,
+      lifecycleEventId: String(lifecycleEventId),
+      dataPointCount: counts.total,
+      liveDataPointCount: counts.live,
+      warnings,
     };
+  },
+});
+
+// ============================================================
+// Reverse a source supersede (Decision 44)
+//
+// Restores the source's status from the lifecycle event that retired it, so a
+// source that was "indexed" before does not come back as "extracted". Clears
+// both lineage pointers and appends a restore event. Curator-only.
+// ============================================================
+export const restoreSource = mutation({
+  args: {
+    sourceId: v.id("sources"),
+    reason: v.string(),
+    recordedBy: v.optional(
+      v.union(v.literal("curator"), v.literal("agent"), v.literal("pipeline"))
+    ),
+  },
+  handler: async (ctx, args) => {
+    const reason = args.reason.trim();
+    if (reason.length < 10) {
+      throw new Error("reason is required and must be at least 10 characters");
+    }
+
+    const source = await ctx.db.get(args.sourceId);
+    if (!source) {
+      throw new Error(`Source not found: ${args.sourceId}`);
+    }
+
+    const warnings: string[] = [];
+    const previousReplacementId = source.supersededBy ?? null;
+
+    if (!previousReplacementId) {
+      return {
+        sourceId: String(args.sourceId),
+        outcome: "noop" as const,
+        previousStatus: source.status,
+        status: source.status,
+        restoredFrom: null,
+        lifecycleEventId: null,
+        warnings,
+      };
+    }
+
+    // Recover the pre-supersede status from the event that set it. Falls back
+    // to "indexed" (the safest: needs review, not treated as extracted) when
+    // no event exists, which can only happen for lineage that predates the
+    // backfill.
+    const events = await ctx.db
+      .query("lifecycleEvents")
+      .withIndex("by_target", (q: any) =>
+        q.eq("targetType", "source").eq("targetId", args.sourceId)
+      )
+      .collect();
+    const lastSupersede = [...events]
+      .reverse()
+      .find((e: any) => e.action === "supersede");
+
+    const restored = resolveRestoredSourceStatus(
+      lastSupersede ? lastSupersede.previousStatus : null
+    );
+    const restoredStatus = restored.status;
+    if (restored.warning) warnings.push(restored.warning);
+
+    const recordedAt = Date.now();
+    const lifecycleEventId = await ctx.db.insert("lifecycleEvents", {
+      projectId: source.projectId,
+      targetType: "source" as const,
+      targetId: args.sourceId,
+      action: "restore" as const,
+      previousStatus: source.status,
+      newStatus: restoredStatus,
+      previousReplacementId,
+      newReplacementId: null,
+      reason,
+      recordedAt,
+      recordedBy: args.recordedBy ?? "curator",
+    });
+
+    await ctx.db.patch(args.sourceId, {
+      status: restoredStatus,
+      supersededBy: undefined,
+      supersededAt: undefined,
+      supersedeReason: undefined,
+    });
+
+    const replacement: any = await ctx.db.get(previousReplacementId);
+    if (replacement && String(replacement.replaces) === String(args.sourceId)) {
+      await ctx.db.patch(previousReplacementId, { replaces: undefined });
+    }
+
+    const counts = await countLiveDataPoints(ctx, args.sourceId);
+    if (counts.total > counts.live) {
+      warnings.push(
+        `${counts.total - counts.live} of this source's ${counts.total} data points are retired or superseded. Restoring the source does not restore them; use cm_restore_data_points_batch if they should come back too.`
+      );
+    }
+
+    return {
+      sourceId: String(args.sourceId),
+      outcome: "applied" as const,
+      previousStatus: source.status,
+      status: restoredStatus,
+      restoredFrom: String(previousReplacementId),
+      lifecycleEventId: String(lifecycleEventId),
+      dataPointCount: counts.total,
+      liveDataPointCount: counts.live,
+      warnings,
+    };
+  },
+});
+
+// ============================================================
+// Lifecycle history for one source, newest last (Decision 44)
+// ============================================================
+export const getSourceLifecycleHistory = query({
+  args: { sourceId: v.id("sources") },
+  handler: async (ctx, args) => {
+    const events = await ctx.db
+      .query("lifecycleEvents")
+      .withIndex("by_target", (q: any) =>
+        q.eq("targetType", "source").eq("targetId", args.sourceId)
+      )
+      .collect();
+
+    return events.map((e: any) => ({
+      _id: String(e._id),
+      action: e.action,
+      previousStatus: e.previousStatus,
+      newStatus: e.newStatus,
+      previousReplacementId: e.previousReplacementId
+        ? String(e.previousReplacementId)
+        : null,
+      newReplacementId: e.newReplacementId ? String(e.newReplacementId) : null,
+      reason: e.reason,
+      recordedAt: e.recordedAt,
+      recordedBy: e.recordedBy,
+    }));
   },
 });
 

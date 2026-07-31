@@ -53,6 +53,18 @@ test("Decision 44: lifecycle history is a curator-tier read", () => {
   assert.ok(all.has("cm_get_lifecycle_history"));
 });
 
+test("source lifecycle mirrors the data point tier split", () => {
+  // Superseding a source is ordinary pipeline work; reversing it is not.
+  assert.ok(pipeline.has("cm_supersede_source"));
+  assert.equal(pipeline.has("cm_restore_source"), false);
+  assert.equal(daily.has("cm_restore_source"), false);
+  assert.ok(admin.has("cm_restore_source"));
+  assert.ok(all.has("cm_restore_source"));
+
+  assert.equal(pipeline.has("cm_get_source_lifecycle_history"), false);
+  assert.ok(admin.has("cm_get_source_lifecycle_history"));
+});
+
 test("batch lifecycle tools mirror the tier of their single-item counterparts", () => {
   // Batch retire is ordinary pipeline work, like the single-item version.
   assert.ok(pipeline.has("cm_supersede_data_points_batch"));

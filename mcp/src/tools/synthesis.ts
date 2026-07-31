@@ -1627,23 +1627,147 @@ export function registerSynthesisTools(server: McpServer): void {
   );
 
   // ============================================================
-  // cm_supersede_source - Append-only source replacement lineage
+  // cm_restore_source - Reverse a source supersede (Decision 44)
+  //
+  // Curator-only, mirroring cm_restore_data_point.
+  // ============================================================
+  server.registerTool(
+    "cm_restore_source",
+    {
+      title: "Restore Source",
+      description:
+        "Reverse a source supersede (Decision 44). Clears both lineage pointers and returns the " +
+        "source to the status it held BEFORE it was superseded, read from its lifecycle history, " +
+        "so a source that was 'indexed' does not come back as 'extracted'. Appends a restore " +
+        "event rather than erasing the supersede.\n\n" +
+        "Restoring a source that is not superseded is a no-op returning outcome 'noop'.\n\n" +
+        "This does not restore the source's data points. If they were retired alongside it, use " +
+        "cm_restore_data_points_batch; the result warns when retired data points remain.\n\n" +
+        "Args:\n" +
+        "  - sourceId (string): The superseded source to restore\n" +
+        "  - reason (string): Required curator explanation, at least 10 characters\n\n" +
+        "Returns: sourceId, outcome, previousStatus, status, restoredFrom, lifecycleEventId, " +
+        "dataPointCount, liveDataPointCount, warnings.",
+      inputSchema: {
+        sourceId: z.string().describe("The superseded source ID to restore"),
+        reason: z.string().min(10)
+          .describe("Required curator explanation for this restore"),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ sourceId, reason }) => {
+      try {
+        const result = await convexMutation(api.sources.restoreSource, {
+          sourceId: asId<"sources">(sourceId),
+          reason,
+        });
+        return {
+          content: [
+            { type: "text" as const, text: JSON.stringify(result, null, 2) },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+            },
+          ],
+        };
+      }
+    }
+  );
+
+  // ============================================================
+  // cm_get_source_lifecycle_history - Source retire/restore trail
+  // ============================================================
+  server.registerTool(
+    "cm_get_source_lifecycle_history",
+    {
+      title: "Get Source Lifecycle History",
+      description:
+        "Read the full supersede / restore history for one source, oldest first (Decision 44). " +
+        "Read-only. Use this when a source's lineage has been re-pointed and you need the " +
+        "sequence rather than just its current pointer.\n\n" +
+        "Args:\n" +
+        "  - sourceId (string): The source\n\n" +
+        "Returns: an array of events with action, previousStatus, newStatus, " +
+        "previousReplacementId, newReplacementId, reason, recordedAt, recordedBy.",
+      inputSchema: {
+        sourceId: z.string().describe("Source ID to read lifecycle history for"),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ sourceId }) => {
+      try {
+        const events = await convexQuery(
+          api.sources.getSourceLifecycleHistory,
+          { sourceId: asId<"sources">(sourceId) }
+        );
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(
+                { sourceId, eventCount: events.length, events },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+            },
+          ],
+        };
+      }
+    }
+  );
+
+  // ============================================================
+  // cm_supersede_source - Source replacement lineage
   // ============================================================
   server.registerTool(
     "cm_supersede_source",
     {
       title: "Supersede Source",
       description:
-        "Record that a source was replaced by a re-ingested version (Decision 38, append-only). " +
-        "Add the replacement source first with cm_add_source, then call this to link them. It sets " +
-        "the old source's supersededBy pointer plus status='failed', and the new source's replaces " +
-        "pointer. Original content of both sources is untouched, and the pointers cannot be " +
-        "re-pointed once set. cm_get_source and cm_get_source_usage surface the lineage.\n\n" +
+        "Record that a source was replaced by a re-ingested version (Decision 38). Add the " +
+        "replacement source first with cm_add_source, then call this to link them. It sets the " +
+        "old source's supersededBy pointer plus status='failed', and the new source's replaces " +
+        "pointer. Source content is never touched.\n\n" +
+        "IMPORTANT: this does NOT retire the old source's data points. The two lifecycles are " +
+        "independent and no read path consults the parent source, so the old source's evidence " +
+        "stays live in cm_ask, cm_search, tag retrieval, and the public routes until each data " +
+        "point is retired separately. The result reports liveDataPointCount and warns when it is " +
+        "non-zero; clear them with cm_supersede_data_points_batch.\n\n" +
+        "Lineage is reversible (Decision 44): every change appends to the source's lifecycle " +
+        "history, a mistaken pointer can be re-pointed, and cm_restore_source reverses it " +
+        "entirely. Re-pointing at the SAME replacement is a no-op returning outcome 'noop'. " +
+        "Cycles are rejected.\n\n" +
         "Args:\n" +
         "  - oldSourceId (string): The retired source\n" +
         "  - newSourceId (string): The replacement source\n" +
         "  - reason (string): Required curator explanation, at least 10 characters\n\n" +
-        "Returns: oldSourceId, newSourceId, previousStatus, status, supersededAt, reason.",
+        "Returns: oldSourceId, newSourceId, outcome ('applied' or 'noop'), previousStatus, " +
+        "status, supersededAt, reason, lifecycleEventId, dataPointCount, liveDataPointCount, " +
+        "warnings.",
       inputSchema: {
         oldSourceId: z.string().describe("The retired source ID"),
         newSourceId: z.string().describe("The replacement source ID"),

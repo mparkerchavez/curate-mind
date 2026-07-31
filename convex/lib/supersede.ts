@@ -201,6 +201,38 @@ export function resolveLifecyclePatch(args: {
 }
 
 /**
+ * Resolve the status a source should return to when its supersede is reversed.
+ *
+ * `supersedeSource` overwrites status to "failed" without recording what it
+ * was, so a restore has to read the prior status out of the lifecycle event
+ * that set it. Guessing is not safe in either direction: guessing "extracted"
+ * would promote a merely-indexed source into the corpus as though its evidence
+ * had been extracted, and forcing "indexed" on a source that was genuinely
+ * "failed" before invents a state it never held.
+ *
+ * So: replay the recorded status exactly, including "failed". Only when there
+ * is no event at all (lineage predating the backfill) fall back to "indexed",
+ * which is the safe unknown because it means "needs review" rather than
+ * "trusted", and say so.
+ */
+export function resolveRestoredSourceStatus(
+  previousStatus: string | null | undefined
+): { status: "indexed" | "extracted" | "failed"; warning: string | null } {
+  if (
+    previousStatus === "indexed" ||
+    previousStatus === "extracted" ||
+    previousStatus === "failed"
+  ) {
+    return { status: previousStatus, warning: null };
+  }
+  return {
+    status: "indexed",
+    warning:
+      'No lifecycle event records this source\'s status before it was superseded, so it is restored to "indexed" for review rather than assumed extracted.',
+  };
+}
+
+/**
  * Back-compat wrapper for the pre-Decision-44 call shape: a replacement means
  * supersede, its absence means retire. Retained so existing callers and tests
  * keep working while the lock itself is gone.

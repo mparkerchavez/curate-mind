@@ -10,6 +10,7 @@ import {
   isLiveDataPoint,
   normalizeStatus,
   resolveLifecyclePatch,
+  resolveRestoredSourceStatus,
   resolveSupersedePatch,
   supersedeStateView,
 } from "./supersede";
@@ -251,6 +252,28 @@ test("chainReaches honours a batch's pending re-points over stored state", async
     await chainReaches("dp_b", "dp_a", async (id) => stored[id] ?? null),
     false
   );
+});
+
+test("resolveRestoredSourceStatus replays the recorded status exactly", () => {
+  // Including "failed". A source that was already failed before it was
+  // superseded was failed for its own reason, and a restore that promotes it
+  // to "indexed" invents a state it never held. Caught in live verification:
+  // an abandoned ingest shell came back as "indexed" and silently looked like
+  // unextracted work waiting to be done.
+  for (const s of ["indexed", "extracted", "failed"] as const) {
+    assert.deepEqual(resolveRestoredSourceStatus(s), {
+      status: s,
+      warning: null,
+    });
+  }
+});
+
+test("resolveRestoredSourceStatus falls back to indexed, with a warning, when history is missing", () => {
+  for (const missing of [null, undefined, "", "nonsense"]) {
+    const r = resolveRestoredSourceStatus(missing as any);
+    assert.equal(r.status, "indexed");
+    assert.match(r.warning ?? "", /No lifecycle event records/);
+  }
 });
 
 test("a retire, restore, retire sequence resolves correctly at each step", () => {
