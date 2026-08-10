@@ -2,9 +2,7 @@
 /**
  * Smoke-test the hosted public MCP endpoint.
  */
-
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
 
 const url = process.env.CURATE_MIND_MCP_URL ?? "http://127.0.0.1:3333/mcp";
 const token = process.env.CURATE_MIND_MCP_TOKEN;

@@ -10,8 +10,7 @@
  * - cm_save_source_synthesis: Persist the Extract-stage analytical summary
  * - cm_update_source_status: Mark a source as extracted or failed
  */
-
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { api, asId, convexMutation, convexQuery } from "../lib/convex-client.js";
 
@@ -34,9 +33,9 @@ export function registerExtractionTools(server: McpServer): void {
         "Args:\n" +
         "  - sourceId (string): The source ID to extract\n\n" +
         "Returns: Source metadata and full text content.",
-      inputSchema: {
+      inputSchema: z.object({
         sourceId: z.string().describe("The source ID to extract"),
-      },
+      }),
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
@@ -114,11 +113,11 @@ export function registerExtractionTools(server: McpServer): void {
         "  - dataPointIds (string[]): Data point IDs to remove the tag from\n" +
         "  - tagSlug (string): Tag slug to remove\n\n" +
         "Returns: Array of {dataPointId, tagsRemoved, tagsSkipped} for each DP.",
-      inputSchema: {
+      inputSchema: z.object({
         dataPointIds: z.array(z.string()).min(1)
           .describe("Data point IDs to remove the tag from"),
         tagSlug: z.string().min(1).describe("Tag slug to remove"),
-      },
+      }),
       annotations: {
         readOnlyHint: false,
         destructiveHint: true,
@@ -187,7 +186,7 @@ export function registerExtractionTools(server: McpServer): void {
         "    - locationStart (string): Location reference\n" +
         "    - tagSlugs (string[]): Tag slugs to link\n\n" +
         "Returns: Array of created data point IDs.",
-      inputSchema: {
+      inputSchema: z.object({
         sourceId: z.string().describe("Source ID these data points come from"),
         dataPoints: z.array(
           z.object({
@@ -214,7 +213,7 @@ export function registerExtractionTools(server: McpServer): void {
             tagSlugs: z.array(z.string()).describe("Tag slugs to link"),
           })
         ).describe("Array of data points to save"),
-      },
+      }),
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
@@ -302,7 +301,7 @@ export function registerExtractionTools(server: McpServer): void {
         "    - extractionNote (string): Why this DP matters; connections to positions or open questions\n" +
         "    - relatedDataPoints (string[], optional): Related DP IDs within the same source\n\n" +
         "Returns: Array of {dataPointId, success: true} for each enriched DP.",
-      inputSchema: {
+      inputSchema: z.object({
         enrichments: z.array(
           z.object({
             dataPointId: z.string().describe("Data point ID to enrich"),
@@ -314,7 +313,7 @@ export function registerExtractionTools(server: McpServer): void {
               .describe("Related DP IDs within the same source (argument chains)"),
           })
         ).min(1).describe("Array of enrichment operations to apply"),
-      },
+      }),
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
@@ -377,7 +376,7 @@ export function registerExtractionTools(server: McpServer): void {
         "    - dataPointId (string): The data point to tag\n" +
         "    - tagSlugs (string[]): Tag slugs to add\n\n" +
         "Returns: Array of {dataPointId, tagsAdded, tagsSkipped} for each DP.",
-      inputSchema: {
+      inputSchema: z.object({
         updates: z.array(
           z.object({
             dataPointId: z.string().describe("Data point ID to tag"),
@@ -385,7 +384,7 @@ export function registerExtractionTools(server: McpServer): void {
               .describe("Tag slugs to add to this data point"),
           })
         ).min(1).describe("Array of tag update operations to apply"),
-      },
+      }),
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
@@ -448,11 +447,11 @@ export function registerExtractionTools(server: McpServer): void {
         "  - sourceId (string): The source to attach the synthesis to\n" +
         "  - sourceSynthesis (string): The analytical summary text\n\n" +
         "Returns: Confirmation.",
-      inputSchema: {
+      inputSchema: z.object({
         sourceId: z.string().describe("Source ID to attach synthesis to"),
         sourceSynthesis: z.string().min(1)
           .describe("2-3 paragraph analytical summary of the source"),
-      },
+      }),
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
@@ -502,11 +501,11 @@ export function registerExtractionTools(server: McpServer): void {
         "  - sourceId (string): The source to update\n" +
         "  - status (string): indexed, extracted, failed\n\n" +
         "Returns: Confirmation.",
-      inputSchema: {
+      inputSchema: z.object({
         sourceId: z.string().describe("Source ID to update"),
         status: z.enum(["indexed", "extracted", "failed"])
           .describe("New status"),
-      },
+      }),
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,

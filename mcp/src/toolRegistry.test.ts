@@ -1,5 +1,7 @@
 // Guard test: every tool registered on the stdio server must be listed in the
 // toolsets registry (ALL_TOOLS in toolsets.ts).
+import type { McpServer } from "@modelcontextprotocol/server";
+
 //
 // Why this exists: installToolsetFilter monkey-patches server.registerTool and
 // silently skips any name that is not in the active toolset. ALL_TOOLS is the
@@ -10,8 +12,6 @@
 // Run with: node --import tsx --test mcp/src/toolRegistry.test.ts
 import test from "node:test";
 import assert from "node:assert/strict";
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-
 import { registerIntakeTools } from "./tools/intake.js";
 import { registerExtractionTools } from "./tools/extraction.js";
 import { registerQueryTools } from "./tools/query.js";

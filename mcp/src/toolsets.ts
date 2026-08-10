@@ -1,4 +1,4 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/server";
 
 type ToolsetName = "daily" | "pipeline" | "admin" | "all";
 
@@ -171,27 +171,46 @@ export function getToolsetName(): ToolsetName {
   return "pipeline";
 }
 
-export function installToolsetFilter(server: McpServer): () => void {
+/**
+ * Wrap the server's registerTool so that (a) tools outside the active toolset
+ * are skipped, and (b) the tools that survive are registered in a deterministic
+ * order rather than in module-import order.
+ *
+ * Registrations are buffered rather than passed straight through, because
+ * tools/list returns tools in registration order. Buffering lets the returned
+ * report function sort by name and register once, so the tool list a client
+ * caches is stable no matter how the register* modules are reordered later.
+ * The returned function performs the real registration and must be called. It
+ * returns a one-line summary for the caller to log, rather than logging itself,
+ * because serveStdio may build more than one server instance per process.
+ */
+export function installToolsetFilter(server: McpServer): () => string {
   const toolsetName = getToolsetName();
-  if (toolsetName === "all") {
-    return () => console.error(`MCP toolset: all (${ALL_TOOLS.length} tools)`);
-  }
-
-  const allowedTools = TOOLSETS[toolsetName];
+  const allowedTools = toolsetName === "all" ? null : TOOLSETS[toolsetName];
   const originalRegisterTool = server.registerTool.bind(server) as any;
   const skippedTools: string[] = [];
+  const buffered: Array<{ name: string; args: unknown[] }> = [];
 
-  (server as any).registerTool = (name: string, ...args: any[]) => {
-    if (!allowedTools.has(name)) {
+  (server as any).registerTool = (name: string, ...args: unknown[]) => {
+    if (allowedTools && !allowedTools.has(name)) {
       skippedTools.push(name);
       return undefined;
     }
-    return originalRegisterTool(name, ...args);
+    buffered.push({ name, args });
+    return undefined;
   };
 
   return () => {
-    console.error(
-      `MCP toolset: ${toolsetName} (${allowedTools.size} tools, ${skippedTools.length} hidden)`
-    );
+    (server as any).registerTool = originalRegisterTool;
+
+    // Code point order, not localeCompare: the result must not depend on the
+    // machine's locale.
+    buffered.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+    for (const { name, args } of buffered) {
+      originalRegisterTool(name, ...args);
+    }
+
+    const exposed = allowedTools ? allowedTools.size : ALL_TOOLS.length;
+    return `MCP toolset: ${toolsetName} (${exposed} tools, ${skippedTools.length} hidden)`;
   };
 }

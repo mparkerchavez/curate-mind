@@ -4,14 +4,18 @@
  *
  * This entrypoint serves the invite-only public beta over Streamable HTTP.
  * It intentionally exposes only read-only public tools.
+ *
+ * Serving is stateless: there is no session map. Every request carries its own
+ * bearer token, the token is validated against Convex on every request, and a
+ * fresh server instance is built per request by the handler factory. Old
+ * protocol clients stay supported through the SDK default (`legacy:
+ * "stateless"`), which is why no `legacy` option is passed below.
  */
 
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { randomUUID } from "node:crypto";
 import { config as loadEnv } from "dotenv";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
+import { McpServer, createMcpHandler } from "@modelcontextprotocol/server";
+import { toNodeHandler } from "@modelcontextprotocol/node";
 
 import { api, convexQuery } from "./lib/convex-client.js";
 import {
@@ -25,23 +29,36 @@ import { registerPublicTools } from "./tools/public.js";
 loadEnv({ path: "../.env.local" });
 loadEnv({ path: ".env.local" });
 
-type TransportRecord = {
-  transport: StreamableHTTPServerTransport;
-  authContext: PublicAuthContext;
-};
-
-const transports = new Map<string, TransportRecord>();
 let isShuttingDown = false;
 
 function createPublicServer(): McpServer {
-  const server = new McpServer({
-    name: "curate-mind-public-mcp",
-    version: "1.0.0",
-  });
+  const server = new McpServer(
+    {
+      name: "curate-mind-public-mcp",
+      version: "1.0.0",
+    },
+    {
+      // Cache hints are only emitted on the 2026-07-28 revision. Old protocol
+      // responses are untouched. The tool list is stable for the life of a
+      // deployment, so a shared five-minute cache is safe.
+      cacheHints: {
+        "tools/list": { ttlMs: 5 * 60 * 1000, cacheScope: "public" },
+        "server/discover": { ttlMs: 5 * 60 * 1000, cacheScope: "public" },
+      },
+    }
+  );
 
   registerPublicTools(server);
   return server;
 }
+
+const mcpHandler = createMcpHandler(() => createPublicServer(), {
+  onerror: (error) => console.error("Hosted MCP handler error:", error),
+});
+
+const handleMcpNodeRequest = toNodeHandler(mcpHandler, {
+  onerror: (error) => console.error("Hosted MCP node adapter error:", error),
+});
 
 function getHeader(req: IncomingMessage, name: string): string | undefined {
   const value = req.headers[name.toLowerCase()];
@@ -103,7 +120,7 @@ function corsHeadersFor(req: IncomingMessage): Record<string, string> {
   return {
     "access-control-allow-origin": origin,
     "access-control-allow-headers":
-      "authorization, content-type, mcp-session-id, last-event-id",
+      "authorization, content-type, mcp-session-id, mcp-protocol-version, last-event-id",
     "access-control-allow-methods": "GET, POST, DELETE, OPTIONS",
   };
 }
@@ -144,106 +161,40 @@ async function validateAuthToken(token: string): Promise<PublicAuthContext | nul
   return result.valid ? authContext : null;
 }
 
+/**
+ * Resolve the caller from the Authorization header alone. Stateless serving
+ * means there is nothing else to fall back on: a request without a valid
+ * bearer token is unauthenticated, whatever it carried before.
+ */
 async function getRequestAuthContext(
-  req: IncomingMessage,
-  sessionId?: string
+  req: IncomingMessage
 ): Promise<PublicAuthContext | null> {
   const token = getBearerToken(req.headers.authorization);
-  if (token) return await validateAuthToken(token);
-
-  if (sessionId) {
-    return transports.get(sessionId)?.authContext ?? null;
-  }
-
-  return null;
+  if (!token) return null;
+  return await validateAuthToken(token);
 }
 
-async function handlePost(
+async function handleMcp(
   req: IncomingMessage,
   res: ServerResponse,
   corsHeaders: Record<string, string>
 ): Promise<void> {
-  const body = await parseJsonBody(req);
-  const sessionId = getHeader(req, "mcp-session-id");
-  const authContext = await getRequestAuthContext(req, sessionId);
-
+  const authContext = await getRequestAuthContext(req);
   if (!authContext) {
     writeJson(res, 401, jsonRpcError(-32001, "Unauthorized"), corsHeaders);
     return;
   }
 
-  let record: TransportRecord | undefined;
-  if (sessionId) {
-    record = transports.get(sessionId);
-    if (!record) {
-      writeJson(
-        res,
-        400,
-        jsonRpcError(-32000, "Bad Request: invalid MCP session ID"),
-        corsHeaders
-      );
-      return;
-    }
-  } else if (isInitializeRequest(body)) {
-    const transport = new StreamableHTTPServerTransport({
-      sessionIdGenerator: () => randomUUID(),
-      onsessioninitialized: (newSessionId) => {
-        transports.set(newSessionId, {
-          transport,
-          authContext,
-        });
-        console.error(`Public MCP session initialized: ${newSessionId}`);
-      },
-    });
+  // The body is read here rather than by the adapter so the 1 MB limit still
+  // applies, then handed to the adapter as a pre-parsed body.
+  const parsedBody = req.method === "POST" ? await parseJsonBody(req) : undefined;
 
-    transport.onclose = () => {
-      const sid = transport.sessionId;
-      if (sid) transports.delete(sid);
-    };
-
-    const server = createPublicServer();
-    await server.connect(transport);
-    record = { transport, authContext };
-  } else {
-    writeJson(
-      res,
-      400,
-      jsonRpcError(-32000, "Bad Request: missing MCP session ID"),
-      corsHeaders
-    );
-    return;
+  for (const [key, value] of Object.entries(corsHeaders)) {
+    res.setHeader(key, value);
   }
 
   await runWithPublicAuthContext(authContext, async () => {
-    await record!.transport.handleRequest(req, res, body);
-  });
-}
-
-async function handleGetOrDelete(
-  req: IncomingMessage,
-  res: ServerResponse,
-  corsHeaders: Record<string, string>
-): Promise<void> {
-  const sessionId = getHeader(req, "mcp-session-id");
-  if (!sessionId) {
-    writeText(res, 400, "Missing MCP session ID", corsHeaders);
-    return;
-  }
-
-  const record = transports.get(sessionId);
-  if (!record) {
-    writeText(res, 400, "Invalid MCP session ID", corsHeaders);
-    return;
-  }
-
-  const authContext = await getRequestAuthContext(req, sessionId);
-  if (!authContext) {
-    writeText(res, 401, "Unauthorized", corsHeaders);
-    return;
-  }
-
-  await runWithPublicAuthContext(authContext, async () => {
-    await record.transport.handleRequest(req, res);
+    await handleMcpNodeRequest(req, res, parsedBody);
   });
 }
 
@@ -263,7 +214,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
     writeJson(res, 200, {
       ok: true,
       server: "curate-mind-public-mcp",
-      activeSessions: transports.size,
+      stateless: true,
     }, corsHeaders);
     return;
   }
@@ -274,13 +225,8 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
   }
 
   try {
-    if (req.method === "POST") {
-      await handlePost(req, res, corsHeaders);
-      return;
-    }
-
-    if (req.method === "GET" || req.method === "DELETE") {
-      await handleGetOrDelete(req, res, corsHeaders);
+    if (req.method === "POST" || req.method === "GET" || req.method === "DELETE") {
+      await handleMcp(req, res, corsHeaders);
       return;
     }
 
@@ -299,13 +245,10 @@ async function shutdown(signal: NodeJS.Signals): Promise<void> {
   isShuttingDown = true;
   console.error(`Received ${signal}. Shutting down hosted Curate Mind MCP server...`);
 
-  for (const [sessionId, record] of transports) {
-    try {
-      await record.transport.close();
-    } catch (error) {
-      console.error(`Error closing session ${sessionId}:`, error);
-    }
-    transports.delete(sessionId);
+  try {
+    await mcpHandler.close();
+  } catch (error) {
+    console.error("Error closing hosted MCP handler:", error);
   }
 
   process.exit(0);

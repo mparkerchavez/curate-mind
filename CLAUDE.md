@@ -199,7 +199,7 @@ Two consequences worth knowing:
 ## Tech Stack
 
 - **Database:** Convex (new project, separate from CRIS)
-- **MCP Server:** Node.js + @modelcontextprotocol/sdk (stdio transport)
+- **MCP Server:** Node.js + @modelcontextprotocol/server version 2, implementing the MCP 2026-07-28 specification. Backward compatibility with older-protocol clients is left on (the SDK default), because Claude does not speak 2026-07-28 yet. The local curator server runs over stdio; the hosted public beta runs stateless over Streamable HTTP.
 - **Embeddings:** OpenAI text-embedding-3-small (1536 dimensions)
 - **URL Fetching / Transcripts:** Supadata (`@supadata/js`) for web scraping and YouTube transcripts.
 - **Frontend:** React + Vite, served at curatemind.io. Desktop-only (redirects mobile at &lt;1024px). See Web Frontend section below.

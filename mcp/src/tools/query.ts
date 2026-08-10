@@ -22,8 +22,7 @@
  * underlying Convex queries still return them (vector indexes require it) but
  * they are not useful to MCP consumers and blow out token budgets.
  */
-
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { api, asId, convexAction, convexQuery } from "../lib/convex-client.js";
 import {
@@ -587,7 +586,7 @@ export function registerQueryTools(server: McpServer): void {
         "  - carriedDataPointIds (string[], optional): Data point IDs to carry from prior turns\n\n" +
         "Use the composed answer as the primary response. Do not use cm_search for this — " +
         "cm_search is for exploration only.",
-      inputSchema: {
+      inputSchema: z.object({
         projectId: z.string().describe("Project ID to search"),
         question: z.string().min(1).describe("The analyst question to answer"),
         limit: z.number().int().min(1).max(20).optional()
@@ -597,7 +596,7 @@ export function registerQueryTools(server: McpServer): void {
         sourceId: z.string().optional().describe("Optional source scope"),
         carriedDataPointIds: z.array(z.string()).optional()
           .describe("Data point IDs to carry forward from earlier turns"),
-      },
+      }),
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
@@ -651,9 +650,9 @@ export function registerQueryTools(server: McpServer): void {
         "Args:\n" +
         "  - projectId (string): The project to list themes for\n\n" +
         "Returns: All themes with their titles, descriptions, and number of positions.",
-      inputSchema: {
+      inputSchema: z.object({
         projectId: z.string().describe("Project ID to list themes for"),
-      },
+      }),
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
@@ -700,10 +699,10 @@ export function registerQueryTools(server: McpServer): void {
         "Args:\n" +
         "  - themeId (string, optional): Filter to positions in this theme\n\n" +
         "Returns: Positions with current version summary.",
-      inputSchema: {
+      inputSchema: z.object({
         themeId: z.string().optional()
           .describe("Theme ID to filter by (omit for all positions)"),
-      },
+      }),
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
@@ -757,9 +756,9 @@ export function registerQueryTools(server: McpServer): void {
         "Args:\n" +
         "  - positionId (string): The position to get detail for\n\n" +
         "Returns: Position with all linked evidence.",
-      inputSchema: {
+      inputSchema: z.object({
         positionId: z.string().describe("The position ID"),
-      },
+      }),
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
@@ -817,9 +816,9 @@ export function registerQueryTools(server: McpServer): void {
         "  - dataPointId (string): The data point ID\n\n" +
         "Returns: Data point with effective claim text, effective anchor quote, " +
         "source info, tags, and correctionStatus.",
-      inputSchema: {
+      inputSchema: z.object({
         dataPointId: z.string().describe("The data point ID"),
-      },
+      }),
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
@@ -878,9 +877,9 @@ export function registerQueryTools(server: McpServer): void {
         "Returns: Array of corrections rows with _id, projectId, targetType, targetId, " +
         "correctionType, previousValue, newValue, reason, correctedAt, correctedBy, " +
         "and pairedTargetId when relevant.",
-      inputSchema: {
+      inputSchema: z.object({
         dataPointId: z.string().describe("The data point ID"),
-      },
+      }),
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
@@ -931,9 +930,9 @@ export function registerQueryTools(server: McpServer): void {
         "  - sourceId (string): The source ID\n\n" +
         "Returns: Array of corrections rows with _id, projectId, targetType, targetId, " +
         "correctionType, previousValue, newValue, reason, correctedAt, and correctedBy.",
-      inputSchema: {
+      inputSchema: z.object({
         sourceId: z.string().describe("The source ID"),
-      },
+      }),
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
@@ -981,9 +980,9 @@ export function registerQueryTools(server: McpServer): void {
         "Args:\n" +
         "  - sourceId (string): The source ID\n\n" +
         "Returns: Source metadata without full text.",
-      inputSchema: {
+      inputSchema: z.object({
         sourceId: z.string().describe("The source ID"),
-      },
+      }),
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
@@ -1037,9 +1036,9 @@ export function registerQueryTools(server: McpServer): void {
         "Args:\n" +
         "  - sourceId (string): The source ID\n\n" +
         "Returns: Full source text and metadata.",
-      inputSchema: {
+      inputSchema: z.object({
         sourceId: z.string().describe("The source ID"),
-      },
+      }),
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
@@ -1102,13 +1101,13 @@ export function registerQueryTools(server: McpServer): void {
         "  - limit (number, optional): Max results per entity type (default 5)\n\n" +
         "Returns: Matching results from all entity types, ranked by relevance. " +
         "Embedding vectors are stripped from the response to keep it within token caps.",
-      inputSchema: {
+      inputSchema: z.object({
         queryText: z.string().min(1).describe("What to search for"),
         projectId: z.string().optional()
           .describe("Project ID to scope the search to (omit to search all projects)"),
         limit: z.number().int().min(1).max(20).optional()
           .describe("Max results per entity type (default 5)"),
-      },
+      }),
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
@@ -1160,7 +1159,7 @@ export function registerQueryTools(server: McpServer): void {
         "  - category (string, optional): Filter tags by category\n\n" +
         "Returns: Page object with items sorted by dataPointCount descending, " +
         "plus total, offset, limit, and hasMore.",
-      inputSchema: {
+      inputSchema: z.object({
         projectId: z.string().describe("Project ID to scope tag counts"),
         limit: z.number().int().min(1).max(200).optional()
           .describe("Page size (default 50, max 200)"),
@@ -1168,7 +1167,7 @@ export function registerQueryTools(server: McpServer): void {
           .describe("Zero-based page offset (default 0)"),
         category: z.string().optional()
           .describe("Optional tag category filter"),
-      },
+      }),
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
@@ -1226,9 +1225,9 @@ export function registerQueryTools(server: McpServer): void {
         "Args:\n" +
         "  - positionId (string): The position ID\n\n" +
         "Returns: All versions with diffs and change summaries.",
-      inputSchema: {
+      inputSchema: z.object({
         positionId: z.string().describe("The position ID"),
-      },
+      }),
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
@@ -1282,11 +1281,11 @@ export function registerQueryTools(server: McpServer): void {
         "Args:\n" +
         "  - status (string, optional): Filter by status (indexed, extracted, failed). Omit for all.\n\n" +
         "Returns: Source metadata (without full text).",
-      inputSchema: {
+      inputSchema: z.object({
         projectId: z.string().describe("Project ID to list sources for"),
         status: z.enum(["indexed", "extracted", "failed"]).optional()
           .describe("Filter by pipeline status (omit for all)"),
-      },
+      }),
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
@@ -1351,11 +1350,11 @@ export function registerQueryTools(server: McpServer): void {
         "metadata, openQuestions, surpriseSignals, and positionHeadlines. Full " +
         "returns the complete lens including currentPositions.\n\n" +
         "Returns: The current Research Lens or null if none exists yet.",
-      inputSchema: {
+      inputSchema: z.object({
         projectId: z.string().describe("Project ID"),
         mode: z.enum(["summary", "full"]).optional()
           .describe("Response mode. Default summary keeps payloads small; full returns complete position bodies."),
-      },
+      }),
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
@@ -1438,7 +1437,7 @@ export function registerQueryTools(server: McpServer): void {
         "  - limit (number, optional): Page size, default 100, max 200\n" +
         "  - offset (number, optional): Zero-based page offset, default 0\n\n" +
         "Returns: Page object with items, total, offset, limit, and hasMore.",
-      inputSchema: {
+      inputSchema: z.object({
         projectId: z.string().describe("Project ID"),
         tagSlug: z.string().describe("Tag slug to filter by (e.g., 'governance', 'specification-bottleneck')"),
         includeSuperseded: z.boolean().optional()
@@ -1447,7 +1446,7 @@ export function registerQueryTools(server: McpServer): void {
           .describe("Page size (default 100, max 200)"),
         offset: z.number().int().min(0).optional()
           .describe("Zero-based page offset (default 0)"),
-      },
+      }),
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
@@ -1579,14 +1578,14 @@ export function registerQueryTools(server: McpServer): void {
         "  - offset (number, optional): Zero-based offset over the input IDs, default 0\n\n" +
         "Returns: Page object with items, total, offset, limit, hasMore, found, and missing. " +
         "If a page would exceed the safe response size, fewer items are returned with a note.",
-      inputSchema: {
+      inputSchema: z.object({
         dataPointIds: z.array(z.string()).min(1)
           .describe("Array of data point IDs to fetch"),
         limit: z.number().int().min(1).max(50).optional()
           .describe("Page size over input IDs (default 25, max 50)"),
         offset: z.number().int().min(0).optional()
           .describe("Zero-based offset over input IDs (default 0)"),
-      },
+      }),
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
@@ -1676,7 +1675,7 @@ export function registerQueryTools(server: McpServer): void {
         "  - offset (number, optional): Zero-based page offset, default 0\n" +
         "  - fields (\"lean\" | \"full\", optional): Lean is default and safest for large sources\n\n" +
         "Returns: Page object with items, total, offset, limit, hasMore, and fields.",
-      inputSchema: {
+      inputSchema: z.object({
         sourceId: z.string().describe("The source ID"),
         limit: z.number().int().min(1).max(200).optional()
           .describe("Page size (default 100, max 200)"),
@@ -1684,7 +1683,7 @@ export function registerQueryTools(server: McpServer): void {
           .describe("Zero-based page offset (default 0)"),
         fields: z.enum(["lean", "full"]).optional()
           .describe("Response fields. Lean is default; full includes anchor and extraction metadata."),
-      },
+      }),
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
@@ -1780,9 +1779,9 @@ export function registerQueryTools(server: McpServer): void {
         "(superseded) position versions are not scanned.\n\n" +
         "Args:\n" +
         "  - dataPointId (string): The data point ID",
-      inputSchema: {
+      inputSchema: z.object({
         dataPointId: z.string().describe("The data point ID"),
-      },
+      }),
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
@@ -1879,13 +1878,13 @@ export function registerQueryTools(server: McpServer): void {
         "  - sourceId (string): The source ID\n" +
         "  - limit (number, optional): data point page size, default 100, max 200\n" +
         "  - offset (number, optional): zero-based data point page offset, default 0",
-      inputSchema: {
+      inputSchema: z.object({
         sourceId: z.string().describe("The source ID"),
         limit: z.number().int().min(1).max(200).optional()
           .describe("Data point page size (default 100, max 200)"),
         offset: z.number().int().min(0).optional()
           .describe("Zero-based data point page offset (default 0)"),
-      },
+      }),
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,

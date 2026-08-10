@@ -8,8 +8,7 @@
  * - cm_add_curator_observation: Create a curator observation
  * - cm_add_mental_model: Create a mental model
  */
-
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { createHash } from "crypto";
 import { execFile } from "child_process";
@@ -163,7 +162,7 @@ export function registerIntakeTools(server: McpServer): void {
         "Pass this when the link was captured in an earlier week than the one you are fetching in, so the markdown " +
         "lands in the capture week's folder instead of today's. Omit to use today (the common same-week case).\n\n" +
         "Returns: The local file path where the markdown was saved.",
-      inputSchema: {
+      inputSchema: z.object({
         url: z.string().url().describe("The public URL to fetch"),
         title: z.string().min(1).describe("Source title (used for filename)"),
         capturedAt: z.string().optional()
@@ -177,7 +176,7 @@ export function registerIntakeTools(server: McpServer): void {
           "article", "report", "podcast", "video",
           "whitepaper", "book", "newsletter", "social", "other",
         ]).optional().default("article").describe("Type of source (default: article)"),
-      },
+      }),
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
@@ -340,14 +339,14 @@ export function registerIntakeTools(server: McpServer): void {
         "Pass this when the video was captured in an earlier week than the one you are fetching the transcript in, so the " +
         "markdown lands in the capture week's folder instead of today's. Omit to use today (the common same-week case).\n\n" +
         "Returns: The local file path where the markdown transcript was saved.",
-      inputSchema: {
+      inputSchema: z.object({
         url: z.string().url().describe("YouTube video URL"),
         title: z.string().optional().describe("Override title (uses video title if omitted)"),
         capturedAt: z.string().optional()
           .describe(
             "Capture date in YYYY-MM-DD format. Determines the week folder the transcript markdown is written to, the filename date, and the capture metadata line. Pass when the video was captured before the week you are fetching in, so the markdown lands in the capture week, not today's. Omit to default to today."
           ),
-      },
+      }),
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
@@ -500,7 +499,7 @@ export function registerIntakeTools(server: McpServer): void {
         "Pass this when the PDF was downloaded in an earlier week than the one you are extracting in, so the wrapper " +
         "lands in the capture week's folder instead of today's. Omit to use today (the common same-week case).\n\n" +
         "Returns: The local markdown file path plus next-step guidance.",
-      inputSchema: {
+      inputSchema: z.object({
         filePath: z.string().min(1).describe("Absolute path to the local PDF file"),
         title: z.string().optional().describe("Override title for the saved markdown header"),
         method: z.enum(["auto", "liteparse", "pypdf", "docling", "docling_ocr"]).optional()
@@ -511,7 +510,7 @@ export function registerIntakeTools(server: McpServer): void {
           .describe(
             "Capture (download) date in YYYY-MM-DD format. Determines the week folder the markdown wrapper is written to, and the Captured metadata line. The original PDF is referenced in place, not copied. Pass when the PDF sat around before extraction so the wrapper lands in the capture week, not today's. Omit to default to today."
           ),
-      },
+      }),
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
@@ -785,7 +784,7 @@ export function registerIntakeTools(server: McpServer): void {
         "Derived kind: <commentary|summary|presentation|translation> to mark " +
         "this source as derivative of another. Both must be present together or both absent.\n\n" +
         "Returns: The new source ID, or a duplicate warning if content hash matches.",
-      inputSchema: {
+      inputSchema: z.object({
         projectId: z.string().describe("Project ID this source belongs to"),
         reviewed: z.boolean()
           .describe("Must be true only after the curator has explicitly reviewed and approved this content"),
@@ -811,7 +810,7 @@ export function registerIntakeTools(server: McpServer): void {
         canonicalUrl: z.string().optional().describe("URL to original source"),
         publishedDate: z.string().optional().describe("Publication date"),
         intakeNote: z.string().optional().describe("Why this source was added"),
-      },
+      }),
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
@@ -1121,7 +1120,7 @@ export function registerIntakeTools(server: McpServer): void {
         "  - repairNote (string): Short note explaining why this update is needed\n\n" +
         "derivedFrom and derivedFromKind must be set together. To clear the relationship, pass both as null.\n\n" +
         "Returns: The sourceId, previous values, and the fields that were patched.",
-      inputSchema: {
+      inputSchema: z.object({
         sourceId: z.string().describe("Source ID to update"),
         authorName: z.string().optional().describe("Author or creator"),
         publisherName: z.string().optional().describe("Publication or platform"),
@@ -1143,7 +1142,7 @@ export function registerIntakeTools(server: McpServer): void {
           .describe("Derivative relationship kind, or null to clear with derivedFrom"),
         repairNote: z.string().min(1)
           .describe("Short note explaining why this update is needed (audit trail)"),
-      },
+      }),
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
@@ -1227,7 +1226,7 @@ export function registerIntakeTools(server: McpServer): void {
         "  - referencedPositions (string[], optional): Array of Research Position IDs this relates to\n" +
         "  - tagSlugs (string[], optional): Tag slugs to link\n\n" +
         "Returns: The new observation ID.",
-      inputSchema: {
+      inputSchema: z.object({
         observationText: z.string().min(1).describe("The insight or connection"),
         projectId: z.string().optional()
           .describe("Project this observation belongs to (inferred from references when omitted)"),
@@ -1237,7 +1236,7 @@ export function registerIntakeTools(server: McpServer): void {
           .describe("Research Position IDs this relates to"),
         tagSlugs: z.array(z.string()).optional()
           .describe("Tag slugs to link to this observation"),
-      },
+      }),
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
@@ -1303,7 +1302,7 @@ export function registerIntakeTools(server: McpServer): void {
         "  - sourceDataPointId (string, optional): Specific data point it was extracted from\n" +
         "  - tagSlugs (string[], optional): Tag slugs to link\n\n" +
         "Returns: The new mental model ID.",
-      inputSchema: {
+      inputSchema: z.object({
         modelType: z.enum(["framework", "analogy", "term", "metaphor", "principle"])
           .describe("Type of mental model"),
         title: z.string().min(1).describe("Name of the mental model"),
@@ -1313,7 +1312,7 @@ export function registerIntakeTools(server: McpServer): void {
           .describe("Data Point ID it was extracted from"),
         tagSlugs: z.array(z.string()).optional()
           .describe("Tag slugs to link"),
-      },
+      }),
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,

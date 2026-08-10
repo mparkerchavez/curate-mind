@@ -5,8 +5,7 @@
  * They return research context for the user's own Claude/Codex session to
  * synthesize, so Curate Mind does not pay for answer-generation model calls.
  */
-
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { api, asId, convexAction, convexMutation } from "../lib/convex-client.js";
 import { getPublicAuthContext } from "../lib/public-auth-context.js";
@@ -44,7 +43,7 @@ export function registerPublicTools(server: McpServer): void {
         "After calling this tool, synthesize the answer in your own session. Cite evidence " +
         "labels like [E1] for source-backed claims and include original source links when " +
         "verification matters. If the returned evidence is thin or mixed, say so.",
-      inputSchema: {
+      inputSchema: z.object({
         question: z.string().min(1).describe("The user's research question."),
         limit: z.number().int().min(1).max(20).optional()
           .describe("Maximum evidence items to return. Default 10, max 20."),
@@ -54,7 +53,7 @@ export function registerPublicTools(server: McpServer): void {
           .describe("Optional Curate Mind position ID to scope retrieval."),
         sourceId: z.string().optional()
           .describe("Optional Curate Mind source ID to scope retrieval."),
-      },
+      }),
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,

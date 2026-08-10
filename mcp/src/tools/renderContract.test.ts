@@ -1,5 +1,7 @@
 // Guard test: the cm_ask render contract must actually reach the client, both
 // as a markdown block and as the renderContract field in the machine-readable
+import type { McpServer } from "@modelcontextprotocol/server";
+
 // pack, and the tool description must state it.
 //
 // Why this exists: the contract is the only thing that makes a cm_ask answer
@@ -10,8 +12,6 @@
 // Run with: node --import tsx --test mcp/src/tools/renderContract.test.ts
 import test from "node:test";
 import assert from "node:assert/strict";
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-
 import {
   CM_ASK_RENDER_CONTRACT,
   formatAnalystPackMarkdown,

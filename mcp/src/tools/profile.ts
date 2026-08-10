@@ -15,8 +15,7 @@
  *   - cm_validate_profile
  *   - cm_reset_profile_to_defaults
  */
-
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import {
   api,
@@ -150,9 +149,9 @@ export function registerProfileTools(server: McpServer): void {
         "Args:\n" +
         "  - projectId (string): Project to inspect\n\n" +
         "Returns: The complete project record as JSON.",
-      inputSchema: {
+      inputSchema: z.object({
         projectId: z.string().describe("Project to inspect"),
-      },
+      }),
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
@@ -196,7 +195,7 @@ export function registerProfileTools(server: McpServer): void {
         "  - confidenceRubricNotes, tagStrategyNotes\n" +
         "  - profileInitialized (boolean): mark setup complete\n\n" +
         "Returns: profileVersion and the list of fields that were updated.",
-      inputSchema: {
+      inputSchema: z.object({
         projectId: z.string().describe("Project to update"),
         name: z.string().optional(),
         description: z.string().optional(),
@@ -215,7 +214,7 @@ export function registerProfileTools(server: McpServer): void {
         confidenceRubricNotes: z.string().optional(),
         tagStrategyNotes: z.string().optional(),
         profileInitialized: z.boolean().optional(),
-      },
+      }),
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
@@ -254,7 +253,7 @@ export function registerProfileTools(server: McpServer): void {
         "Returns: voice, structurePreference, bannedPunctuation, bannedPhrases, " +
         "alwaysIncludeCounterEvidence, evidenceThinPolicy, hedgingStyle, " +
         "language, customStyleNotes, preferencesInitialized, updatedAt.",
-      inputSchema: {},
+      inputSchema: z.object({}),
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
@@ -294,7 +293,7 @@ export function registerProfileTools(server: McpServer): void {
         "  - customStyleNotes (string)\n" +
         "  - preferencesInitialized (boolean): mark setup complete\n\n" +
         "Returns: the row _id, updatedAt, and the list of fields that were updated.",
-      inputSchema: {
+      inputSchema: z.object({
         voice: z.enum(VOICE_VALUES).optional(),
         structurePreference: z.enum(STRUCTURE_VALUES).optional(),
         bannedPunctuation: z.array(z.string()).optional(),
@@ -305,7 +304,7 @@ export function registerProfileTools(server: McpServer): void {
         language: z.string().optional(),
         customStyleNotes: z.string().optional(),
         preferencesInitialized: z.boolean().optional(),
-      },
+      }),
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
@@ -342,11 +341,11 @@ export function registerProfileTools(server: McpServer): void {
         "  - projectId (string): Project to preview\n" +
         "  - mode: grounded | analyst (default: analyst)\n\n" +
         "Returns: { mode, prompt, lockedBlocks }.",
-      inputSchema: {
+      inputSchema: z.object({
         projectId: z.string().describe("Project to preview"),
         mode: z.enum(["grounded", "analyst"]).optional()
           .describe("Which chat surface to render (default: analyst)"),
-      },
+      }),
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
@@ -382,9 +381,9 @@ export function registerProfileTools(server: McpServer): void {
         "Args:\n" +
         "  - projectId (string): Project to validate\n\n" +
         "Returns: { ok, project: { errors, warnings }, preferences: { errors, warnings } }.",
-      inputSchema: {
+      inputSchema: z.object({
         projectId: z.string().describe("Project to validate"),
-      },
+      }),
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
@@ -434,11 +433,11 @@ export function registerProfileTools(server: McpServer): void {
         "  - scope: project | user | both\n" +
         "  - projectId (string): required when scope is project or both\n\n" +
         "Returns: a summary of what was cleared.",
-      inputSchema: {
+      inputSchema: z.object({
         scope: z.enum(["project", "user", "both"]),
         projectId: z.string().optional()
           .describe("Required when scope is project or both"),
-      },
+      }),
       annotations: {
         readOnlyHint: false,
         destructiveHint: true,

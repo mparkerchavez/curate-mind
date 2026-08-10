@@ -10,8 +10,7 @@
  * - cm_retire_tag: Retire a tag slug and redirect it to a canonical tag
  * - cm_generate_embeddings: Generate embeddings for pending entities
  */
-
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { api, asId, convexMutation, convexQuery } from "../lib/convex-client.js";
 import { generateEmbedding } from "../lib/openai-client.js";
@@ -76,7 +75,7 @@ export function registerSynthesisTools(server: McpServer): void {
         "List all projects in Curate Mind. Projects are top-level containers " +
         "that scope sources, themes, positions, and tags.\n\n" +
         "Returns: All projects with their names and descriptions.",
-      inputSchema: {},
+      inputSchema: z.object({}),
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
@@ -119,10 +118,10 @@ export function registerSynthesisTools(server: McpServer): void {
         "  - name (string): Project name (e.g., 'AI & Emerging Technology')\n" +
         "  - description (string, optional): Brief description of the project's focus\n\n" +
         "Returns: The new project ID.",
-      inputSchema: {
+      inputSchema: z.object({
         name: z.string().min(1).describe("Project name"),
         description: z.string().optional().describe("Brief description of focus"),
-      },
+      }),
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
@@ -171,11 +170,11 @@ export function registerSynthesisTools(server: McpServer): void {
         "  - title (string): Theme name (e.g., 'Enterprise AI Adoption Constraints')\n" +
         "  - description (string, optional): Brief description of the theme's scope\n\n" +
         "Returns: The new theme ID.",
-      inputSchema: {
+      inputSchema: z.object({
         projectId: z.string().describe("Project ID this theme belongs to"),
         title: z.string().min(1).describe("Theme name"),
         description: z.string().optional().describe("Brief description of scope"),
-      },
+      }),
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
@@ -233,7 +232,7 @@ export function registerSynthesisTools(server: McpServer): void {
         "  - mentalModels (string[], optional): Array of Mental Model IDs\n" +
         "  - openQuestions (string[], optional): What would change this position\n\n" +
         "Returns: Position ID and version ID.",
-      inputSchema: {
+      inputSchema: z.object({
         themeId: z.string().describe("Parent Research Theme ID"),
         title: z.string().min(1).describe("Position title"),
         currentStance: z.string().min(1).describe("The curator's thesis statement"),
@@ -251,7 +250,7 @@ export function registerSynthesisTools(server: McpServer): void {
           .describe("Mental Model IDs"),
         openQuestions: z.array(z.string()).optional()
           .describe("What would change this position"),
-      },
+      }),
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
@@ -335,7 +334,7 @@ export function registerSynthesisTools(server: McpServer): void {
         "  - mentalModels (string[], optional): Updated mental models\n" +
         "  - openQuestions (string[], optional): Updated open questions\n\n" +
         "Returns: New version ID and version number.",
-      inputSchema: {
+      inputSchema: z.object({
         positionId: z.string().describe("The position to update"),
         currentStance: z.string().min(1).describe("Updated thesis statement"),
         confidenceLevel: z.enum(["emerging", "active", "established"])
@@ -354,7 +353,7 @@ export function registerSynthesisTools(server: McpServer): void {
           .describe("Updated Mental Model IDs"),
         openQuestions: z.array(z.string()).optional()
           .describe("Updated open questions"),
-      },
+      }),
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
@@ -426,11 +425,11 @@ export function registerSynthesisTools(server: McpServer): void {
         "Args:\n" +
         "  - triggeredBy (string): weekly-synthesis, exception-signal, manual\n\n" +
         "Returns: The new lens ID and summary of what it contains.",
-      inputSchema: {
+      inputSchema: z.object({
         projectId: z.string().describe("Project ID to generate lens for"),
         triggeredBy: z.enum(["weekly-synthesis", "exception-signal", "manual"])
           .describe("What triggered this lens regeneration"),
-      },
+      }),
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
@@ -535,12 +534,12 @@ export function registerSynthesisTools(server: McpServer): void {
         "  - slug (string): URL-safe identifier (e.g., 'trust-deficit')\n" +
         "  - category (string, optional): Grouping (topic, method, sector, etc.)\n\n" +
         "Returns: Tag ID and whether it was newly created.",
-      inputSchema: {
+      inputSchema: z.object({
         projectId: z.string().describe("Project ID this tag belongs to"),
         name: z.string().min(1).describe("Display name"),
         slug: z.string().min(1).describe("URL-safe identifier"),
         category: z.string().optional().describe("Optional grouping category"),
-      },
+      }),
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
@@ -602,12 +601,12 @@ export function registerSynthesisTools(server: McpServer): void {
         "  - toSlug (string): Canonical replacement slug\n" +
         "  - reason (string, optional): Human-readable reason\n\n" +
         "Returns: Retirement and redirect details.",
-      inputSchema: {
+      inputSchema: z.object({
         projectId: z.string().describe("Project ID"),
         fromSlug: z.string().min(1).describe("Tag slug to retire"),
         toSlug: z.string().min(1).describe("Canonical replacement slug"),
         reason: z.string().optional().describe("Optional retirement reason"),
-      },
+      }),
       annotations: {
         readOnlyHint: false,
         destructiveHint: true,
@@ -668,9 +667,9 @@ export function registerSynthesisTools(server: McpServer): void {
         "Returns: supportingEvidence, counterEvidence, curatorObservations, " +
         "mentalModels, openQuestions (all as ID arrays), plus confidenceLevel, " +
         "status, versionNumber, and currentVersionId.",
-      inputSchema: {
+      inputSchema: z.object({
         positionId: z.string().describe("The position to inspect"),
-      },
+      }),
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
@@ -733,7 +732,7 @@ export function registerSynthesisTools(server: McpServer): void {
         "(format: '+3S, +1C — [brief description]')\n\n" +
         "Returns: New version ID, version number, and count of IDs added per array. " +
         "Throws if the position is retired.",
-      inputSchema: {
+      inputSchema: z.object({
         positionId: z.string().describe("The position to update"),
         addSupportingEvidence: z.array(z.string()).optional()
           .describe("Data Point IDs to add as supporting evidence"),
@@ -745,7 +744,7 @@ export function registerSynthesisTools(server: McpServer): void {
           .describe("Mental Model IDs to add"),
         changeSummary: z.string().min(1)
           .describe("Why this version was created (e.g. '+3S, +1C — new T2 sources')"),
-      },
+      }),
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
@@ -828,7 +827,7 @@ export function registerSynthesisTools(server: McpServer): void {
         "      - changeSummary (string, required)\n\n" +
         "Returns: Array of { positionId, newVersionId, versionNumber } for each " +
         "updated position.",
-      inputSchema: {
+      inputSchema: z.object({
         updates: z.array(
           z.object({
             positionId: z.string().describe("Position to update"),
@@ -844,7 +843,7 @@ export function registerSynthesisTools(server: McpServer): void {
               .describe("Why this version was created"),
           })
         ).max(20).describe("Array of position updates (max 20)"),
-      },
+      }),
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
@@ -930,13 +929,13 @@ export function registerSynthesisTools(server: McpServer): void {
         "  - reason (string): Curator explanation, at least 10 characters\n\n" +
         "Returns: New version ID and number, removed vs notFound ids, remaining " +
         "counts, a leftWithoutEvidence flag, and warnings.",
-      inputSchema: {
+      inputSchema: z.object({
         positionId: z.string().describe("The position to update"),
         dataPointIds: z.array(z.string()).min(1)
           .describe("Data Point IDs to remove from evidence"),
         reason: z.string().min(10)
           .describe("Required curator explanation for the unlink"),
-      },
+      }),
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
@@ -1000,13 +999,13 @@ export function registerSynthesisTools(server: McpServer): void {
         "  - newDataPointId (string): Data Point ID to add in its place\n" +
         "  - reason (string): Curator explanation, at least 10 characters\n\n" +
         "Returns: New version ID and number, the array edited, and warnings.",
-      inputSchema: {
+      inputSchema: z.object({
         positionId: z.string().describe("The position to update"),
         oldDataPointId: z.string().describe("Data Point ID to remove"),
         newDataPointId: z.string().describe("Data Point ID to add in its place"),
         reason: z.string().min(10)
           .describe("Required curator explanation for the replacement"),
-      },
+      }),
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
@@ -1068,7 +1067,7 @@ export function registerSynthesisTools(server: McpServer): void {
         "  - pairedNewAnchorText (string): Required for anchor_swap\n" +
         "  - reason (string): Required curator explanation, at least 10 characters\n\n" +
         "Returns: Correction ID(s), previous anchor(s), new anchor(s), and warnings.",
-      inputSchema: {
+      inputSchema: z.object({
         dataPointId: z.string().describe("Data point ID to correct"),
         correctionType: z.enum([
           "anchor_text",
@@ -1084,7 +1083,7 @@ export function registerSynthesisTools(server: McpServer): void {
           .describe("For anchor_swap, the corrected anchor for the paired data point"),
         reason: z.string().min(10)
           .describe("Required curator explanation for this anchor correction"),
-      },
+      }),
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
@@ -1156,7 +1155,7 @@ export function registerSynthesisTools(server: McpServer): void {
         "  - newValue (string): Corrected value (for source_tier, pass \"1\", \"2\", or \"3\")\n" +
         "  - reason (string): Required curator explanation, at least 10 characters\n\n" +
         "Returns: target, correctionId, previousValue, newValue, and fieldUpdated.",
-      inputSchema: {
+      inputSchema: z.object({
         targetType: z.enum(["source", "dataPoint"]),
         targetId: z.string().describe("Source or data point ID to correct"),
         correctionType: z.enum([
@@ -1170,7 +1169,7 @@ export function registerSynthesisTools(server: McpServer): void {
         newValue: z.string().min(1).describe("Corrected metadata or speaker attribution value"),
         reason: z.string().min(10)
           .describe("Required curator explanation for this correction"),
-      },
+      }),
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
@@ -1231,12 +1230,12 @@ export function registerSynthesisTools(server: McpServer): void {
         "  - correctedClaimText (string): The corrected claim text\n" +
         "  - reason (string): Required curator explanation, at least 10 characters\n\n" +
         "Returns: dataPointId, correctionId, previousValue, newValue, fieldUpdated, and embeddingStatus.",
-      inputSchema: {
+      inputSchema: z.object({
         dataPointId: z.string().describe("Data point ID to correct"),
         correctedClaimText: z.string().min(1).describe("The corrected claim text"),
         reason: z.string().min(10)
           .describe("Required curator explanation for this claim correction"),
-      },
+      }),
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
@@ -1302,13 +1301,13 @@ export function registerSynthesisTools(server: McpServer): void {
         "  - reason (string): Required curator explanation, at least 10 characters\n\n" +
         "Returns: dataPointId, outcome ('applied' or 'noop'), previousStatus, status, " +
         "supersededBy, supersededAt, reason, lifecycleEventId, warnings.",
-      inputSchema: {
+      inputSchema: z.object({
         dataPointId: z.string().describe("Data point ID to retire or replace"),
         replacementDataPointId: z.string().optional()
           .describe("Replacement data point ID; omit to retire with no replacement"),
         reason: z.string().min(10)
           .describe("Required curator explanation for this supersede/retire"),
-      },
+      }),
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
@@ -1374,7 +1373,7 @@ export function registerSynthesisTools(server: McpServer): void {
         "  - reason (string, optional): shared explanation used for any item without its own; " +
         "at least 10 characters\n\n" +
         "Returns: total, applied, noop, warnings, and results[] carrying each item's outcome.",
-      inputSchema: {
+      inputSchema: z.object({
         items: z
           .array(
             z.object({
@@ -1390,7 +1389,7 @@ export function registerSynthesisTools(server: McpServer): void {
           .describe("Data points to retire or replace, at most 200"),
         reason: z.string().optional()
           .describe("Shared explanation for items without their own, at least 10 characters"),
-      },
+      }),
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
@@ -1453,7 +1452,7 @@ export function registerSynthesisTools(server: McpServer): void {
         "  - items (array): up to 200 objects of { dataPointId, reason? }\n" +
         "  - reason (string, optional): shared explanation, at least 10 characters\n\n" +
         "Returns: total, applied, noop, warnings, and results[] carrying each item's outcome.",
-      inputSchema: {
+      inputSchema: z.object({
         items: z
           .array(
             z.object({
@@ -1467,7 +1466,7 @@ export function registerSynthesisTools(server: McpServer): void {
           .describe("Data points to restore, at most 200"),
         reason: z.string().optional()
           .describe("Shared explanation for items without their own, at least 10 characters"),
-      },
+      }),
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
@@ -1531,11 +1530,11 @@ export function registerSynthesisTools(server: McpServer): void {
         "  - reason (string): Required curator explanation, at least 10 characters\n\n" +
         "Returns: dataPointId, outcome ('applied' or 'noop'), previousStatus, status, " +
         "supersededBy, supersededAt, reason, lifecycleEventId, warnings.",
-      inputSchema: {
+      inputSchema: z.object({
         dataPointId: z.string().describe("Data point ID to restore to active"),
         reason: z.string().min(10)
           .describe("Required curator explanation for this restore"),
-      },
+      }),
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
@@ -1585,9 +1584,9 @@ export function registerSynthesisTools(server: McpServer): void {
         "  - dataPointId (string): The data point\n\n" +
         "Returns: an array of events with action, previousStatus, newStatus, " +
         "previousReplacementId, newReplacementId, reason, recordedAt, recordedBy.",
-      inputSchema: {
+      inputSchema: z.object({
         dataPointId: z.string().describe("Data point ID to read history for"),
-      },
+      }),
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
@@ -1648,11 +1647,11 @@ export function registerSynthesisTools(server: McpServer): void {
         "  - reason (string): Required curator explanation, at least 10 characters\n\n" +
         "Returns: sourceId, outcome, previousStatus, status, restoredFrom, lifecycleEventId, " +
         "dataPointCount, liveDataPointCount, warnings.",
-      inputSchema: {
+      inputSchema: z.object({
         sourceId: z.string().describe("The superseded source ID to restore"),
         reason: z.string().min(10)
           .describe("Required curator explanation for this restore"),
-      },
+      }),
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
@@ -1699,9 +1698,9 @@ export function registerSynthesisTools(server: McpServer): void {
         "  - sourceId (string): The source\n\n" +
         "Returns: an array of events with action, previousStatus, newStatus, " +
         "previousReplacementId, newReplacementId, reason, recordedAt, recordedBy.",
-      inputSchema: {
+      inputSchema: z.object({
         sourceId: z.string().describe("Source ID to read lifecycle history for"),
-      },
+      }),
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
@@ -1768,12 +1767,12 @@ export function registerSynthesisTools(server: McpServer): void {
         "Returns: oldSourceId, newSourceId, outcome ('applied' or 'noop'), previousStatus, " +
         "status, supersededAt, reason, lifecycleEventId, dataPointCount, liveDataPointCount, " +
         "warnings.",
-      inputSchema: {
+      inputSchema: z.object({
         oldSourceId: z.string().describe("The retired source ID"),
         newSourceId: z.string().describe("The replacement source ID"),
         reason: z.string().min(10)
           .describe("Required curator explanation for this replacement"),
-      },
+      }),
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
@@ -1823,10 +1822,10 @@ export function registerSynthesisTools(server: McpServer): void {
         "Args:\n" +
         "  - limit (number, optional): Max entities to process per type, default 20, max 50, 25 recommended\n\n" +
         "Returns: Number of embeddings generated per entity type.",
-      inputSchema: {
+      inputSchema: z.object({
         limit: z.number().int().min(1).max(50).optional()
           .describe("Max entities to process per type (default 20, max 50, 25 recommended)"),
-      },
+      }),
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,

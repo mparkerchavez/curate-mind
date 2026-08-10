@@ -7,7 +7,7 @@
 
 import { readdir, readFile } from "fs/promises";
 import path from "path";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 
 const DEFAULT_WEEK_RANGE = 4;
@@ -57,9 +57,9 @@ export function registerReviewTools(server: McpServer): void {
         "Args:\n" +
         "  - weekRange (number, optional): How many weeks back to scan. Default: 4.\n\n" +
         "Returns: A formatted list of pending and ingested source files.",
-      inputSchema: {
+      inputSchema: z.object({
         weekRange: z.number().optional().describe("Weeks back to scan (default: 4)"),
-      },
+      }),
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
