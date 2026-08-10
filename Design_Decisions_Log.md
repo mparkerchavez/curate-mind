@@ -646,4 +646,50 @@ Revisit only if re-ingests become frequent enough that the prompt is pure noise.
 
 ---
 
+## Decision 45: The Project Boundary Is Enforced in Retrieval, Not Just Described in the Schema
+
+**What:** Every project-scoped read path now filters by project twice: at the vector index, using a `projectId` denormalized onto `dataPoints`, `positionVersions`, `mentalModels`, and `curatorObservations`, and again at hydration, through `convex/projectScope.ts`, which resolves the authoritative project from the parent source, theme, or reference. Anything dropped is counted and reported in the answer rather than removed quietly.
+
+**What prompted this:** a `cm_ask` call scoped to the Earnestly Competitive Landscape project came back citing data points from AI Strategy & Adoption, with no indication they were cross-project. Two of the load-bearing citations were consultancy reports on enterprise software pricing, presented as findings about competitors. Eight further retrieved-but-uncited items and one position came from the same other project. The evidence was months older than the project it was cited into.
+
+**Where it actually broke:** `askAnalyst` took a required `projectId` and used it for exactly two things, the prompt preamble and the Research Lens. `resolveScopeContext` accepted it in its argument type and never read it. With no theme, position, or source narrowing, it fell through to `allowedDataPointIds: null`, which the retrieval path reads as "no filter", and the vector search ran across every data point in the deployment. Hydration checked lifecycle status and nothing else.
+
+The strongest evidence that this was an oversight rather than a design choice is the public sibling. `getResearchPack` runs the identical unfiltered vector search and then hydrates through `hydratePublicDataPoints`, which drops anything whose source belongs to another project. The public path got the guard. The curator path never did.
+
+The blast radius was wider than the report. Position search, observation search, and secondary item search were all unfiltered; `listAllPositions` collected every position in the deployment and was called with no project from the keyword fallback and from two frontend contexts; and `cm_search` had no `projectId` parameter at all, so it was cross-project by construction rather than by accident.
+
+**Why two layers, when either alone looks sufficient:**
+
+The hydration check alone is correct but not enough. Ranking would still be global, so a project holding four data points next to a project holding a thousand would have its own evidence ranked out of the candidate pool before the filter ever saw it. The answer would be clean and empty, which is a different failure, not a fix.
+
+The vector filter alone is fast but not trustworthy. A vector filter cannot match a row where the field is unset, and it trusts a denormalized value that no read path verifies. Keeping the parent lookup as the authority means correctness never depends on a migration having finished.
+
+So: the index filter buys recall, the hydration check buys correctness, and neither is load-bearing for the other's job.
+
+**Why denormalizing is not a violation of append-only.** `projectId` is derived from the parent at insert and never revised. A data point cannot change source, a source cannot change project, a position cannot change theme, and a theme cannot change project. It records provenance rather than judgment, so nothing about it can be "corrected" later in the sense that a claim or a lifecycle status can.
+
+**The backfill window is handled rather than assumed away.** Rows created before this decision have no `projectId`, and a filtered search would silently miss them. When the filtered pass under-fills, retrieval widens to an unfiltered pass and re-filters through the hydration check, so the boundary holds and only recall degrades. The answer says so: the retrieval notes name `migrations:backfillProjectScope` when widening happens. `projectScope:getScopeBackfillReadiness` reports how many rows are left.
+
+The backfill itself is one command, `migrations:backfillProjectScopeAll`, an action that drives the paginated mutation to completion across all four tables. The paginated mutation stays available for a single table, but nobody should have to paste cursors back in page by page: a half-finished backfill leaves retrieval permanently in the widened-fallback mode, which is exactly the state the reporting is there to get out of.
+
+**Curator observations were the one real data gap.** Unlike data points and secondary items, an observation has no parent record. Before this it had no project anchor at all: `createObservation` took no `projectId`, and its project could only be inferred from whatever it happened to reference. An observation referencing nothing could not be placed in any project.
+
+It now carries its own `projectId`, set explicitly or inferred from the first reference that resolves. An observation that can be placed by neither route is **excluded** from project-scoped retrieval rather than shown to every project. Excluding is the safe direction, and the count is reported so an unplaceable observation surfaces as a data gap the curator can fix rather than as silence.
+
+**Silent drops are the actual enemy.** The retrieval fix would have been a dozen lines. What let the original bug live for months was that nothing reported it: the evidence pack simply contained what it contained. Every enforcement point now counts what it removed, and the counts travel with the answer as retrieval notes, above the composed answer where they cannot be missed. A dropped item means another project's evidence outranked this project's, which is worth knowing even though dropping it was right.
+
+**Second issue, same response, different cause.** The same call cited a figure that existed only in a position's stance text and said so inside the brackets: `[E4 context, but the specific figure is from P4's stance text, not a labeled evidence point]`. The composer self-reported a rule break instead of avoiding it.
+
+The existing rule forbade copying a label out of a stance but ended with "attribute the claim to the position by name instead", which the composer read as permission to use the figure as long as it flagged the provenance. The rule now states that stance text is not evidence, that a figure appearing only in stance prose must never carry a citation label of any kind, and that narrating the break does not repair it.
+
+Prose rules are not enough on their own, because the failure is silent by construction: a malformed label matches neither the citation renderer nor `collectCitedIdsFromInlineLabels`, so the data point drops out of the thread with no error anywhere (Decision 40). `findMalformedCitationLabels` now sweeps every composed answer for tokens that carry an evidence label without being a bare `[E#]`, and for bare `[C#]` tokens, which exist only inside a position's own evidence chain and so can only have arrived by copying stance text. Whatever it finds becomes a retrieval note. The composer is not silently rewritten: the contract says relay rather than rewrite, so the break is reported to the client that is already instructed to repair it.
+
+**Considered and not built: labeling each evidence item with its project.** The bug report asked whether each item could carry its project id and name so a caller could label or filter. It could, but it is the wrong fix, and building it would have quietly conceded that cross-project packs are acceptable as long as they are legible. Labeling makes a wrong retrieval readable; it does not make it right, and the pack budget is still spent on items the curator did not ask for. The project is named once, at the top of the pack, as a statement of what everything below is scoped to.
+
+**Render contract version 2.** Three rule changes: stance text is not evidence, retrieval notes must be relayed to the curator, and the existing label-namespace rule stays. The version bump is what lets a client tell which contract it received.
+
+**Date:** August 10, 2026
+
+---
+
 *When making implementation decisions not covered here, apply this test: does this decision serve the foundation (persistent, queryable, append-only knowledge structure) or does it serve a specific output? If the latter, it probably doesn't belong in the core system. Generate it on demand instead.*

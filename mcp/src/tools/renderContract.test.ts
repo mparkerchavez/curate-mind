@@ -248,6 +248,70 @@ test("the contract separates pack labels from position-internal numbering", () =
   assert.match(rules, /hybrid label/);
 });
 
+test("the contract bars citing a figure that exists only in stance text", () => {
+  const rules = CM_ASK_RENDER_CONTRACT.rules.join(" ");
+
+  // The same live call cited a figure it admitted came from stance prose, and
+  // said so inside the brackets. Self-reporting a rule break is still a break:
+  // the annotated label resolves to nothing.
+  assert.match(rules, /Stance text is not evidence/);
+  assert.match(rules, /must never carry a citation label/);
+  assert.match(rules, /narrating the break does not repair it/);
+});
+
+test("the contract tells the client to relay retrieval notes", () => {
+  const rules = CM_ASK_RENDER_CONTRACT.rules.join(" ");
+
+  assert.match(rules, /Retrieval Notes/);
+});
+
+test("the pack names the project every item is scoped to", () => {
+  const markdown = formatAnalystPackMarkdown({
+    ...samplePack,
+    context: {
+      projectId: "kn78389qvtsg4xp3vtjdrfy22x8c563e",
+      projectName: "Earnestly Competitive Landscape",
+      summary: "No narrower scope is active.",
+    },
+  });
+
+  assert.match(markdown, /\*\*Project scope:\*\* Earnestly Competitive Landscape/);
+  assert.match(markdown, /kn78389qvtsg4xp3vtjdrfy22x8c563e/);
+  assert.ok(
+    markdown.indexOf("Project scope:") < markdown.indexOf("## Answer"),
+    "the project scope must be stated before the answer it applies to"
+  );
+});
+
+test("retrieval notes are surfaced above the answer and repeated in the pack", () => {
+  const markdown = formatAnalystPackMarkdown({
+    ...samplePack,
+    warnings: [
+      "Project scope held: 8 retrieved item(s) belonged to a different project and were excluded before the answer was composed.",
+      "Malformed citation label [E1, cited within P1]. Citation labels must be written as a bare [E followed by digits].",
+    ],
+  });
+
+  assert.match(markdown, /## Retrieval Notes/);
+  assert.match(markdown, /- Project scope held: 8 retrieved item\(s\)/);
+  assert.match(markdown, /- Malformed citation label \[E1, cited within P1\]/);
+  assert.ok(
+    markdown.indexOf("## Retrieval Notes") < markdown.indexOf("## Answer"),
+    "retrieval notes must be readable before the answer they qualify"
+  );
+  assert.match(markdown, /"warnings": \[/);
+});
+
+test("a clean answer carries no retrieval notes section", () => {
+  const markdown = formatAnalystPackMarkdown(samplePack);
+
+  assert.equal(
+    markdown.includes("## Retrieval Notes"),
+    false,
+    "notes must appear only when there is something to report"
+  );
+});
+
 test("the cm_ask tool description states the render contract", () => {
   const description = getCmAskDescription();
 

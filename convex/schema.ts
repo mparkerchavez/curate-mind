@@ -225,6 +225,12 @@ export default defineSchema({
   // ============================================================
   dataPoints: defineTable({
     sourceId: v.id("sources"),
+    // Denormalized from the parent source so retrieval can filter by project at
+    // the vector index instead of after ranking (Decision 45). Derived at
+    // insert and never revised: a data point cannot change source, and a source
+    // cannot change project. Optional only so rows predating the backfill stay
+    // valid; the parent source stays the authority wherever it is unset.
+    projectId: v.optional(v.id("projects")),
     dpSequenceNumber: v.number(),
     claimText: v.string(),
     anchorQuote: v.string(),
@@ -287,12 +293,13 @@ export default defineSchema({
     supersedeReason: v.optional(v.string()),
   })
     .index("by_sourceId", ["sourceId"])
+    .index("by_projectId", ["projectId"])
     .index("by_extractionDate", ["extractionDate"])
     .index("by_embeddingStatus", ["embeddingStatus"])
     .vectorIndex("by_embedding", {
       vectorField: "embedding",
       dimensions: 1536,
-      filterFields: ["sourceId", "evidenceType", "confidence"],
+      filterFields: ["sourceId", "projectId", "evidenceType", "confidence"],
     }),
 
   // ============================================================
@@ -396,6 +403,12 @@ export default defineSchema({
   // ============================================================
   curatorObservations: defineTable({
     observationText: v.string(),
+    // The only project anchor an observation has (Decision 45). Unlike data
+    // points and secondary items, an observation has no parent source, so
+    // before this field its project could only be inferred from whatever it
+    // happened to reference, and an observation referencing nothing could not
+    // be placed in a project at all. Optional for rows predating the backfill.
+    projectId: v.optional(v.id("projects")),
     referencedDataPoints: v.optional(v.array(v.id("dataPoints"))),
     referencedPositions: v.optional(v.array(v.id("researchPositions"))),
     capturedDate: v.string(),
@@ -409,10 +422,12 @@ export default defineSchema({
     ),
   })
     .index("by_capturedDate", ["capturedDate"])
+    .index("by_projectId", ["projectId"])
     .index("by_embeddingStatus", ["embeddingStatus"])
     .vectorIndex("by_embedding", {
       vectorField: "embedding",
       dimensions: 1536,
+      filterFields: ["projectId"],
     }),
 
   // ============================================================
@@ -429,6 +444,8 @@ export default defineSchema({
     title: v.string(),
     description: v.string(),
     sourceId: v.id("sources"),
+    // Denormalized from the parent source, same contract as dataPoints.projectId.
+    projectId: v.optional(v.id("projects")),
     sourceDataPointId: v.optional(v.id("dataPoints")),
     capturedDate: v.string(),
     embedding: v.optional(v.array(v.float64())),
@@ -441,12 +458,14 @@ export default defineSchema({
     ),
   })
     .index("by_sourceId", ["sourceId"])
+    .index("by_projectId", ["projectId"])
     .index("by_modelType", ["modelType"])
     .index("by_capturedDate", ["capturedDate"])
     .index("by_embeddingStatus", ["embeddingStatus"])
     .vectorIndex("by_embedding", {
       vectorField: "embedding",
       dimensions: 1536,
+      filterFields: ["projectId"],
     }),
 
   // ============================================================
@@ -478,6 +497,11 @@ export default defineSchema({
   // ============================================================
   positionVersions: defineTable({
     positionId: v.id("researchPositions"),
+    // Denormalized from the position's theme so stance retrieval can filter by
+    // project at the vector index (Decision 45). A position cannot move between
+    // themes, and a theme cannot move between projects, so this is derived once
+    // per version row and never revised.
+    projectId: v.optional(v.id("projects")),
     versionNumber: v.number(),
     previousVersionId: v.optional(v.id("positionVersions")),
     currentStance: v.string(),
@@ -511,12 +535,13 @@ export default defineSchema({
   })
     .index("by_positionId", ["positionId"])
     .index("by_positionId_versionNumber", ["positionId", "versionNumber"])
+    .index("by_projectId", ["projectId"])
     .index("by_versionDate", ["versionDate"])
     .index("by_embeddingStatus", ["embeddingStatus"])
     .vectorIndex("by_embedding", {
       vectorField: "embedding",
       dimensions: 1536,
-      filterFields: ["positionId", "status"],
+      filterFields: ["positionId", "projectId", "status"],
     }),
 
   // ============================================================

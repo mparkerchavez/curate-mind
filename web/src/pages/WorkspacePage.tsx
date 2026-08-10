@@ -84,7 +84,8 @@ export default function WorkspacePage() {
 
   const askGrounded = useAction(api.chat.askGrounded);
   const themes = useQuery(api.positions.getThemes, projectId ? { projectId } : "skip");
-  const allPositions = useQuery(api.positions.listAllPositions, projectId ? {} : "skip");
+  // Scoped to the active project (Decision 45), same as WorkspaceContext.
+  const allPositions = useQuery(api.positions.listAllPositions, projectId ? { projectId } : "skip");
   const sortedThemes = useMemo(
     () =>
       [...(themes ?? [])].sort((left: any, right: any) => {

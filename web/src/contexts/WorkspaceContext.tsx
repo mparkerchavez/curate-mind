@@ -88,7 +88,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   /* ── Convex queries ── */
   const askAnalyst = useAction(api.chat.askAnalyst);
   const themes = useQuery(api.positions.getThemes, projectId ? { projectId } : "skip");
-  const allPositions = useQuery(api.positions.listAllPositions, projectId ? {} : "skip");
+  // Scoped to the active project (Decision 45). Called without projectId this
+  // lists positions from every project in the deployment.
+  const allPositions = useQuery(api.positions.listAllPositions, projectId ? { projectId } : "skip");
   const themePositions = useQuery(api.positions.getPositionsByTheme, themeRecordId ? { themeId: themeRecordId } : "skip");
   const positionDetail = useQuery(api.positions.getPositionDetail, positionRecordId ? { positionId: positionRecordId } : "skip");
   const sourceDetail = useQuery(api.sources.getSourceDetail, sourceRecordId ? { sourceId: sourceRecordId } : "skip");

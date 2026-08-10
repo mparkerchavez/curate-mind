@@ -90,6 +90,17 @@ Top-level containers that scope all content. See Design Decision 17.
 
 All sources, themes, tags, and the research lens carry a `projectId`. Data points, positions, and other entities inherit their project through their parent. Cross-project queries are a deliberate future feature, not the default.
 
+**Project scope in retrieval (Design Decision 45).** Inheritance through a parent describes ownership, not enforcement, and for a long time no retrieval path enforced it. `cm_ask` accepted a `projectId`, used it to build the prompt preamble, and then ran an unfiltered vector search, so a question scoped to one project could be answered with another project's evidence and nothing said so.
+
+Enforcement now has two layers, and both are needed for different reasons:
+
+- **Filter at the vector index.** `dataPoints`, `positionVersions`, `mentalModels`, and `curatorObservations` each carry a denormalized `projectId`, derived from the parent at insert and never revised. Without this the ranking is global, so a small project can be crowded out of its own answer entirely.
+- **Re-check at hydration.** Every candidate id passes through `convex/projectScope.ts` before it is hydrated, composed, or cited, resolving the project from the denormalized field or, failing that, from the parent source, theme, or reference. This is the layer that makes the boundary true rather than fast.
+
+Anything dropped is counted and reported in the answer's retrieval notes. A silent drop is how the original bug survived unnoticed.
+
+`curatorObservations` is the one entity with no parent record. Its project comes from the field when set and otherwise from the first reference that resolves; an observation that references nothing and carries no `projectId` cannot be placed, and is excluded from project-scoped retrieval rather than shown to every project.
+
 ### 1. Sources
 
 The provenance record for every piece of external content that enters the system.
@@ -393,7 +404,7 @@ The query tools operate in two distinct modes. **Mode 1 (`cm_search`)** is Explo
 | Tool | Description |
 |------|-------------|
 | `cm_ask` | **Mode 2 — Cite & Trace.** Fetches a structured pack: positions first (Stance), then curator observations, secondary items, and data points with resolved source links (Evidence), plus source provenance and anchor metadata for verification (Source). Returns `[P#]`, `[O#]`, `[M#]`, `[E#]` citation labels on every claim. Use for any question requiring a cited, traceable answer. |
-| `cm_search` | **Mode 1 — Explore & Synthesize.** Semantic vector search across data points, positions, observations, and mental models. Use for scanning emerging signals, pressure-testing a brief, or exploring the corpus when positions don't yet exist. Do not use for producing cited answers — source links in `cm_search` results are not resolved. |
+| `cm_search` | **Mode 1 — Explore & Synthesize.** Semantic vector search across data points, positions, observations, and mental models. Takes an optional `projectId`; pass it whenever the curator is working inside one project, because omitting it searches every project in the deployment. Use for scanning emerging signals, pressure-testing a brief, or exploring the corpus when positions don't yet exist. Do not use for producing cited answers — source links in `cm_search` results are not resolved. |
 | `cm_get_themes` | Return all Research Themes with position counts. |
 | `cm_get_positions` | Return positions within a theme, or all positions. Current stance, confidence, and status. |
 | `cm_get_position_detail` | Return a position with linked evidence, counter-evidence, observations, and mental models. |

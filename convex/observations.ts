@@ -1,5 +1,44 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
+
+/**
+ * Work out which project an observation belongs to (Decision 45).
+ *
+ * An explicit projectId always wins. Otherwise the project is inferred from the
+ * first reference that resolves, which is what makes existing observations
+ * placeable without the curator restating something already implied by what
+ * they linked. An observation that references nothing and is given no project
+ * stays unplaced, and unplaced observations are excluded from project-scoped
+ * retrieval rather than shown to every project.
+ */
+async function resolveObservationProjectId(
+  ctx: any,
+  args: {
+    projectId?: Id<"projects">;
+    referencedDataPoints?: Id<"dataPoints">[];
+    referencedPositions?: Id<"researchPositions">[];
+  }
+): Promise<Id<"projects"> | undefined> {
+  if (args.projectId) return args.projectId;
+
+  for (const dataPointId of args.referencedDataPoints ?? []) {
+    const dp = await ctx.db.get(dataPointId);
+    if (!dp) continue;
+    if (dp.projectId) return dp.projectId;
+    const source = await ctx.db.get(dp.sourceId);
+    if (source?.projectId) return source.projectId;
+  }
+
+  for (const positionId of args.referencedPositions ?? []) {
+    const position = await ctx.db.get(positionId);
+    if (!position) continue;
+    const theme = await ctx.db.get(position.themeId);
+    if (theme?.projectId) return theme.projectId;
+  }
+
+  return undefined;
+}
 
 // ============================================================
 // Create a new Curator Observation (immutable once created)
@@ -7,27 +46,37 @@ import { mutation, query } from "./_generated/server";
 export const createObservation = mutation({
   args: {
     observationText: v.string(),
+    projectId: v.optional(v.id("projects")),
     referencedDataPoints: v.optional(v.array(v.id("dataPoints"))),
     referencedPositions: v.optional(v.array(v.id("researchPositions"))),
     tagSlugs: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
-    const { tagSlugs, ...obsFields } = args;
+    const { tagSlugs, projectId, ...obsFields } = args;
     const now = new Date().toISOString();
+
+    const resolvedProjectId = await resolveObservationProjectId(ctx, args);
 
     const obsId = await ctx.db.insert("curatorObservations", {
       ...obsFields,
+      projectId: resolvedProjectId,
       capturedDate: now,
       embeddingStatus: "pending",
     });
 
-    // Link tags via junction table
+    // Link tags via junction table. Tags are project-scoped, so the slug is
+    // resolved inside the resolved project. A bare slug lookup would take
+    // whichever project's tag happened to be created first.
     if (tagSlugs) {
       for (const slug of tagSlugs) {
-        const tag = await ctx.db
-          .query("tags")
-          .withIndex("by_slug", (q) => q.eq("slug", slug))
-          .first();
+        const tag = resolvedProjectId
+          ? await ctx.db
+              .query("tags")
+              .withIndex("by_projectId_slug", (q) =>
+                q.eq("projectId", resolvedProjectId).eq("slug", slug)
+              )
+              .first()
+          : null;
 
         if (tag) {
           await ctx.db.insert("curatorObservationTags", {

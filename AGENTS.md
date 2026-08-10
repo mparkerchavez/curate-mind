@@ -146,6 +146,8 @@ Use when: scanning new sources for signals, finding emerging narratives, pressur
 
 `cm_search` searches across all entity types (data points, positions, observations, mental models) and returns broad results for the calling model to synthesize. The output is meant to spark a reaction — an observation, a perspective, a challenge. Citation rigor is not the goal.
 
+**Pass `projectId` whenever the curator is working inside one project.** It is optional on `cm_search`, and omitting it searches every project in the deployment.
+
 **Trigger phrases:** "what signals are emerging", "what does the corpus say about", "challenge this brief", "what patterns do you see", "help me think through".
 
 ### Mode 2 — Cite & Trace (`cm_ask`)
@@ -165,6 +167,8 @@ Every substantive claim in the answer should carry an inline label drawn from th
 - **Relay, do not rewrite.** The response already contains an answer composed by the project's own analyst prompt with the curator's style preferences applied, and curatemind.io renders that same answer verbatim. Present it and repair rule breaks in it. Rewriting makes one question give two different answers depending on where it was asked.
 - **Citation labels are a strict token.** A label is a bare `[E` plus digits `]`. Position stance text carries its own `[E#]` and `[C#]` numbering from that position's evidence chain, which is a separate namespace. Never mix them, and never write a hybrid label such as `[E1, cited within P1]`. A malformed label is not cosmetic: it matches neither the citation renderer nor the extractor that records which evidence was cited, so the data point silently drops out of the thread. See Design Decision 40.
 - **Thread follow-up questions.** Nothing does this automatically over MCP. Each response ends with a `## Carry Forward` section; pass those identifiers as `carriedDataPointIds` on the next `cm_ask` call in the same conversation, or the evidence behind the narrative resets.
+- **Stance text is not evidence.** A figure that appears only in a position's stance and not in the pack's evidence items must never carry a citation label. Attribute it to the position by name in prose, or say the evidence layer does not carry that number. Explaining the discrepancy inside the brackets is still a rule break.
+- **Relay the retrieval notes.** When a response carries a `## Retrieval Notes` section, pass it on to the curator. It records what the project boundary removed and any citation label the composer wrote that the pack cannot resolve, and neither is visible anywhere else.
 
 **Trigger phrases:** "what's my position on", "analyze", "what does the research show", "give me a cited answer", "write the brief", "write it up".
 
@@ -173,6 +177,15 @@ Every substantive claim in the answer should carry an inline label drawn from th
 - Do not use `cm_search` to produce cited analyst answers. It returns raw JSON without source links or citation structure.
 - Do not use `cm_ask` for early corpus exploration when positions do not exist yet. `cm_search` is faster and more appropriate.
 - Do not construct curatemind.io URLs manually. Source links are resolved server-side in the analyst pack.
+
+### Project scope
+
+Every `cm_ask` answer is scoped to one project, enforced in retrieval and not merely described in the schema (Decision 45). Positions, evidence, curator observations, and secondary items are all filtered by project at the vector index and re-checked against the parent source, theme, or reference before anything is composed or cited. The pack names the project it is scoped to; anything excluded is counted in the retrieval notes.
+
+Two consequences worth knowing:
+
+- A theme, position, or source scope from a different project is rejected with a stated reason rather than answered from the wider corpus.
+- A curator observation that references nothing and carries no `projectId` cannot be placed in a project, so it is excluded from every project-scoped answer. Pass `projectId` to `cm_add_curator_observation` when the observation references neither a data point nor a position.
 
 ---
 

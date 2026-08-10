@@ -113,9 +113,12 @@ export const insertDataPoint = mutation({
       throw new Error(`Source ${args.sourceId} not found`);
     }
 
-    // Insert the data point
+    // Insert the data point. projectId is denormalized from the parent source
+    // so retrieval can enforce the project boundary at the vector index
+    // (Decision 45).
     const dpId = await ctx.db.insert("dataPoints", {
       ...dpFields,
+      projectId: source.projectId,
       extractionDate: now,
       embeddingStatus: "pending",
     });
@@ -180,6 +183,7 @@ export const insertBatch = mutation({
 
       const dpId = await ctx.db.insert("dataPoints", {
         sourceId: args.sourceId,
+        projectId: source.projectId,
         ...dpFields,
         extractionDate: now,
         embeddingStatus: "pending",

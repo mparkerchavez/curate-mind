@@ -4,6 +4,7 @@ import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { resolveEffectiveContent } from "./dataPoints";
 import { resolveSourceMeta } from "./sources";
+import { rankedIdsForProject } from "./search";
 import { isLiveDataPoint } from "./lib/supersede";
 
 declare const process: {
@@ -473,24 +474,28 @@ export const getResearchPack = action({
       throw new Error(`Public research scope unavailable: ${scope.reason}`);
     }
 
+    // Filtered by project at the vector index (Decision 45). The hydration
+    // queries below already enforced the boundary, so this is about recall
+    // rather than correctness: without it, a project with few data points can
+    // be crowded out of its own answer by a larger project's ranking.
     const embedding = await embedText(args.question);
-    const [dataPointResults, positionVersionResults] = await Promise.all([
-      ctx.vectorSearch("dataPoints", "by_embedding", {
-        vector: embedding,
-        limit: scope.allowedDataPointIds
+    const [dataPointRanked, positionVersionRanked] = await Promise.all([
+      rankedIdsForProject(
+        ctx,
+        "dataPoints",
+        embedding,
+        scope.allowedDataPointIds
           ? Math.max(60, evidenceLimit * 5)
           : evidenceLimit * 3,
-      }),
-      ctx.vectorSearch("positionVersions", "by_embedding", {
-        vector: embedding,
-        limit: 15,
-      }),
+        args.projectId
+      ),
+      rankedIdsForProject(ctx, "positionVersions", embedding, 15, args.projectId),
     ]);
 
     const allowedIds = scope.allowedDataPointIds
       ? new Set<string>(scope.allowedDataPointIds)
       : null;
-    const rankedDataPointIds = dataPointResults.map((result) => String(result._id));
+    const rankedDataPointIds = dataPointRanked.ids;
     const scopedRankedIds = allowedIds
       ? rankedDataPointIds.filter((id) => allowedIds.has(id))
       : rankedDataPointIds;
@@ -518,9 +523,7 @@ export const getResearchPack = action({
         api.publicResearch.hydratePublicPositionsFromVersions,
         {
           projectId: args.projectId,
-          versionIds: positionVersionResults.map(
-            (result) => result._id
-          ) as Id<"positionVersions">[],
+          versionIds: positionVersionRanked.ids as Id<"positionVersions">[],
         }
       )) as any[];
     }

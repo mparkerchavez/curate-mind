@@ -23,18 +23,29 @@ export const createMentalModel = mutation({
     const { tagSlugs, ...modelFields } = args;
     const now = new Date().toISOString();
 
+    // projectId is denormalized from the parent source (Decision 45), the same
+    // contract data points follow.
+    const source = await ctx.db.get(args.sourceId);
+    if (!source) {
+      throw new Error(`Source ${args.sourceId} not found`);
+    }
+
     const modelId = await ctx.db.insert("mentalModels", {
       ...modelFields,
+      projectId: source.projectId,
       capturedDate: now,
       embeddingStatus: "pending",
     });
 
-    // Link tags via junction table
+    // Link tags via junction table. Tags are project-scoped, so the slug is
+    // resolved inside the source's project rather than globally.
     if (tagSlugs) {
       for (const slug of tagSlugs) {
         const tag = await ctx.db
           .query("tags")
-          .withIndex("by_slug", (q) => q.eq("slug", slug))
+          .withIndex("by_projectId_slug", (q) =>
+            q.eq("projectId", source.projectId).eq("slug", slug)
+          )
           .first();
 
         if (tag) {

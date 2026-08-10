@@ -32,6 +32,20 @@ async function supersededEvidenceWarnings(
   return warnings;
 }
 
+// Resolve the project a position version belongs to, for the projectId
+// denormalized onto every version row (Decision 45). A position cannot move
+// between themes and a theme cannot move between projects, so this is stable
+// for the life of the position. Returns undefined only if the theme is missing,
+// which leaves the field unset and falls back to the parent lookup on read
+// rather than guessing a project.
+async function resolveVersionProjectId(
+  ctx: any,
+  themeId: any
+): Promise<any | undefined> {
+  const theme = await ctx.db.get(themeId);
+  return theme?.projectId;
+}
+
 // ============================================================
 // RESEARCH THEMES
 // ============================================================
@@ -139,6 +153,7 @@ export const createPosition = mutation({
     // Create the first version
     const versionId = await ctx.db.insert("positionVersions", {
       positionId,
+      projectId: await resolveVersionProjectId(ctx, args.themeId),
       versionNumber: 1,
       currentStance: args.currentStance,
       confidenceLevel: args.confidenceLevel,
@@ -204,6 +219,7 @@ export const updatePosition = mutation({
     const { positionId, changeSummary, ...versionFields } = args;
     const newVersionId = await ctx.db.insert("positionVersions", {
       positionId: args.positionId,
+      projectId: await resolveVersionProjectId(ctx, position.themeId),
       versionNumber: nextVersionNumber,
       previousVersionId: position.currentVersionId,
       currentStance: versionFields.currentStance,
@@ -570,6 +586,7 @@ export const linkEvidenceToPosition = mutation({
 
     const newVersionId = await ctx.db.insert("positionVersions", {
       positionId: args.positionId,
+      projectId: await resolveVersionProjectId(ctx, position.themeId),
       versionNumber: nextVersionNumber,
       previousVersionId: position.currentVersionId,
       // Copied verbatim from previous version
@@ -695,6 +712,7 @@ export const linkEvidenceBatch = mutation({
 
       const newVersionId = await ctx.db.insert("positionVersions", {
         positionId: update.positionId,
+        projectId: await resolveVersionProjectId(ctx, position.themeId),
         versionNumber: nextVersionNumber,
         previousVersionId: position.currentVersionId,
         currentStance: currentVersion.currentStance,
@@ -771,6 +789,7 @@ export const unlinkEvidenceFromPosition = mutation({
 
     const newVersionId = await ctx.db.insert("positionVersions", {
       positionId: args.positionId,
+      projectId: await resolveVersionProjectId(ctx, position.themeId),
       versionNumber: nextVersionNumber,
       previousVersionId: position.currentVersionId,
       // Copied verbatim from previous version
@@ -881,6 +900,7 @@ export const replaceEvidenceOnPosition = mutation({
 
     const newVersionId = await ctx.db.insert("positionVersions", {
       positionId: args.positionId,
+      projectId: await resolveVersionProjectId(ctx, position.themeId),
       versionNumber: nextVersionNumber,
       previousVersionId: position.currentVersionId,
       currentStance: currentVersion.currentStance,
@@ -922,8 +942,13 @@ export const replaceEvidenceOnPosition = mutation({
 // List all positions across all themes
 // ============================================================
 export const listAllPositions = query({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    // Optional so existing callers keep working, but every project-scoped
+    // caller passes it (Decision 45). Without it this lists positions from
+    // every project in the deployment.
+    projectId: v.optional(v.id("projects")),
+  },
+  handler: async (ctx, args) => {
     const positions = await ctx.db.query("researchPositions").collect();
 
     const positionsWithContext = await Promise.all(
@@ -932,6 +957,13 @@ export const listAllPositions = query({
         const currentVersion = pos.currentVersionId
           ? await ctx.db.get(pos.currentVersionId)
           : null;
+
+        if (
+          args.projectId &&
+          String(theme?.projectId) !== String(args.projectId)
+        ) {
+          return null;
+        }
 
         return {
           _id: pos._id,
@@ -947,6 +979,6 @@ export const listAllPositions = query({
       })
     );
 
-    return positionsWithContext;
+    return positionsWithContext.filter((row) => row !== null);
   },
 });

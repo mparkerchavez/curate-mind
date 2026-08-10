@@ -3,6 +3,12 @@ import { action, type ActionCtx } from "./_generated/server";
 import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { isLiveDataPoint } from "./lib/supersede";
+import { rankedIdsForProject } from "./search";
+import {
+  describeMalformedLabels,
+  describeRetrievalScope,
+  findMalformedCitationLabels,
+} from "./lib/projectScope";
 
 declare const process: {
   env: Record<string, string | undefined>;
@@ -65,6 +71,20 @@ type ScopeContext = {
   positionId?: string;
   sourceId?: string;
 };
+
+/**
+ * Running tally of what project scoping removed from one answer (Decision 45).
+ * Accumulated across every hydration call so the answer can say what happened.
+ */
+type ScopeStats = {
+  droppedForProject: number;
+  unresolvedProject: number;
+  widened: boolean;
+};
+
+function emptyScopeStats(): ScopeStats {
+  return { droppedForProject: 0, unresolvedProject: 0, widened: false };
+}
 
 type ProjectPromptContext = {
   name: string;
@@ -210,7 +230,9 @@ export const askGrounded = action({
     carriedDataPointIds: string[];
     freshDataPointIds: string[];
     retrievedDataPoints: CitedDataPoint[];
+    warnings: string[];
     context: {
+      projectId: string;
       themeId?: string;
       positionId?: string;
       sourceId?: string;
@@ -228,16 +250,24 @@ export const askGrounded = action({
       resolveUserStylePreferences(ctx),
     ]);
 
+    const scopeStats = emptyScopeStats();
+
     // 1. Embed the question
     const embedding = await embedText(args.question, openaiKey);
 
-    // 2. Vector search dataPoints, then constrain to the active workspace scope.
-    const results = await ctx.vectorSearch("dataPoints", "by_embedding", {
-      vector: embedding,
-      limit: scope.allowedDataPointIds ? 72 : 16,
-    });
+    // 2. Vector search dataPoints inside this project, then constrain to the
+    //    active workspace scope (Decision 45). Same two-layer enforcement as
+    //    askAnalyst: filtered at the vector index, re-checked in hydration.
+    const ranked = await rankedIdsForProject(
+      ctx,
+      "dataPoints",
+      embedding,
+      scope.allowedDataPointIds ? 72 : 16,
+      args.projectId
+    );
+    const filteredPassIds = new Set(ranked.filteredIds);
 
-    const rankedIds = results.map((result) => String(result._id));
+    const rankedIds = ranked.ids;
     const scopedIds = scope.allowedDataPointIds
       ? rankedIds.filter((id) => scope.allowedDataPointIds?.has(id))
       : rankedIds;
@@ -245,15 +275,29 @@ export const askGrounded = action({
       scope.allowedDataPointIds && scopedIds.length === 0
         ? Array.from(scope.allowedDataPointIds)
         : [];
-    const carriedIds = uniqueIds(args.carriedDataPointIds ?? [])
+    const requestedCarriedIds = uniqueIds(args.carriedDataPointIds ?? [])
       .map((id) => String(id))
       .filter((id) => !scope.allowedDataPointIds || scope.allowedDataPointIds.has(id));
+    const carriedDataPoints = await hydrateDataPoints(
+      ctx,
+      requestedCarriedIds,
+      args.projectId,
+      scopeStats
+    );
+    const carriedIds = carriedDataPoints.map((dp) => dp._id);
     const carriedIdSet = new Set(carriedIds);
-    const freshIds = [...scopedIds, ...fallbackScopedIds]
+    const freshCandidateIds = [...scopedIds, ...fallbackScopedIds]
       .filter((id) => !carriedIdSet.has(id))
       .slice(0, 12);
-    const retrievedIds = uniqueIds([...carriedIds, ...freshIds]);
-    const retrieved = await hydrateDataPoints(ctx, retrievedIds);
+    const freshDataPoints = await hydrateDataPoints(
+      ctx,
+      freshCandidateIds,
+      args.projectId,
+      scopeStats
+    );
+    const freshIds = freshDataPoints.map((dp) => dp._id);
+    scopeStats.widened = freshDataPoints.some((dp) => !filteredPassIds.has(dp._id));
+    const retrieved = [...carriedDataPoints, ...freshDataPoints];
 
     // 4. Pull the current Research Lens for context
     const lens = (await ctx.runQuery(api.researchLens.getCurrentLens, {
@@ -342,7 +386,15 @@ export const askGrounded = action({
       freshDataPointIds: freshIds,
       citations,
       retrievedDataPoints: retrieved,
+      warnings: describeRetrievalScope({
+        projectId: String(args.projectId),
+        projectName: projectContext.name,
+        widened: scopeStats.widened,
+        droppedForProject: scopeStats.droppedForProject,
+        unresolvedProject: scopeStats.unresolvedProject,
+      }),
       context: {
+        projectId: String(args.projectId),
         themeId: scope.themeId,
         positionId: scope.positionId,
         sourceId: scope.sourceId,
@@ -375,8 +427,11 @@ export const askAnalyst = action({
     dataPoints: EvidencePackItem[];
     carriedDataPointIds: string[];
     freshDataPointIds: string[];
+    warnings: string[];
     context: {
       summary: string;
+      projectId: string;
+      projectName: string;
       themeId?: string;
       positionId?: string;
       sourceId?: string;
@@ -391,7 +446,13 @@ export const askAnalyst = action({
     const retrievalLimit = Math.max(1, Math.min(args.limit ?? 12, 20));
     const temporalIntent = parseTemporalIntent(args.question);
 
-    // Scope resolution, embedding, observations, and mental models all in parallel
+    const scopeStats = emptyScopeStats();
+
+    // Scope resolution, embedding, observations, and mental models all in
+    // parallel. Every retrieval leg carries the projectId (Decision 45): the
+    // observation and secondary-item searches used to run unscoped, so they
+    // fed another project's material into the composer even though neither is
+    // citable and so neither showed up in the citations.
     const [projectContext, scope, userStyle, embedding, observationResults, mentalModelResults] = await Promise.all([
       resolveProjectPromptContext(ctx, args.projectId),
       resolveScopeContext(ctx, args),
@@ -400,10 +461,12 @@ export const askAnalyst = action({
       ctx.runAction(api.search.searchObservations, {
         queryText: args.question,
         limit: 5,
+        projectId: args.projectId,
       }) as Promise<any[]>,
       ctx.runAction(api.search.searchMentalModels, {
         queryText: args.question,
         limit: 5,
+        projectId: args.projectId,
       }) as Promise<any[]>,
     ]);
 
@@ -411,10 +474,23 @@ export const askAnalyst = action({
     let positions: AnalystPosition[] = [];
 
     if (args.positionId) {
-      // Single position scoped — fetch its full detail directly
-      const detail = (await ctx.runQuery(api.positions.getPositionDetail, {
-        positionId: args.positionId,
-      })) as any;
+      // Single position scoped: fetch its full detail directly, but only if it
+      // belongs to this project. A position id from another project is a caller
+      // error, and answering it anyway is how one leaked into a scoped answer.
+      const positionScope = (await ctx.runQuery(api.projectScope.filterPositionIds, {
+        projectId: args.projectId,
+        positionIds: [String(args.positionId)],
+      })) as { kept: string[]; dropped: string[] };
+
+      const detail =
+        positionScope.kept.length > 0
+          ? ((await ctx.runQuery(api.positions.getPositionDetail, {
+              positionId: args.positionId,
+            })) as any)
+          : null;
+      if (positionScope.dropped.length > 0) {
+        scopeStats.droppedForProject += positionScope.dropped.length;
+      }
       if (detail) {
         positions = [
           {
@@ -429,10 +505,13 @@ export const askAnalyst = action({
         ];
       }
     } else {
-      // Semantic search across position versions, deduplicate to parent positions
+      // Semantic search across position versions, deduplicate to parent
+      // positions. searchPositions enforces the project boundary on the parent
+      // position, so a stance from another project cannot reach the pack.
       const versionResults = (await ctx.runAction(api.search.searchPositions, {
         queryText: args.question,
         limit: 15,
+        projectId: args.projectId,
       })) as any[];
 
       const seenPositionIds = new Set<string>();
@@ -461,21 +540,36 @@ export const askAnalyst = action({
       }
 
       if (positions.length === 0) {
-        positions = await fallbackRankCurrentPositions(ctx, args.question, args.themeId);
+        positions = await fallbackRankCurrentPositions(
+          ctx,
+          args.question,
+          args.projectId,
+          args.themeId
+        );
       }
     }
 
-    // ── Evidence: Data points (scoped vector search) ────────────
-    const vectorResults = await ctx.vectorSearch("dataPoints", "by_embedding", {
-      vector: embedding,
-      limit: temporalIntent
-        ? Math.max(120, retrievalLimit * 10)
-        : scope.allowedDataPointIds
-          ? Math.max(72, retrievalLimit * 4)
-          : retrievalLimit,
-    });
+    // ── Evidence: Data points (project-scoped vector search) ────
+    // The candidate pool is filtered by project at the vector index, so a small
+    // project is not crowded out of its own answer by a larger one's ranking.
+    // Everything below still passes through hydrateDataPoints, which re-checks
+    // the boundary against the parent source.
+    const candidateLimit = temporalIntent
+      ? Math.max(120, retrievalLimit * 10)
+      : scope.allowedDataPointIds
+        ? Math.max(72, retrievalLimit * 4)
+        : retrievalLimit;
 
-    const rankedIds = vectorResults.map((r) => String(r._id));
+    const ranked = await rankedIdsForProject(
+      ctx,
+      "dataPoints",
+      embedding,
+      candidateLimit,
+      args.projectId
+    );
+    const filteredPassIds = new Set(ranked.filteredIds);
+
+    const rankedIds = ranked.ids;
     const scopedIds = scope.allowedDataPointIds
       ? rankedIds.filter((id) => scope.allowedDataPointIds?.has(id))
       : rankedIds;
@@ -483,9 +577,19 @@ export const askAnalyst = action({
       scope.allowedDataPointIds && scopedIds.length === 0
         ? Array.from(scope.allowedDataPointIds)
         : [];
-    const carriedIds = uniqueIds(args.carriedDataPointIds ?? [])
+    const requestedCarriedIds = uniqueIds(args.carriedDataPointIds ?? [])
       .map((id) => String(id))
       .filter((id) => !scope.allowedDataPointIds || scope.allowedDataPointIds.has(id));
+    // Carried evidence is filtered too, and before anything else uses it. A
+    // thread that switches projects mid-way would otherwise drag the previous
+    // project's citations into the new one.
+    const carriedDataPoints = await hydrateDataPoints(
+      ctx,
+      requestedCarriedIds,
+      args.projectId,
+      scopeStats
+    );
+    const carriedIds = carriedDataPoints.map((dp) => dp._id);
     const carriedIdSet = new Set(carriedIds);
     const freshCandidates = [...scopedIds, ...fallbackScopedIds].filter(
       (id) => !carriedIdSet.has(id)
@@ -495,7 +599,9 @@ export const askAnalyst = action({
       : retrievalLimit;
     const candidateFresh = await hydrateDataPoints(
       ctx,
-      freshCandidates.slice(0, candidateHydrationLimit)
+      freshCandidates.slice(0, candidateHydrationLimit),
+      args.projectId,
+      scopeStats
     );
     const filteredFresh = temporalIntent
       ? candidateFresh.filter((dp) => matchesTemporalIntent(dp, temporalIntent))
@@ -503,7 +609,12 @@ export const askAnalyst = action({
     const selectedFresh = (
       filteredFresh.length > 0 || !temporalIntent ? filteredFresh : candidateFresh
     ).slice(0, retrievalLimit);
-    const retrieved = await hydrateDataPoints(ctx, carriedIds);
+    // Evidence that the project filter alone would have missed. This, not the
+    // fact that widening ran, is what says a row in this project still has no
+    // denormalized projectId. A project holding fewer rows than the requested
+    // limit under-fills on every query however complete the backfill is.
+    scopeStats.widened = selectedFresh.some((dp) => !filteredPassIds.has(dp._id));
+    const retrieved = [...carriedDataPoints];
     retrieved.push(...selectedFresh.filter((dp) => !carriedIdSet.has(dp._id)));
     const freshIds = selectedFresh.map((dp) => dp._id);
     const dataPoints: EvidencePackItem[] = retrieved.map((dp, index) => ({
@@ -549,6 +660,22 @@ export const askAnalyst = action({
       origin: carriedIdSet.has(dp._id) ? "carried" : "fresh",
     }));
 
+    // Two kinds of warning travel with the answer, and neither is fatal.
+    // Scope warnings say what the project boundary removed. Label warnings
+    // catch the composer citing outside the pack's namespace, which otherwise
+    // fails silently: a malformed label matches neither the citation renderer
+    // nor the extractor, so the data point vanishes from the thread.
+    const warnings = [
+      ...describeRetrievalScope({
+        projectId: String(args.projectId),
+        projectName: projectContext.name,
+        widened: scopeStats.widened,
+        droppedForProject: scopeStats.droppedForProject,
+        unresolvedProject: scopeStats.unresolvedProject,
+      }),
+      ...describeMalformedLabels(findMalformedCitationLabels(answer)),
+    ];
+
     return {
       question: args.question,
       answer,
@@ -560,8 +687,11 @@ export const askAnalyst = action({
       dataPoints,
       carriedDataPointIds: carriedIds,
       freshDataPointIds: freshIds,
+      warnings,
       context: {
         summary: scope.summary,
+        projectId: String(args.projectId),
+        projectName: projectContext.name,
         themeId: scope.themeId,
         positionId: scope.positionId,
         sourceId: scope.sourceId,
@@ -853,6 +983,7 @@ function buildAnalystLockedRulesBlock(): string {
     "You may mention position labels like [P1] as plain references when they help orient the answer.",
     "Write citation labels as a bare [E followed by digits] and nothing else, for example [E1] or [E12]. Never add words, commas, or qualifiers inside the brackets.",
     "Position stance text carries its own [E#] and [C#] numbering from that position's own evidence chain. That numbering is a separate namespace and it does not match the evidence data points supplied for this question. Never copy a label out of a stance, never renumber one into this question's labels, and never write a hybrid label such as [E1, cited within P1]. To cite something you read in a stance, find the supporting evidence data point supplied above and cite its label, or attribute the claim to the position by name instead.",
+    "Stance text is not evidence. A number, statistic, date, or named finding that appears only in a position's stance and not in the evidence data points above must never be presented as evidence-backed, and must never carry a citation label of any kind. You have two honest options and no third one: attribute it in prose to the position by name, with no bracket, or say the evidence layer does not carry that figure. Never annotate a citation to explain where a figure really came from. An explanation inside the brackets is still a rule break, and narrating the break does not repair it.",
     "Do not invent facts, sources, quotes, statistics, or labels. If the evidence is thin, say so.",
     "Do not include a JSON block or bibliography.",
   ].join("\n");
@@ -1061,14 +1192,23 @@ function matchesTemporalIntent(dp: CitedDataPoint, intent: TemporalIntent): bool
   });
 }
 
+/**
+ * Keyword fallback for when semantic position search comes back empty.
+ *
+ * Scoped to the project (Decision 45). A theme is already owned by one project,
+ * so the theme branch needs nothing extra; the untheme branch used to list every
+ * position in the deployment and was the second way a stance from another
+ * project could reach an answer.
+ */
 async function fallbackRankCurrentPositions(
   ctx: ActionCtx,
   question: string,
+  projectId: Id<"projects">,
   themeId?: Id<"researchThemes">
 ): Promise<AnalystPosition[]> {
   const rows = themeId
     ? ((await ctx.runQuery(api.positions.getPositionsByTheme, { themeId })) as any[])
-    : ((await ctx.runQuery(api.positions.listAllPositions, {})) as any[]);
+    : ((await ctx.runQuery(api.positions.listAllPositions, { projectId })) as any[]);
   const queryTerms = tokenizeForRank(question);
 
   const ranked = rows
@@ -1139,13 +1279,41 @@ function rankText(value: string, terms: Set<string>): number {
   return score;
 }
 
+/**
+ * Hydrate data points for an answer, scoped to one project.
+ *
+ * This is the single chokepoint where the project boundary is enforced on
+ * evidence (Decision 45). Every path that puts a data point in front of the
+ * composer goes through here: freshly ranked candidates, evidence carried from
+ * an earlier turn, and the theme/position/source allow-lists. Filtering here
+ * rather than at each call site is deliberate, because the original bug was
+ * exactly one unguarded path among several guarded ones.
+ *
+ * Anything belonging to another project, or to no resolvable project, is
+ * dropped and counted in `stats` so the answer can report what happened instead
+ * of quietly shrinking.
+ */
 async function hydrateDataPoints(
   ctx: ActionCtx,
-  dataPointIds: string[]
+  dataPointIds: string[],
+  projectId: Id<"projects">,
+  stats?: ScopeStats
 ): Promise<CitedDataPoint[]> {
   const retrieved: CitedDataPoint[] = [];
 
-  for (const dataPointId of dataPointIds) {
+  if (dataPointIds.length === 0) return retrieved;
+
+  const scoped = (await ctx.runQuery(api.projectScope.filterDataPointIds, {
+    projectId,
+    dataPointIds,
+  })) as { kept: string[]; dropped: string[]; unresolved: string[] };
+
+  if (stats) {
+    stats.droppedForProject += scoped.dropped.length;
+    stats.unresolvedProject += scoped.unresolved.length;
+  }
+
+  for (const dataPointId of scoped.kept) {
     const dp = (await ctx.runQuery(api.dataPoints.getDataPoint, {
       dataPointId: dataPointId as Id<"dataPoints">,
     })) as any;
@@ -1214,6 +1382,40 @@ async function resolveScopeContext(
     sourceId?: Id<"sources">;
   }
 ): Promise<ScopeContext> {
+  // A narrower scope has to belong to the project being queried (Decision 45).
+  // Scoping to another project's theme, position, or source is a caller error,
+  // and answering it as though it were empty hides the mistake.
+  const ownership = (await ctx.runQuery(api.projectScope.checkScopeOwnership, {
+    projectId: args.projectId,
+    themeId: args.themeId,
+    positionId: args.positionId,
+    sourceId: args.sourceId,
+  })) as {
+    themeInProject: boolean;
+    positionInProject: boolean;
+    sourceInProject: boolean;
+  };
+
+  const outOfProject = [
+    args.sourceId && !ownership.sourceInProject ? "source" : null,
+    args.positionId && !ownership.positionInProject ? "position" : null,
+    args.themeId && !ownership.themeInProject ? "theme" : null,
+  ].filter(Boolean);
+
+  if (outOfProject.length > 0) {
+    return {
+      summary: [
+        "## Active Workspace Scope",
+        `The requested ${outOfProject.join(" and ")} scope does not belong to this project, so no ` +
+          "evidence was retrieved. Say this plainly rather than answering from the wider corpus.",
+      ].join("\n"),
+      allowedDataPointIds: new Set<string>(),
+      themeId: args.themeId ? String(args.themeId) : undefined,
+      positionId: args.positionId ? String(args.positionId) : undefined,
+      sourceId: args.sourceId ? String(args.sourceId) : undefined,
+    };
+  }
+
   if (args.sourceId) {
     const sourceDetail = (await ctx.runQuery(api.sources.getSourceDetail, {
       sourceId: args.sourceId,

@@ -1,6 +1,7 @@
 import { v } from "convex/values";
-import { mutation } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
+import { action, mutation } from "./_generated/server";
+import { api } from "./_generated/api";
+import type { Doc, Id } from "./_generated/dataModel";
 
 // ============================================================
 // Tag Reassignment Migration (Design Decision 30)
@@ -609,6 +610,339 @@ export const backfillSourceLineage = mutation({
     }
 
     return result;
+  },
+});
+
+// ============================================================
+// Backfill denormalized project scope (Design Decision 45)
+//
+// Data points, position versions, secondary items, and curator observations
+// now carry the project they belong to, so retrieval can filter by project at
+// the vector index instead of after ranking. Rows created before this change
+// have the field unset, and a vector filter cannot match an unset field, so
+// until this migration runs those rows are invisible to project-filtered
+// retrieval. Answers stay correct throughout, because retrieval widens to an
+// unfiltered pass when the filtered one under-fills and re-filters through the
+// authoritative parent lookup; recall is what degrades, not the boundary.
+//
+// Project derivation per table, all from an existing parent, never guessed:
+//   dataPoints           parent source's projectId
+//   mentalModels         parent source's projectId
+//   positionVersions     position -> theme -> projectId
+//   curatorObservations  first referenced data point or position that resolves
+//
+// An observation referencing nothing cannot be placed and is left unset. That
+// is reported as `unresolvable` rather than assigned to a project, because
+// putting it in the wrong project is the failure this whole decision exists to
+// prevent. Unplaced observations are excluded from project-scoped retrieval.
+//
+// Append-only and idempotent: only rows with an unset projectId are touched,
+// nothing is deleted, and the field is derived rather than invented. Pages,
+// because data point and position version rows carry 1536-dimension embeddings
+// and the tables cannot be collected whole under the 16 MB read budget:
+//   npx convex run migrations:backfillProjectScope '{"table":"dataPoints","dryRun":true}'
+//   npx convex run migrations:backfillProjectScope '{"table":"dataPoints"}'
+//   npx convex run migrations:backfillProjectScope '{"table":"dataPoints","cursor":"<continueCursor>"}'
+// Repeat for positionVersions, mentalModels, and curatorObservations.
+//
+// Check readiness at any point with projectScope:getScopeBackfillReadiness.
+// ============================================================
+const PROJECT_SCOPE_PAGE_SIZE = 256;
+
+export const backfillProjectScope = mutation({
+  args: {
+    table: v.union(
+      v.literal("dataPoints"),
+      v.literal("positionVersions"),
+      v.literal("curatorObservations"),
+      v.literal("mentalModels")
+    ),
+    cursor: v.optional(v.union(v.string(), v.null())),
+    dryRun: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const dryRun = args.dryRun ?? false;
+    const page = await ctx.db.query(args.table).paginate({
+      numItems: PROJECT_SCOPE_PAGE_SIZE,
+      cursor: args.cursor ?? null,
+    });
+
+    let scoped = 0;
+    let alreadySet = 0;
+    let unresolvable = 0;
+    const unresolvableIds: string[] = [];
+
+    // Parent lookups repeat heavily within a page (many data points share one
+    // source), so they are cached for the life of the call.
+    const sourceProjects = new Map<string, Id<"projects"> | null>();
+    const themeProjects = new Map<string, Id<"projects"> | null>();
+
+    const projectOfSource = async (
+      sourceId: Id<"sources">
+    ): Promise<Id<"projects"> | null> => {
+      const key = String(sourceId);
+      if (sourceProjects.has(key)) return sourceProjects.get(key) ?? null;
+      const source = await ctx.db.get(sourceId);
+      const projectId = source?.projectId ?? null;
+      sourceProjects.set(key, projectId);
+      return projectId;
+    };
+
+    const projectOfTheme = async (
+      themeId: Id<"researchThemes">
+    ): Promise<Id<"projects"> | null> => {
+      const key = String(themeId);
+      if (themeProjects.has(key)) return themeProjects.get(key) ?? null;
+      const theme = await ctx.db.get(themeId);
+      const projectId = theme?.projectId ?? null;
+      themeProjects.set(key, projectId);
+      return projectId;
+    };
+
+    const projectOfPosition = async (
+      positionId: Id<"researchPositions">
+    ): Promise<Id<"projects"> | null> => {
+      const position = await ctx.db.get(positionId);
+      if (!position) return null;
+      return await projectOfTheme(position.themeId);
+    };
+
+    for (const row of page.page) {
+      if ((row as { projectId?: unknown }).projectId) {
+        alreadySet++;
+        continue;
+      }
+
+      let projectId: Id<"projects"> | null = null;
+
+      if (args.table === "dataPoints" || args.table === "mentalModels") {
+        projectId = await projectOfSource(
+          (row as Doc<"dataPoints"> | Doc<"mentalModels">).sourceId
+        );
+      } else if (args.table === "positionVersions") {
+        projectId = await projectOfPosition(
+          (row as Doc<"positionVersions">).positionId
+        );
+      } else {
+        const obs = row as Doc<"curatorObservations">;
+        for (const dataPointId of obs.referencedDataPoints ?? []) {
+          const dp = await ctx.db.get(dataPointId);
+          if (!dp) continue;
+          projectId = dp.projectId ?? (await projectOfSource(dp.sourceId));
+          if (projectId) break;
+        }
+        if (!projectId) {
+          for (const positionId of obs.referencedPositions ?? []) {
+            projectId = await projectOfPosition(positionId);
+            if (projectId) break;
+          }
+        }
+      }
+
+      if (!projectId) {
+        unresolvable++;
+        unresolvableIds.push(String(row._id));
+        continue;
+      }
+
+      if (!dryRun) {
+        await ctx.db.patch(row._id, { projectId });
+      }
+      scoped++;
+    }
+
+    return {
+      dryRun,
+      table: args.table,
+      pageSize: page.page.length,
+      scoped,
+      alreadySet,
+      unresolvable,
+      unresolvableIds,
+      isDone: page.isDone,
+      continueCursor: page.continueCursor,
+    };
+  },
+});
+
+// ============================================================
+// Run the whole project scope backfill in one call (Design Decision 45)
+//
+// backfillProjectScope above pages, because a mutation is one transaction with
+// one read budget and these tables carry 1536-dimension embeddings. Draining it
+// by hand means pasting a cursor back in for every page, which is error-prone
+// and easy to abandon half done, leaving retrieval permanently in its degraded
+// widened-fallback mode.
+//
+// An action has no such budget, because each ctx.runMutation is its own
+// transaction. So this drives the same paginated mutation to completion across
+// all four tables:
+//   npx convex run migrations:backfillProjectScopeAll '{"dryRun":true}'
+//   npx convex run migrations:backfillProjectScopeAll '{}'
+//
+// Table order matters. Data points are scoped first, because an observation
+// with no projectId of its own resolves through a referenced data point, and
+// that is the cheap path once the data point carries its own project.
+//
+// Same guarantees as the single-table mutation: append-only, idempotent, and
+// safe to re-run. Re-running a completed backfill reports everything as
+// alreadySet and writes nothing.
+// ============================================================
+const PROJECT_SCOPE_MAX_PAGES = 500;
+
+const PROJECT_SCOPE_TABLES = [
+  "dataPoints",
+  "positionVersions",
+  "mentalModels",
+  "curatorObservations",
+] as const;
+
+export const backfillProjectScopeAll = action({
+  args: {
+    dryRun: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const dryRun = args.dryRun ?? false;
+    const tables: Array<Record<string, unknown>> = [];
+    let totalScoped = 0;
+    let totalUnresolvable = 0;
+
+    for (const table of PROJECT_SCOPE_TABLES) {
+      let cursor: string | null = null;
+      let pages = 0;
+      let scoped = 0;
+      let alreadySet = 0;
+      let unresolvable = 0;
+      let rowsSeen = 0;
+      let complete = false;
+      const unresolvableIds: string[] = [];
+
+      while (pages < PROJECT_SCOPE_MAX_PAGES) {
+        const page: {
+          pageSize: number;
+          scoped: number;
+          alreadySet: number;
+          unresolvable: number;
+          unresolvableIds: string[];
+          isDone: boolean;
+          continueCursor: string;
+        } = await ctx.runMutation(api.migrations.backfillProjectScope, {
+          table,
+          cursor,
+          dryRun,
+        });
+
+        pages += 1;
+        rowsSeen += page.pageSize;
+        scoped += page.scoped;
+        alreadySet += page.alreadySet;
+        unresolvable += page.unresolvable;
+        unresolvableIds.push(...page.unresolvableIds);
+
+        if (page.isDone) {
+          complete = true;
+          break;
+        }
+        cursor = page.continueCursor;
+      }
+
+      totalScoped += scoped;
+      totalUnresolvable += unresolvable;
+
+      tables.push({
+        table,
+        pages,
+        rowsSeen,
+        scoped,
+        alreadySet,
+        unresolvable,
+        // Capped so one badly linked table cannot flood the response. The count
+        // above stays exact.
+        unresolvableIds: unresolvableIds.slice(0, 25),
+        complete,
+      });
+    }
+
+    return {
+      dryRun,
+      tables,
+      totalScoped,
+      totalUnresolvable,
+      // The one line worth reading. Retrieval filters by project at the vector
+      // index, so anything left unscoped stays reachable only through the
+      // widened fallback pass.
+      summary: dryRun
+        ? `Dry run: ${totalScoped} row(s) would be scoped, ${totalUnresolvable} could not be resolved.`
+        : `${totalScoped} row(s) scoped, ${totalUnresolvable} could not be resolved.`,
+    };
+  },
+});
+
+// ============================================================
+// Place observations the backfill could not resolve (Design Decision 45)
+//
+// An observation that references no data point and no position has nothing to
+// derive a project from, so backfillProjectScope reports it as unresolvable
+// rather than guessing. Guessing is the failure that decision exists to
+// prevent. Placing it is a curator judgment, so it needs an explicit call.
+//
+//   npx convex run migrations:assignObservationProject '{"projectId":"...","observationIds":["..."],"dryRun":true}'
+//
+// Write-once on purpose, unlike the reversible lifecycle decisions of Decision
+// 44. An observation already carrying a projectId is reported as skipped, never
+// repointed. Which project an observation belongs to is scope, not
+// classification: nothing about six months of use suggests an observation
+// changes project, and silently moving evidence between projects is precisely
+// the failure being designed against. If one genuinely needs to move, that
+// should be a deliberate, separately named operation rather than a side effect
+// of a backfill helper.
+// ============================================================
+export const assignObservationProject = mutation({
+  args: {
+    projectId: v.id("projects"),
+    observationIds: v.array(v.id("curatorObservations")),
+    dryRun: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const dryRun = args.dryRun ?? false;
+
+    const project = await ctx.db.get(args.projectId);
+    if (!project) {
+      throw new Error(`Project ${args.projectId} not found`);
+    }
+
+    const assigned: string[] = [];
+    const skippedAlreadyScoped: Array<{ id: string; projectId: string }> = [];
+    const missing: string[] = [];
+
+    for (const observationId of args.observationIds) {
+      const obs = await ctx.db.get(observationId);
+      if (!obs) {
+        missing.push(String(observationId));
+        continue;
+      }
+      if (obs.projectId) {
+        skippedAlreadyScoped.push({
+          id: String(observationId),
+          projectId: String(obs.projectId),
+        });
+        continue;
+      }
+      if (!dryRun) {
+        await ctx.db.patch(observationId, { projectId: args.projectId });
+      }
+      assigned.push(String(observationId));
+    }
+
+    return {
+      dryRun,
+      projectId: String(args.projectId),
+      projectName: project.name,
+      assigned: assigned.length,
+      assignedIds: assigned,
+      skippedAlreadyScoped,
+      missing,
+    };
   },
 });
 

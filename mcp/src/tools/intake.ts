@@ -1216,14 +1216,21 @@ export function registerIntakeTools(server: McpServer): void {
       description:
         "Create a new Curator Observation — a connective insight that bridges " +
         "data points and/or positions. Observations are immutable once created.\n\n" +
+        "Pass projectId unless the observation references a data point or position, " +
+        "which is what the project is otherwise inferred from. An observation that " +
+        "references nothing and carries no projectId cannot be placed in a project, " +
+        "and unplaced observations are excluded from project-scoped retrieval.\n\n" +
         "Args:\n" +
         "  - observationText (string): The insight or connection being made\n" +
+        "  - projectId (string, optional): The project this observation belongs to\n" +
         "  - referencedDataPoints (string[], optional): Array of Data Point IDs this builds on\n" +
         "  - referencedPositions (string[], optional): Array of Research Position IDs this relates to\n" +
         "  - tagSlugs (string[], optional): Tag slugs to link\n\n" +
         "Returns: The new observation ID.",
       inputSchema: {
         observationText: z.string().min(1).describe("The insight or connection"),
+        projectId: z.string().optional()
+          .describe("Project this observation belongs to (inferred from references when omitted)"),
         referencedDataPoints: z.array(z.string()).optional()
           .describe("Data Point IDs this observation builds on"),
         referencedPositions: z.array(z.string()).optional()
@@ -1244,6 +1251,9 @@ export function registerIntakeTools(server: McpServer): void {
           api.observations.createObservation,
           {
             observationText: params.observationText,
+            projectId: params.projectId
+              ? asId<"projects">(params.projectId)
+              : undefined,
             referencedDataPoints: params.referencedDataPoints?.map((id) =>
               asId<"dataPoints">(id)
             ),

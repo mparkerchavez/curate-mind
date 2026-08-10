@@ -59,7 +59,7 @@ const CHARACTER_LIMIT = 25000;
  * Keep CM_ASK_RENDER_CONTRACT_VERSION in step with any rule change so a client
  * can tell which contract it received.
  */
-const CM_ASK_RENDER_CONTRACT_VERSION = "1";
+const CM_ASK_RENDER_CONTRACT_VERSION = "2";
 
 const CM_ASK_RENDER_CONTRACT_SUMMARY =
   "Present the composed answer in this pack, repaired to these rules. Do not rewrite it: stance " +
@@ -72,7 +72,9 @@ const CM_ASK_RENDER_CONTRACT_RULES: readonly string[] = [
   "Citation labels are fixed by this pack: [E1] is the first evidence item, [E2] the second, and so on. Never invent a label, never renumber, and only cite a label where that data point actually supports the claim.",
   "Curator observations and secondary capture items are background context, not citable evidence. Never cite them as [O#] or [M#]. Position labels such as [P1] may appear as plain references, but they are not evidence citations.",
   "Position stance text carries its own [E#] and [C#] numbering from that position's own evidence chain, which is a separate namespace from this pack. Never copy a label out of a stance, never renumber one into this pack's labels, and never write a hybrid label such as [E1, cited within P1]. Cite the supporting data point from this pack instead, or attribute the claim to the position by name.",
+  "Stance text is not evidence. A number, statistic, date, or named finding that appears only in a position's stance and not in this pack's evidence items must never be presented as evidence-backed and must never carry a citation label. Either attribute it in prose to the position by name with no bracket, or say the evidence layer does not carry that figure. Never explain the discrepancy inside the brackets: an annotated label is still a rule break, and narrating the break does not repair it.",
   "Do not invent facts, sources, quotes, statistics, or numbers. Use only what this pack supplies. When the evidence is thin, say so instead of filling the gap.",
+  "If this pack carries a Retrieval Notes section, relay those notes to the curator alongside the answer. They record what project scoping removed and any citation label the composer wrote that this pack cannot resolve, and neither is visible anywhere else.",
   "End with a source reference list covering every label cited, in label order. Take each entry from the Source Reference List section below and keep its data point id and its carried or fresh origin, alongside the source title, author, publisher, date, anchor quote, and resolved link.",
   "Keep anchor quotes verbatim. Never paraphrase them, trim them mid-phrase, or stitch two quotes together. Anchor quotes are curator-facing verification text, so do not reuse them as public-facing copy.",
   "Do not construct source URLs. Use only the resolved links in this pack.",
@@ -360,12 +362,39 @@ export function formatAnalystPackMarkdown(result: any): string {
   const citedDataPoints = dataPoints.filter((item) => citedLabels.has(String(item.label)));
   const additionalDataPoints = dataPoints.filter((item) => !citedLabels.has(String(item.label)));
 
+  const warnings: string[] = Array.isArray(result.warnings)
+    ? result.warnings.map(String)
+    : [];
+
   const lines: string[] = [
     "# Curate Mind Analyst Answer",
     "",
     `**Question:** ${result.question}`,
     "",
   ];
+
+  if (result.context?.projectName || result.context?.projectId) {
+    const name = result.context.projectName
+      ? String(result.context.projectName)
+      : "Unnamed project";
+    lines.push(
+      `**Project scope:** ${name} (\`${String(result.context.projectId ?? "unknown")}\`). ` +
+        "Every position and evidence item below belongs to this project.",
+      ""
+    );
+  }
+
+  // Retrieval notes sit above the contract because they change how the answer
+  // should be read. A dropped item means another project's evidence outranked
+  // this project's; a malformed label means a citation silently failed to
+  // register. Neither is visible anywhere else in the response.
+  if (warnings.length > 0) {
+    lines.push("## Retrieval Notes", "");
+    for (const warning of warnings) {
+      lines.push(`- ${warning}`);
+    }
+    lines.push("");
+  }
 
   // The contract comes before any content so a client model reading top-down
   // knows the required answer shape before it starts composing.
@@ -466,6 +495,7 @@ export function formatAnalystPackMarkdown(result: any): string {
     renderContract: CM_ASK_RENDER_CONTRACT,
     question: result.question,
     context: result.context,
+    warnings,
     carryForwardDataPointIds: carryForwardIds,
     citedDataPointIds: citedIds,
     carriedDataPointIds: carriedIds,
@@ -1065,11 +1095,17 @@ export function registerQueryTools(server: McpServer): void {
         "resolved source links.\n\n" +
         "Args:\n" +
         "  - queryText (string): What to search for\n" +
+        "  - projectId (string, optional): Scope the search to one project. Pass this " +
+        "whenever you are exploring a specific project. Omitting it searches every " +
+        "project in the deployment, which is almost never what you want when the " +
+        "curator is working inside one.\n" +
         "  - limit (number, optional): Max results per entity type (default 5)\n\n" +
         "Returns: Matching results from all entity types, ranked by relevance. " +
         "Embedding vectors are stripped from the response to keep it within token caps.",
       inputSchema: {
         queryText: z.string().min(1).describe("What to search for"),
+        projectId: z.string().optional()
+          .describe("Project ID to scope the search to (omit to search all projects)"),
         limit: z.number().int().min(1).max(20).optional()
           .describe("Max results per entity type (default 5)"),
       },
@@ -1080,11 +1116,12 @@ export function registerQueryTools(server: McpServer): void {
         openWorldHint: false,
       },
     },
-    async ({ queryText, limit }) => {
+    async ({ queryText, projectId, limit }) => {
       try {
         const results = await convexAction(api.search.searchKnowledgeBase, {
           queryText,
           limit: limit ?? 5,
+          projectId: projectId ? asId<"projects">(projectId) : undefined,
         });
 
         const text = truncateIfNeeded(
