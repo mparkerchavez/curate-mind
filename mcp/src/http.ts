@@ -13,6 +13,8 @@
  */
 
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { config as loadEnv } from "dotenv";
 import { McpServer, createMcpHandler } from "@modelcontextprotocol/server";
 import { toNodeHandler } from "@modelcontextprotocol/node";
@@ -198,7 +200,10 @@ async function handleMcp(
   });
 }
 
-async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
+export async function handleRequest(
+  req: IncomingMessage,
+  res: ServerResponse
+): Promise<void> {
   const url = new URL(req.url ?? "/", "http://localhost");
   const corsHeaders = corsHeadersFor(req);
 
@@ -282,7 +287,15 @@ async function main(): Promise<void> {
   process.once("SIGTERM", () => void shutdown("SIGTERM"));
 }
 
-main().catch((error) => {
-  console.error("Fatal hosted MCP error:", error);
-  process.exit(1);
-});
+// Start the long-running Node server only when this file is executed directly.
+// Vercel imports handleRequest from its serverless routes instead.
+const isDirectRun =
+  process.argv[1] !== undefined &&
+  resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
+if (isDirectRun) {
+  main().catch((error) => {
+    console.error("Fatal hosted MCP error:", error);
+    process.exit(1);
+  });
+}
