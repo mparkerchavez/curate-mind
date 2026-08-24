@@ -1,0 +1,4 @@
+# The hosted public MCP is Node-only. These local PDF parser dependencies are
+# intentionally excluded so Vercel does not auto-detect a Python deployment.
+requirements.txt
+scripts/
